@@ -17,9 +17,9 @@ Aplicacion movil de reproduccion de musica local (MP3, WAV) construida con Kotli
 
 ## APK descargable
 
-El instalador compilado esta disponible en la carpeta `apk`:
+El instalador compilado esta disponible en la pagina de releases:
 
-- [app-debug.apk](apk/app-debug.apk)
+- [Descargar APK desde GitHub Releases](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/tag/v1.0)
 
 ## Instalacion
 
