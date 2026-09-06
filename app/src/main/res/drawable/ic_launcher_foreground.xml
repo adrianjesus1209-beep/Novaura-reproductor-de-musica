@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M63,36 L63,63.4 C61.9,62.5 60.5,62 59,62 C55.1,62 52,65.1 52,69 C52,72.9 55.1,76 59,76 C62.9,76 66,72.9 66,69 L66,45 L78,41.9 L78,54.4 C76.9,53.5 75.5,53 74,53 C70.1,53 67,56.1 67,60 C67,63.9 70.1,67 74,67 C77.9,67 81,63.9 81,60 L81,30 Z" />
-</vector>
+<!--
+  Logo oficial de Novaura como capa delantera del adaptive icon.
+  El inset de 21dp centra el emblema en el zona segura de 66dp para que
+  las máscaras de los launchers (círculo, redondeado) no lo corten.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/logo"
+    android:inset="21dp" />
