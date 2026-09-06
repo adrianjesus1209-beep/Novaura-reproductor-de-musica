@@ -50,7 +50,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.novaura.music.R
 import com.novaura.music.data.Song
-import com.novaura.music.ui.components.NowPlayingBar
 import com.novaura.music.ui.components.SongItem
 import com.novaura.music.ui.theme.NovauraIcons
 import com.novaura.music.ui.utils.filterSongs
@@ -64,8 +63,6 @@ import com.novaura.music.viewmodel.PlayerUiState
 fun SongListScreen(
     uiState: PlayerUiState,
     onSongClick: (Song) -> Unit,
-    onNowPlayingClick: () -> Unit,
-    onPlayPause: () -> Unit,
     onRefresh: () -> Unit
 ) {
     val context = LocalContext.current
@@ -98,14 +95,13 @@ fun SongListScreen(
         filterSongs(uiState.songs, searchQuery)
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            topBar = {
-                TopAppBar(title = { Text(stringResource(R.string.library_title)) })
-            }
-        ) { innerPadding ->
-            Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(title = { Text(stringResource(R.string.library_title)) })
+        }
+    ) { innerPadding ->
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                 if (crashLog != null && !crashHidden) {
                     CrashBanner(
                         text = crashLog,
@@ -174,7 +170,7 @@ fun SongListScreen(
                     else -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxWidth().weight(1f),
-                            contentPadding = PaddingValues(bottom = 96.dp)
+                            contentPadding = PaddingValues(bottom = 16.dp)
                         ) {
                             items(filteredSongs, key = { it.id }, contentType = { "song" }) { song ->
                                 SongItem(
@@ -188,17 +184,6 @@ fun SongListScreen(
                 }
             }
         }
-
-        uiState.currentSong?.let { current ->
-            NowPlayingBar(
-                song = current,
-                isPlaying = uiState.isPlaying,
-                onPlayPause = onPlayPause,
-                onClick = onNowPlayingClick,
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
-        }
-    }
 }
 
 @Composable

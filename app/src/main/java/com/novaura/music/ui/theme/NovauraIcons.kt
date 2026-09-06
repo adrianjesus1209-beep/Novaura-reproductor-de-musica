@@ -2,7 +2,10 @@ package com.novaura.music.ui.theme
 
 import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.materialPath
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.novaura.music.navigation.HomeTab
 
 /**
  * Iconos de Material que solo vivían en material-icons-extended.
@@ -242,4 +245,130 @@ object NovauraIcons {
             return _shuffle!!
         }
     private var _shuffle: ImageVector? = null
+
+    val Album: ImageVector
+        get() {
+            if (_album != null) return _album!!
+            _album = materialIcon(name = "Filled.Album") {
+                materialPath {
+                    moveTo(12f, 2f)
+                    curveTo(17.52f, 2f, 22f, 7.52f, 22f, 12f)
+                    curveTo(22f, 16.48f, 17.52f, 22f, 12f, 22f)
+                    curveTo(6.48f, 22f, 2f, 16.48f, 2f, 12f)
+                    curveTo(2f, 7.52f, 6.48f, 2f, 12f, 2f)
+                    close()
+                    moveTo(12f, 8f)
+                    curveTo(14.21f, 8f, 16f, 9.79f, 16f, 12f)
+                    curveTo(16f, 14.21f, 14.21f, 16f, 12f, 16f)
+                    curveTo(9.79f, 16f, 8f, 14.21f, 8f, 12f)
+                    curveTo(8f, 9.79f, 9.79f, 8f, 12f, 8f)
+                    close()
+                }
+            }
+            return _album!!
+        }
+    private var _album: ImageVector? = null
+
+    val QueueMusic: ImageVector
+        get() {
+            if (_queueMusic != null) return _queueMusic!!
+            _queueMusic = materialIcon(name = "Filled.QueueMusic") {
+                materialPath {
+                    moveTo(15f, 6f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(6f)
+                    close()
+                    moveTo(15f, 10f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(12f)
+                    horizontalLineTo(15f)
+                    verticalLineTo(10f)
+                    close()
+                    moveTo(3f, 16f)
+                    horizontalLineTo(11f)
+                    verticalLineTo(14f)
+                    horizontalLineTo(3f)
+                    verticalLineTo(16f)
+                    close()
+                    moveTo(17f, 6f)
+                    verticalLineTo(14.18f)
+                    curveTo(16.69f, 14.07f, 16.35f, 14f, 16f, 14f)
+                    curveTo(14.34f, 14f, 13f, 15.34f, 13f, 17f)
+                    reflectiveCurveTo(14.34f, 20f, 16f, 20f)
+                    reflectiveCurveTo(19f, 18.66f, 19f, 17f)
+                    verticalLineTo(8f)
+                    horizontalLineTo(22f)
+                    verticalLineTo(6f)
+                    horizontalLineTo(17f)
+                    close()
+                }
+            }
+            return _queueMusic!!
+        }
+    private var _queueMusic: ImageVector? = null
+
+    val Sell: ImageVector
+        get() {
+            if (_sell != null) return _sell!!
+            _sell = materialIcon(name = "Filled.Sell") {
+                materialPath {
+                    moveTo(21.41f, 11.58f)
+                    lineTo(12.41f, 2.58f)
+                    curveTo(12.05f, 2.22f, 11.55f, 2f, 11f, 2f)
+                    horizontalLineTo(4f)
+                    curveTo(2.9f, 2f, 2f, 2.9f, 2f, 4f)
+                    verticalLineTo(11f)
+                    curveTo(2f, 11.55f, 2.22f, 12.05f, 2.59f, 12.42f)
+                    lineTo(11.59f, 21.42f)
+                    curveTo(11.95f, 21.78f, 12.45f, 22f, 13f, 22f)
+                    curveTo(13.55f, 22f, 14.05f, 21.78f, 14.41f, 21.41f)
+                    lineTo(21.41f, 14.41f)
+                    curveTo(21.78f, 14.05f, 22f, 13.55f, 22f, 13f)
+                    curveTo(22f, 12.44f, 21.78f, 11.94f, 21.41f, 11.58f)
+                    close()
+                    moveTo(5.5f, 7f)
+                    curveTo(4.67f, 7f, 4f, 6.33f, 4f, 5.5f)
+                    reflectiveCurveTo(4.67f, 4f, 5.5f, 4f)
+                    reflectiveCurveTo(7f, 4.67f, 7f, 5.5f)
+                    reflectiveCurveTo(6.33f, 7f, 5.5f, 7f)
+                    close()
+                }
+            }
+            return _sell!!
+        }
+    private var _sell: ImageVector? = null
+
+    val Folder: ImageVector
+        get() {
+            if (_folder != null) return _folder!!
+            _folder = materialIcon(name = "Filled.Folder") {
+                materialPath {
+                    moveTo(10f, 4f)
+                    horizontalLineTo(4f)
+                    curveTo(2.9f, 4f, 2f, 4.9f, 2f, 6f)
+                    lineTo(2f, 18f)
+                    curveTo(2f, 19.1f, 2.9f, 20f, 4f, 20f)
+                    horizontalLineTo(20f)
+                    curveTo(21.1f, 20f, 22f, 19.1f, 22f, 18f)
+                    verticalLineTo(8f)
+                    curveTo(22f, 6.9f, 21.1f, 6f, 20f, 6f)
+                    horizontalLineTo(12f)
+                    lineTo(10f, 4f)
+                    close()
+                }
+            }
+            return _folder!!
+        }
+    private var _folder: ImageVector? = null
+}
+
+fun HomeTab.icon(): ImageVector = when (this) {
+    HomeTab.SONGS -> NovauraIcons.MusicNote
+    HomeTab.ARTISTS -> Icons.Filled.Person
+    HomeTab.ALBUMS -> NovauraIcons.Album
+    HomeTab.PLAYLISTS -> NovauraIcons.QueueMusic
+    HomeTab.GENRES -> NovauraIcons.Sell
+    HomeTab.FOLDERS -> NovauraIcons.Folder
 }
