@@ -1,6 +1,8 @@
 package com.novaura.music.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -13,28 +15,35 @@ import com.novaura.music.viewmodel.PlayerViewModel
 fun AppNavigation() {
     val navController = rememberNavController()
     val viewModel: PlayerViewModel = viewModel()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     NavHost(
         navController = navController,
-        startDestination = "song_list"
+        startDestination = SongListRoute
     ) {
-        composable("song_list") {
+        composable<SongListRoute> {
             SongListScreen(
-                viewModel = viewModel,
+                uiState = uiState,
                 onSongClick = { song ->
                     viewModel.playSong(song)
-                    navController.navigate("now_playing")
+                    navController.navigate(NowPlayingRoute)
                 },
-                onNowPlayingClick = {
-                    navController.navigate("now_playing")
-                }
+                onNowPlayingClick = { navController.navigate(NowPlayingRoute) },
+                onPlayPause = viewModel::playPause,
+                onRefresh = viewModel::refreshSongs
             )
         }
 
-        composable("now_playing") {
+        composable<NowPlayingRoute> {
             NowPlayingScreen(
-                viewModel = viewModel,
-                onBack = { navController.popBackStack() }
+                uiState = uiState,
+                onBack = { navController.popBackStack() },
+                onPlayPause = viewModel::playPause,
+                onNext = viewModel::nextSong,
+                onPrevious = viewModel::previousSong,
+                onSeek = viewModel::seekTo,
+                onShuffleChange = viewModel::setShuffle,
+                onRepeatClick = viewModel::cycleRepeatMode
             )
         }
     }

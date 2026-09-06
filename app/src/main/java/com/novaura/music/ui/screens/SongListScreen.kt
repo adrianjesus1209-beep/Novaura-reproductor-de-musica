@@ -1,8 +1,5 @@
 package com.novaura.music.ui.screens
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.LibraryMusic
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -27,6 +24,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,45 +40,39 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.novaura.music.R
 import com.novaura.music.data.Song
 import com.novaura.music.ui.components.NowPlayingBar
 import com.novaura.music.ui.components.SongItem
+import com.novaura.music.ui.theme.NovauraIcons
+import com.novaura.music.ui.utils.filterSongs
+import com.novaura.music.ui.utils.hasRequiredPermissions
+import com.novaura.music.ui.utils.requiredPermissions
 import com.novaura.music.util.CrashLogger
-import com.novaura.music.viewmodel.PlayerViewModel
-
-private fun requiredPermissions(): Array<String> =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        arrayOf(
-            Manifest.permission.READ_MEDIA_AUDIO,
-            Manifest.permission.POST_NOTIFICATIONS
-        )
-    } else {
-        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-    }
-
-private fun hasRequiredPermissions(context: android.content.Context): Boolean =
-    requiredPermissions().all {
-        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-    }
+import com.novaura.music.viewmodel.PlayerUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SongListScreen(
-    viewModel: PlayerViewModel,
+    uiState: PlayerUiState,
     onSongClick: (Song) -> Unit,
-    onNowPlayingClick: () -> Unit
+    onNowPlayingClick: () -> Unit,
+    onPlayPause: () -> Unit,
+    onRefresh: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     var permissionDenied by rememberSaveable { mutableStateOf(false) }
     var crashHidden by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     val crashLog = remember { CrashLogger.readLastCrash(context) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -88,7 +80,7 @@ fun SongListScreen(
     ) { results ->
         if (results.values.any { it }) {
             permissionDenied = false
-            viewModel.refreshSongs()
+            onRefresh()
         } else {
             permissionDenied = true
         }
@@ -96,17 +88,21 @@ fun SongListScreen(
 
     LaunchedEffect(Unit) {
         if (hasRequiredPermissions(context)) {
-            viewModel.refreshSongs()
+            onRefresh()
         } else {
             permissionLauncher.launch(requiredPermissions())
         }
+    }
+
+    val filteredSongs = remember(searchQuery, uiState.songs) {
+        filterSongs(uiState.songs, searchQuery)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             topBar = {
-                TopAppBar(title = { Text("Novaura") })
+                TopAppBar(title = { Text(stringResource(R.string.library_title)) })
             }
         ) { innerPadding ->
             Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
@@ -115,6 +111,28 @@ fun SongListScreen(
                         text = crashLog,
                         onCopy = { clipboard.setText(AnnotatedString(crashLog)) },
                         onDismiss = { crashHidden = true }
+                    )
+                }
+
+                if (uiState.songs.isNotEmpty()) {
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        placeholder = { Text(stringResource(R.string.search_hint)) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Search,
+                                contentDescription = null
+                            )
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Search
+                        )
                     )
                 }
 
@@ -138,12 +156,27 @@ fun SongListScreen(
                         )
                     }
 
+                    filteredSongs.isEmpty() -> {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.search_no_results, searchQuery.trim()),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 32.dp)
+                            )
+                        }
+                    }
+
                     else -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxWidth().weight(1f),
                             contentPadding = PaddingValues(bottom = 96.dp)
                         ) {
-                            items(uiState.songs, key = { it.id }) { song ->
+                            items(filteredSongs, key = { it.id }, contentType = { "song" }) { song ->
                                 SongItem(
                                     song = song,
                                     isCurrent = song.id == uiState.currentSong?.id,
@@ -160,7 +193,7 @@ fun SongListScreen(
             NowPlayingBar(
                 song = current,
                 isPlaying = uiState.isPlaying,
-                onPlayPause = viewModel::playPause,
+                onPlayPause = onPlayPause,
                 onClick = onNowPlayingClick,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
@@ -183,24 +216,23 @@ private fun EmptyLibrary(
             verticalArrangement = Arrangement.Center
         ) {
             Icon(
-                imageVector = Icons.Outlined.LibraryMusic,
+                imageVector = NovauraIcons.LibraryMusic,
                 contentDescription = null,
                 modifier = Modifier.size(64.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "No se encontraron canciones",
+                text = stringResource(R.string.empty_library_title),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = if (permissionDenied) {
-                    "Concede el permiso de acceso a audio para poder ver tu música."
-                } else {
-                    "Agrega archivos .mp3 o .wav a tu teléfono y vuelve a intentarlo."
-                },
+                text = stringResource(
+                    if (permissionDenied) R.string.empty_library_permission
+                    else R.string.empty_library_no_songs
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -208,7 +240,7 @@ private fun EmptyLibrary(
             if (permissionDenied) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(onClick = onRequestPermission) {
-                    Text("Conceder permisos")
+                    Text(stringResource(R.string.grant_permissions))
                 }
             }
         }
@@ -233,7 +265,7 @@ private fun CrashBanner(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "La app tuvo un error la última vez. Copia este informe y pásalo para poder revisarlo:",
+                text = stringResource(R.string.crash_banner_title),
                 style = MaterialTheme.typography.titleSmall
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -246,10 +278,10 @@ private fun CrashBanner(
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onCopy) {
-                    Text("Copiar")
+                    Text(stringResource(R.string.copy))
                 }
                 TextButton(onClick = onDismiss) {
-                    Text("Cerrar")
+                    Text(stringResource(R.string.close))
                 }
             }
         }

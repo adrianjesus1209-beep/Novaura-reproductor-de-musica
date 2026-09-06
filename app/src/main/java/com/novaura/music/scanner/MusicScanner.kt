@@ -4,6 +4,7 @@ import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
 import com.novaura.music.data.Song
+import com.novaura.music.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -16,6 +17,10 @@ object MusicScanner {
     suspend fun getAllSongs(context: Context): List<Song> =
         withContext(Dispatchers.IO) {
             val songs = mutableListOf<Song>()
+
+            val unknownTitle = context.getString(R.string.unknown_title)
+            val unknownArtist = context.getString(R.string.unknown_artist)
+            val unknownAlbum = context.getString(R.string.unknown_album)
 
             val projection = arrayOf(
                 MediaStore.Audio.Media._ID,
@@ -46,9 +51,9 @@ object MusicScanner {
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idCol)
-                    val title = cursor.getString(titleCol) ?: "Desconocido"
-                    val artist = cursor.getString(artistCol) ?: "Artista desconocido"
-                    val album = cursor.getString(albumCol) ?: "Álbum desconocido"
+                    val title = cursor.getString(titleCol) ?: unknownTitle
+                    val artist = cursor.getString(artistCol) ?: unknownArtist
+                    val album = cursor.getString(albumCol) ?: unknownAlbum
                     val albumId = cursor.getLong(albumIdCol)
                     val duration = cursor.getLong(durationCol)
                     val contentUri = ContentUris.withAppendedId(

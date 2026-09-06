@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,34 +31,42 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.Player
+import com.novaura.music.R
 import com.novaura.music.ui.components.AlbumArt
 import com.novaura.music.ui.components.PlayerControls
+import com.novaura.music.ui.theme.NovauraIcons
 import com.novaura.music.ui.utils.formatDuration
-import com.novaura.music.viewmodel.PlayerViewModel
+import com.novaura.music.viewmodel.PlayerUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NowPlayingScreen(
-    viewModel: PlayerViewModel,
-    onBack: () -> Unit
+    uiState: PlayerUiState,
+    onBack: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    onSeek: (Long) -> Unit,
+    onShuffleChange: (Boolean) -> Unit,
+    onRepeatClick: () -> Unit
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val song = uiState.currentSong
 
     if (song == null) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Reproductor") },
+                    title = { Text(stringResource(R.string.player_title)) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Volver"
+                                contentDescription = stringResource(R.string.back)
                             )
                         }
                     }
@@ -72,14 +79,14 @@ fun NowPlayingScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
-                        imageVector = Icons.Rounded.MusicNote,
+                        imageVector = NovauraIcons.MusicNote,
                         contentDescription = null,
                         modifier = Modifier.size(72.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "No hay ninguna canción en reproducción.\nElige una canción de tu biblioteca.",
+                        text = stringResource(R.string.no_song_playing),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -104,12 +111,12 @@ fun NowPlayingScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Reproductor") },
+                title = { Text(stringResource(R.string.player_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver"
+                            contentDescription = stringResource(R.string.back)
                         )
                     }
                 },
@@ -151,7 +158,7 @@ fun NowPlayingScreen(
                 modifier = Modifier.padding(horizontal = 32.dp)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             Slider(
                 value = sliderValue,
@@ -160,7 +167,7 @@ fun NowPlayingScreen(
                     sliderPosition = it
                 },
                 onValueChangeFinished = {
-                    viewModel.seekTo(sliderPosition.toLong())
+                    onSeek(sliderPosition.toLong())
                     isDragging = false
                 },
                 valueRange = 0f..trackDuration,
@@ -189,15 +196,68 @@ fun NowPlayingScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            ModeControls(
+                shuffleEnabled = uiState.shuffleEnabled,
+                repeatMode = uiState.repeatMode,
+                onShuffleChange = onShuffleChange,
+                onRepeatClick = onRepeatClick
+            )
 
             PlayerControls(
                 isPlaying = uiState.isPlaying,
-                onPlayPause = viewModel::playPause,
-                onNext = viewModel::nextSong,
-                onPrevious = viewModel::previousSong,
+                onPlayPause = onPlayPause,
+                onNext = onNext,
+                onPrevious = onPrevious,
                 large = true,
                 modifier = Modifier.padding(bottom = 24.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModeControls(
+    shuffleEnabled: Boolean,
+    repeatMode: Int,
+    onShuffleChange: (Boolean) -> Unit,
+    onRepeatClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = { onShuffleChange(!shuffleEnabled) }) {
+            Icon(
+                imageVector = NovauraIcons.Shuffle,
+                contentDescription = stringResource(R.string.shuffle),
+                tint = if (shuffleEnabled) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(28.dp)
+            )
+        }
+
+        IconButton(onClick = onRepeatClick) {
+            val isActive = repeatMode != Player.REPEAT_MODE_OFF
+            Icon(
+                imageVector = if (repeatMode == Player.REPEAT_MODE_ONE) {
+                    NovauraIcons.RepeatOne
+                } else {
+                    NovauraIcons.Repeat
+                },
+                contentDescription = stringResource(R.string.repeat),
+                tint = if (isActive) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(28.dp)
             )
         }
     }

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -22,9 +21,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.novaura.music.R
 import com.novaura.music.data.Song
+import com.novaura.music.ui.theme.NovauraIcons
 
 /**
  * Barra compacta "en reproducción" que queda anclada abajo de la lista.
@@ -76,8 +78,10 @@ fun NowPlayingBar(
 
             IconButton(onClick = onPlayPause) {
                 Icon(
-                    imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = if (isPlaying) "Pausar" else "Reproducir",
+                    imageVector = if (isPlaying) NovauraIcons.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = stringResource(
+                        if (isPlaying) R.string.pause else R.string.play
+                    ),
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(30.dp)
                 )

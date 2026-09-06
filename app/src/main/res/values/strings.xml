@@ -1,4 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Novaura</string>
+
+    <string name="library_title">Novaura</string>
+    <string name="player_title">Reproductor</string>
+    <string name="back">Volver</string>
+
+    <string name="empty_library_title">No se encontraron canciones</string>
+    <string name="empty_library_permission">Concede el permiso de acceso a audio para poder ver tu música.</string>
+    <string name="empty_library_no_songs">Agrega archivos .mp3 o .wav a tu teléfono y vuelve a intentarlo.</string>
+    <string name="grant_permissions">Conceder permisos</string>
+
+    <string name="no_song_playing">No hay ninguna canción en reproducción.\nElige una canción de tu biblioteca.</string>
+
+    <string name="crash_banner_title">La app tuvo un error la última vez. Copia este informe y pásalo para poder revisarlo:</string>
+    <string name="copy">Copiar</string>
+    <string name="close">Cerrar</string>
+
+    <string name="search_hint">Buscar canciones…</string>
+    <string name="search_no_results">Sin resultados para "%1$s"</string>
+
+    <string name="previous">Anterior</string>
+    <string name="next">Siguiente</string>
+    <string name="play">Reproducir</string>
+    <string name="pause">Pausar</string>
+    <string name="shuffle">Aleatorio</string>
+    <string name="repeat">Repetir</string>
+
+    <string name="unknown_title">Desconocido</string>
+    <string name="unknown_artist">Artista desconocido</string>
+    <string name="unknown_album">Álbum desconocido</string>
 </resources>
