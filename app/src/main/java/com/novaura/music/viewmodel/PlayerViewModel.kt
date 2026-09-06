@@ -41,6 +41,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private var controller: MediaController? = null
     private var pendingPlaySong: Song? = null
+    private var isConnecting = false
     private var positionJob: Job? = null
 
     private val playerListener = object : Player.Listener {
@@ -67,7 +68,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     init {
-        connectToService()
         refreshSongs()
     }
 
@@ -86,6 +86,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun playSong(song: Song) {
+        ensureConnected()
         val c = controller
         if (c == null) {
             pendingPlaySong = song
@@ -101,11 +102,13 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun playPause() {
+        ensureConnected()
         val c = controller ?: return
         if (c.isPlaying) c.pause() else c.play()
     }
 
     fun nextSong() {
+        ensureConnected()
         val c = controller ?: return
         if (c.hasNextMediaItem()) {
             c.seekToNextMediaItem()
@@ -117,6 +120,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun previousSong() {
+        ensureConnected()
         val c = controller ?: return
         if (c.currentPosition > 3_000L || !c.hasPreviousMediaItem()) {
             c.seekTo(c.currentMediaItemIndex, 0L)
@@ -128,6 +132,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun seekTo(positionMs: Long) {
+        ensureConnected()
         val c = controller ?: return
         c.seekTo(c.currentMediaItemIndex, positionMs)
         _uiState.update { it.copy(currentPositionMs = positionMs) }
@@ -136,6 +141,17 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     // ------------------------------------------------------------------
     // Conexión con el MusicService (MediaSession)
     // ------------------------------------------------------------------
+
+    /**
+     * Conecta el MediaController de forma perezosa: solo la primera vez
+     * que el usuario interactúa con la reproducción. Así el Foreground
+     * Service no se crea al abrir la app.
+     */
+    private fun ensureConnected() {
+        if (controller != null || isConnecting) return
+        isConnecting = true
+        connectToService()
+    }
 
     private fun connectToService() {
         val sessionToken = SessionToken(
@@ -146,6 +162,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         val future = MediaController.Builder(getApplication(), sessionToken).buildAsync()
         future.addListener(
             {
+                isConnecting = false
                 val mediaController = try {
                     future.get()
                 } catch (e: Exception) {
