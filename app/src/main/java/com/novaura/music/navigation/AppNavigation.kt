@@ -84,10 +84,16 @@ fun AppNavigation() {
 
         if (!inPlayer) {
             uiState.currentSong?.let { current ->
+                val progressFraction = if (uiState.durationMs > 0) {
+                    uiState.currentPositionMs.toFloat() / uiState.durationMs.toFloat()
+                } else 0f
+
                 NowPlayingBar(
                     song = current,
                     isPlaying = uiState.isPlaying,
+                    progressFraction = progressFraction,
                     onPlayPause = viewModel::playPause,
+                    onNext = viewModel::nextSong,
                     onClick = { navController.navigate(NowPlayingRoute) },
                     modifier = Modifier.fillMaxWidth()
                 )
