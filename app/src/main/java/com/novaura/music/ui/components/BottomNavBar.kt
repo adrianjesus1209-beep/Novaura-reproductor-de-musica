@@ -1,20 +1,18 @@
 package com.novaura.music.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -23,23 +21,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.novaura.music.navigation.HomeTab
 import com.novaura.music.ui.theme.icon
 
-private val ItemWidth = 76.dp
+private val ItemMinWidth = 80.dp
 
 /**
- * Barra de navegación inferior con scroll horizontal.
- * Cada ítem es una columna (icono arriba, etiqueta abajo) y el seleccionado
- * resalta su icono. Se mantiene fija sobre todo el contenido (sticky).
+ * Barra de navegación inferior limpia con scroll horizontal.
+ * Cada pestaña muestra el icono arriba y la etiqueta abajo.
+ * El ítem seleccionado resalta su icono y texto con el color primario del tema.
  */
 @Composable
 fun BottomNavBar(
@@ -52,16 +50,19 @@ fun BottomNavBar(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shadowElevation = 8.dp
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 8.dp,
+        tonalElevation = 2.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(72.dp)
                 .navigationBarsPadding()
-                .horizontalScroll(scrollState),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                .height(64.dp)
+                .horizontalScroll(scrollState)
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             HomeTab.entries.forEach { tab ->
                 BottomNavItem(
@@ -74,7 +75,7 @@ fun BottomNavBar(
     }
 
     LaunchedEffect(selectedTab) {
-        val itemWidthPx = with(density) { ItemWidth.toPx() }
+        val itemWidthPx = with(density) { ItemMinWidth.toPx() }
         scrollState.animateScrollTo(selectedTab.ordinal * itemWidthPx.toInt())
     }
 }
@@ -85,49 +86,39 @@ private fun BottomNavItem(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    val selectedColor = MaterialTheme.colorScheme.onSecondaryContainer
-    val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val activeColor = MaterialTheme.colorScheme.primary
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+    val contentColor = if (selected) activeColor else inactiveColor
 
     Column(
         modifier = Modifier
-            .width(ItemWidth)
-            .height(72.dp)
+            .widthIn(min = ItemMinWidth)
+            .height(64.dp)
             .selectable(
                 selected = selected,
                 role = Role.Tab,
                 onClick = onClick
             )
-            .padding(vertical = 8.dp),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(
-                    if (selected) MaterialTheme.colorScheme.secondaryContainer
-                    else Color.Transparent
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = tab.icon(),
-                contentDescription = stringResource(tab.labelRes),
-                tint = if (selected) selectedColor else unselectedColor,
-                modifier = Modifier.size(24.dp)
-            )
-        }
+        Icon(
+            imageVector = tab.icon(),
+            contentDescription = stringResource(tab.labelRes),
+            tint = contentColor,
+            modifier = Modifier.size(26.dp)
+        )
+        Spacer(modifier = Modifier.height(3.dp))
         Text(
             text = stringResource(tab.labelRes),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) {
-                MaterialTheme.colorScheme.onSurface
-            } else {
-                unselectedColor
-            },
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 11.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+            ),
+            color = contentColor,
             textAlign = TextAlign.Center,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }
