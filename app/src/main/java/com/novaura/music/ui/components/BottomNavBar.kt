@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -32,12 +33,13 @@ import androidx.compose.ui.unit.sp
 import com.novaura.music.navigation.HomeTab
 import com.novaura.music.ui.theme.icon
 
-private val ItemMinWidth = 80.dp
+private val ItemMinWidth = 72.dp
 
 /**
- * Barra de navegación inferior limpia con scroll horizontal.
- * Cada pestaña muestra el icono arriba y la etiqueta abajo.
- * El ítem seleccionado resalta su icono y texto con el color primario del tema.
+ * Barra de navegación inferior elegante.
+ * Se asegura de aplicar navigationBarsPadding al contenedor exterior
+ * para que el fondo cubra la barra del sistema y los íconos/letras
+ * se muestren perfectamente centrados y visibles arriba de los botones de navegación.
  */
 @Composable
 fun BottomNavBar(
@@ -49,34 +51,40 @@ fun BottomNavBar(
     val density = LocalDensity.current
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 8.dp,
-        tonalElevation = 2.dp
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding(),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shadowElevation = 8.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .height(64.dp)
-                .horizontalScroll(scrollState)
-                .padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            HomeTab.entries.forEach { tab ->
-                BottomNavItem(
-                    tab = tab,
-                    selected = tab == selectedTab,
-                    onClick = { onTabSelected(tab) }
-                )
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                thickness = 1.dp
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(62.dp)
+                    .horizontalScroll(scrollState)
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HomeTab.entries.forEach { tab ->
+                    BottomNavItem(
+                        tab = tab,
+                        selected = tab == selectedTab,
+                        onClick = { onTabSelected(tab) }
+                    )
+                }
             }
         }
     }
 
     LaunchedEffect(selectedTab) {
         val itemWidthPx = with(density) { ItemMinWidth.toPx() }
-        scrollState.animateScrollTo(selectedTab.ordinal * itemWidthPx.toInt())
+        scrollState.animateScrollTo((selectedTab.ordinal * itemWidthPx).toInt())
     }
 }
 
@@ -87,19 +95,19 @@ private fun BottomNavItem(
     onClick: () -> Unit
 ) {
     val activeColor = MaterialTheme.colorScheme.primary
-    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
     val contentColor = if (selected) activeColor else inactiveColor
 
     Column(
         modifier = Modifier
             .widthIn(min = ItemMinWidth)
-            .height(64.dp)
+            .height(62.dp)
             .selectable(
                 selected = selected,
                 role = Role.Tab,
                 onClick = onClick
             )
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -107,14 +115,14 @@ private fun BottomNavItem(
             imageVector = tab.icon(),
             contentDescription = stringResource(tab.labelRes),
             tint = contentColor,
-            modifier = Modifier.size(26.dp)
+            modifier = Modifier.size(24.dp)
         )
-        Spacer(modifier = Modifier.height(3.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(tab.labelRes),
             style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 11.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                fontSize = 10.5.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
             ),
             color = contentColor,
             textAlign = TextAlign.Center,
