@@ -2,6 +2,7 @@ package com.novaura.music.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,7 +43,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -102,7 +108,26 @@ fun SongListScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.library_title)) })
+            TopAppBar(
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_launcher_logo),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                        )
+                        Text(
+                            text = stringResource(R.string.library_title),
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+            )
         }
     ) { innerPadding ->
         Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
@@ -222,11 +247,12 @@ private fun EmptyLibrary(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = NovauraIcons.LibraryMusic,
+            Image(
+                painter = painterResource(id = R.drawable.ic_launcher_logo),
                 contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(16.dp))
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(

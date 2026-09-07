@@ -1,11 +1,11 @@
 package com.novaura.music.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,17 +16,16 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.novaura.music.R
 import com.novaura.music.data.Song
-import com.novaura.music.ui.theme.NovauraIcons
 
 /**
- * Carátula del álbum con un icono musical de respaldo.
- * La petición a Coil pide un tamaño acotado para no decodificar
- * carátulas a resolución completa dentro de las listas.
+ * Carátula del álbum con el logo oficial de Novaura como imagen de respaldo.
  */
 @Composable
 fun AlbumArt(
@@ -49,11 +48,11 @@ fun AlbumArt(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = NovauraIcons.MusicNote,
+        Image(
+            painter = painterResource(id = R.drawable.ic_launcher_logo),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-            modifier = Modifier.size(size * 0.45f)
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
 
         if (song.albumArtUri != null) {
