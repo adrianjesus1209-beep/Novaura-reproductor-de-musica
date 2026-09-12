@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -45,8 +46,7 @@ import com.novaura.music.ui.theme.icon
 private val ItemMinWidth = 72.dp
 
 /**
- * Barra de navegación inferior elegante con indicador activo animado (pill/pastilla).
- * Los iconos se animan en tamaño al ser seleccionados y tienen un fondo destacado.
+ * Barra de navegación inferior transparente/translúcida estilo cristal gris neutral.
  */
 @Composable
 fun BottomNavBar(
@@ -61,18 +61,18 @@ fun BottomNavBar(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding(),
-        color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.25f),
+        color = Color.Black.copy(alpha = 0.30f),
         shadowElevation = 0.dp
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
+                color = Color.White.copy(alpha = 0.12f),
                 thickness = 1.dp
             )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(66.dp)
+                    .height(64.dp)
                     .horizontalScroll(scrollState)
                     .padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -101,15 +101,15 @@ private fun BottomNavItem(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    val activeColor = MaterialTheme.colorScheme.primary
-    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.60f)
+    val activeColor = Color.White
+    val inactiveColor = Color.White.copy(alpha = 0.55f)
     val contentColor by animateColorAsState(
         targetValue = if (selected) activeColor else inactiveColor,
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
         label = "navItemColor"
     )
     val iconSize by animateDpAsState(
-        targetValue = if (selected) 26.dp else 22.dp,
+        targetValue = if (selected) 25.dp else 21.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
@@ -120,25 +120,25 @@ private fun BottomNavItem(
     Column(
         modifier = Modifier
             .widthIn(min = ItemMinWidth)
-            .height(66.dp)
+            .height(64.dp)
             .selectable(
                 selected = selected,
                 role = Role.Tab,
                 onClick = onClick
             )
-            .padding(horizontal = 4.dp, vertical = 6.dp),
+            .padding(horizontal = 4.dp, vertical = 5.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Pastilla/pill de fondo para el ícono activo
+        // Pastilla de fondo para ícono activo
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(width = 52.dp, height = 30.dp)
+                .size(width = 50.dp, height = 28.dp)
                 .clip(RoundedCornerShape(50))
                 .background(
-                    if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
-                    else androidx.compose.ui.graphics.Color.Transparent
+                    if (selected) Color.White.copy(alpha = 0.22f)
+                    else Color.Transparent
                 )
         ) {
             Icon(
