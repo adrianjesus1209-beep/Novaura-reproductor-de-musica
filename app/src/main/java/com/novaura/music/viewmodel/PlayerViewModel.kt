@@ -63,6 +63,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     fun playPause() = playback.playPause()
 
+    fun stopPlayback() = playback.stop()
+
     fun nextSong() = playback.nextSong()
 
     fun previousSong() = playback.previousSong()

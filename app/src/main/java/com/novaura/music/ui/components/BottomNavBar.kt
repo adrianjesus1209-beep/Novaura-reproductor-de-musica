@@ -61,12 +61,12 @@ fun BottomNavBar(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding(),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shadowElevation = 8.dp
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.50f),
+        shadowElevation = 0.dp
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
                 thickness = 1.dp
             )
             Row(

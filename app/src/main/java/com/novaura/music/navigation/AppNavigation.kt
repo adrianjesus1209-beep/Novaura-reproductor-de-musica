@@ -286,6 +286,7 @@ fun AppNavigation() {
                             onPlayPause = viewModel::playPause,
                             onNext = viewModel::nextSong,
                             onPrevious = viewModel::previousSong,
+                            onClose = viewModel::stopPlayback,
                             onClick = { navController.navigate(NowPlayingRoute) },
                             modifier = Modifier.fillMaxWidth()
                         )

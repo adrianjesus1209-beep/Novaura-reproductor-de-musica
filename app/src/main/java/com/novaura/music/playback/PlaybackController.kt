@@ -154,6 +154,22 @@ class PlaybackController(
         _state.update { it.copy(currentPositionMs = positionMs) }
     }
 
+    fun stop() {
+        ensureConnected()
+        val c = controller
+        c?.stop()
+        c?.clearMediaItems()
+        stopPositionPolling()
+        _state.update {
+            it.copy(
+                currentSong = null,
+                isPlaying = false,
+                currentPositionMs = 0L,
+                durationMs = 0L
+            )
+        }
+    }
+
     fun setShuffle(enabled: Boolean) {
         ensureConnected()
         controller?.setShuffleModeEnabled(enabled)

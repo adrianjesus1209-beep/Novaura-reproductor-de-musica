@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,8 +38,8 @@ import com.novaura.music.data.Song
 import com.novaura.music.ui.theme.NovauraIcons
 
 /**
- * Barra "en reproducción" flotante rediseñada — más prominente, arte circular,
- * controles completos (anterior, play/pause, siguiente, cola).
+ * Barra "en reproducción" flotante rediseñada — translúcida, arte circular,
+ * controles (anterior, play/pause, siguiente) y botón X para cerrar el reproductor.
  */
 @Composable
 fun NowPlayingBar(
@@ -48,6 +49,7 @@ fun NowPlayingBar(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    onClose: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -56,12 +58,12 @@ fun NowPlayingBar(
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 4.dp),
         shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.97f),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.82f),
         border = BorderStroke(
             width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
         ),
-        shadowElevation = 14.dp
+        shadowElevation = 4.dp
     ) {
         Column(
             modifier = Modifier
@@ -72,21 +74,21 @@ fun NowPlayingBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onClick)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Arte circular
                 Box(contentAlignment = Alignment.Center) {
                     AlbumArt(
                         song = song,
-                        size = 54.dp,
+                        size = 50.dp,
                         shape = CircleShape
                     )
                     // Overlay equalizer si está reproduciendo
                     if (isPlaying) {
                         Box(
                             modifier = Modifier
-                                .size(54.dp)
+                                .size(50.dp)
                                 .clip(CircleShape)
                                 .background(Color.Black.copy(alpha = 0.35f)),
                             contentAlignment = Alignment.Center
@@ -102,7 +104,7 @@ fun NowPlayingBar(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(10.dp))
 
                 // Título + artista
                 Column(modifier = Modifier.weight(1f)) {
@@ -123,28 +125,27 @@ fun NowPlayingBar(
                     )
                 }
 
-                // Controles: Anterior · Play/Pause · Siguiente · Cola
+                // Controles: Anterior · Play/Pause · Siguiente · X (Cerrar)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.padding(end = 2.dp)
+                    horizontalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     // Anterior
-                    IconButton(onClick = onPrevious, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = onPrevious, modifier = Modifier.size(34.dp)) {
                         Icon(
                             imageVector = NovauraIcons.SkipPrevious,
                             contentDescription = stringResource(R.string.previous),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
 
-                    // Play / Pause (botón grande circular)
+                    // Play / Pause (botón circular)
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
                             .clickable(onClick = onPlayPause)
                     ) {
@@ -155,28 +156,28 @@ fun NowPlayingBar(
                                     if (isPlaying) R.string.pause else R.string.play
                                 ),
                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(26.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
 
                     // Siguiente
-                    IconButton(onClick = onNext, modifier = Modifier.size(36.dp)) {
+                    IconButton(onClick = onNext, modifier = Modifier.size(34.dp)) {
                         Icon(
                             imageVector = NovauraIcons.SkipNext,
                             contentDescription = stringResource(R.string.next),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
 
-                    // Cola / Queue
-                    IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
+                    // Botón X para cerrar reproductor
+                    IconButton(onClick = onClose, modifier = Modifier.size(34.dp)) {
                         Icon(
-                            imageVector = NovauraIcons.QueueMusic,
-                            contentDescription = "Cola de reproducción",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                            modifier = Modifier.size(22.dp)
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Cerrar reproductor",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
