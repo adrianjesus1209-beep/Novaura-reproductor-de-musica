@@ -81,7 +81,8 @@ enum class SortOption {
 fun SongListScreen(
     uiState: PlayerUiState,
     onSongClick: (Song) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onOpenOtrosMenu: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -131,8 +132,12 @@ fun SongListScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
             TopAppBar(
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent
+                ),
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -152,39 +157,11 @@ fun SongListScreen(
                     }
                 },
                 actions = {
-                    Box {
-                        IconButton(onClick = { showSortMenu = true }) {
-                            Icon(
-                                imageVector = Icons.Default.MoreVert,
-                                contentDescription = stringResource(R.string.sort_by)
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = showSortMenu,
-                            onDismissRequest = { showSortMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("${stringResource(R.string.sort_by)} ${stringResource(R.string.sort_title)}") },
-                                onClick = {
-                                    currentSort = SortOption.TITLE
-                                    showSortMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("${stringResource(R.string.sort_by)} ${stringResource(R.string.sort_artist)}") },
-                                onClick = {
-                                    currentSort = SortOption.ARTIST
-                                    showSortMenu = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("${stringResource(R.string.sort_by)} ${stringResource(R.string.sort_duration)}") },
-                                onClick = {
-                                    currentSort = SortOption.DURATION
-                                    showSortMenu = false
-                                }
-                            )
-                        }
+                    IconButton(onClick = onOpenOtrosMenu) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Otros"
+                        )
                     }
                 }
             )
