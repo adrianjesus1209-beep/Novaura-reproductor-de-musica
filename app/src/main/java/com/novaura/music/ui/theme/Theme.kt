@@ -29,18 +29,18 @@ private val LightColorScheme = lightColorScheme(
 
 private val DarkColorScheme = darkColorScheme(
     primary = VioletBright,
-    onPrimary = Color(0xFF2A1140),
-    secondary = Purple80,
+    onPrimary = Color(0xFF1E0A3C),
+    secondary = VioletGlowing,
     tertiary = Pink80,
-    background = Color(0xFF12101A),
-    onBackground = Color(0xFFF3EEF8),
-    surface = Color(0xFF12101A),
-    onSurface = Color(0xFFF3EEF8),
-    surfaceVariant = Color(0xFF211C2B),
-    onSurfaceVariant = Color(0xFFC9C1D4),
-    outline = Color(0xFF958DA6),
-    surfaceContainer = Color(0xFF1B1626),
-    surfaceContainerHigh = Color(0xFF251F31)
+    background = DarkObsidian,
+    onBackground = Color(0xFFF4EFFA),
+    surface = DarkObsidian,
+    onSurface = Color(0xFFF4EFFA),
+    surfaceVariant = DarkSurfaceCard,
+    onSurfaceVariant = Color(0xFFC7BEDE),
+    outline = Color(0xFF7E7398),
+    surfaceContainer = DarkSurfaceContainer,
+    surfaceContainerHigh = DarkSurfaceContainerHigh
 )
 
 @Composable

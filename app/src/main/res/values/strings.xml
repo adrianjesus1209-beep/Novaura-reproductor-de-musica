@@ -38,4 +38,20 @@
     <string name="unknown_title">Desconocido</string>
     <string name="unknown_artist">Artista desconocido</string>
     <string name="unknown_album">Álbum desconocido</string>
+
+    <string name="song_details_title">Información de la canción</string>
+    <string name="label_album">Álbum</string>
+    <string name="label_duration">Duración</string>
+    <string name="label_id">ID de la pista</string>
+    <string name="label_uri">Ruta del archivo</string>
+    <string name="play_now">Reproducir ahora</string>
+    <string name="more_options">Más opciones</string>
+    <string name="sort_by">Ordenar por</string>
+    <string name="sort_title">Título</string>
+    <string name="sort_artist">Artista</string>
+    <string name="sort_duration">Duración</string>
+    <string name="songs_count">%1$d canciones</string>
+    <string name="artists_count">%1$d artistas</string>
+    <string name="albums_count">%1$d álbumes</string>
+    <string name="folders_count">%1$d carpetas</string>
 </resources>

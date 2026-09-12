@@ -14,17 +14,24 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,11 +55,8 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -60,13 +64,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.novaura.music.R
 import com.novaura.music.data.Song
+import com.novaura.music.ui.components.SongDetailsModal
 import com.novaura.music.ui.components.SongItem
-import com.novaura.music.ui.theme.NovauraIcons
 import com.novaura.music.ui.utils.filterSongs
 import com.novaura.music.ui.utils.hasRequiredPermissions
 import com.novaura.music.ui.utils.requiredPermissions
 import com.novaura.music.util.CrashLogger
 import com.novaura.music.viewmodel.PlayerUiState
+
+enum class SortOption {
+    TITLE, ARTIST, DURATION
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,6 +88,9 @@ fun SongListScreen(
     var permissionDenied by rememberSaveable { mutableStateOf(false) }
     var crashHidden by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var currentSort by rememberSaveable { mutableStateOf(SortOption.TITLE) }
+    var showSortMenu by remember { mutableStateOf(false) }
+    var selectedSongForDetails by remember { mutableStateOf<Song?>(null) }
     val crashLog = remember { CrashLogger.readLastCrash(context) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -101,8 +112,21 @@ fun SongListScreen(
         }
     }
 
-    val filteredSongs = remember(searchQuery, uiState.songs) {
-        filterSongs(uiState.songs, searchQuery)
+    val filteredSongs = remember(searchQuery, currentSort, uiState.songs) {
+        val filtered = filterSongs(uiState.songs, searchQuery)
+        when (currentSort) {
+            SortOption.TITLE -> filtered.sortedBy { it.title.lowercase() }
+            SortOption.ARTIST -> filtered.sortedBy { it.artist.lowercase() }
+            SortOption.DURATION -> filtered.sortedByDescending { it.duration }
+        }
+    }
+
+    selectedSongForDetails?.let { song ->
+        SongDetailsModal(
+            song = song,
+            onDismiss = { selectedSongForDetails = null },
+            onPlay = { onSongClick(it) }
+        )
     }
 
     Scaffold(
@@ -126,111 +150,185 @@ fun SongListScreen(
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
                     }
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { showSortMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = stringResource(R.string.sort_by)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("${stringResource(R.string.sort_by)} ${stringResource(R.string.sort_title)}") },
+                                onClick = {
+                                    currentSort = SortOption.TITLE
+                                    showSortMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("${stringResource(R.string.sort_by)} ${stringResource(R.string.sort_artist)}") },
+                                onClick = {
+                                    currentSort = SortOption.ARTIST
+                                    showSortMenu = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("${stringResource(R.string.sort_by)} ${stringResource(R.string.sort_duration)}") },
+                                onClick = {
+                                    currentSort = SortOption.DURATION
+                                    showSortMenu = false
+                                }
+                            )
+                        }
+                    }
                 }
             )
         }
     ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-                if (crashLog != null && !crashHidden) {
-                    CrashBanner(
-                        text = crashLog,
-                        onCopy = { clipboard.setText(AnnotatedString(crashLog)) },
-                        onDismiss = { crashHidden = true }
-                    )
-                }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            if (crashLog != null && !crashHidden) {
+                CrashBanner(
+                    text = crashLog,
+                    onCopy = { clipboard.setText(AnnotatedString(crashLog)) },
+                    onDismiss = { crashHidden = true }
+                )
+            }
 
-                if (uiState.songs.isNotEmpty()) {
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        placeholder = { Text(stringResource(R.string.search_hint)) },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Filled.Search,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Close,
-                                        contentDescription = null
-                                    )
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        shape = RoundedCornerShape(28.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                        ),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Text,
-                            imeAction = ImeAction.Search
+            if (uiState.songs.isNotEmpty()) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    placeholder = { Text(stringResource(R.string.search_hint)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    )
-                }
-
-                when {
-                    uiState.isLoading && uiState.songs.isEmpty() -> {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
-                    }
-
-                    uiState.songs.isEmpty() -> {
-                        EmptyLibrary(
-                            permissionDenied = permissionDenied,
-                            onRequestPermission = {
-                                permissionLauncher.launch(requiredPermissions())
-                            },
-                            modifier = Modifier.fillMaxWidth().weight(1f)
-                        )
-                    }
-
-                    filteredSongs.isEmpty() -> {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = stringResource(R.string.search_no_results, searchQuery.trim()),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 32.dp)
-                            )
-                        }
-                    }
-
-                    else -> {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxWidth().weight(1f),
-                            contentPadding = PaddingValues(bottom = 16.dp)
-                        ) {
-                            items(filteredSongs, key = { it.id }, contentType = { "song" }) { song ->
-                                SongItem(
-                                    song = song,
-                                    isCurrent = song.id == uiState.currentSong?.id,
-                                    onClick = { onSongClick(song) }
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = null
                                 )
                             }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(28.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Search
+                    )
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.songs_count, filteredSongs.size),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Text(
+                        text = when (currentSort) {
+                            SortOption.TITLE -> stringResource(R.string.sort_title)
+                            SortOption.ARTIST -> stringResource(R.string.sort_artist)
+                            SortOption.DURATION -> stringResource(R.string.sort_duration)
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            when {
+                uiState.isLoading && uiState.songs.isEmpty() -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                uiState.songs.isEmpty() -> {
+                    EmptyLibrary(
+                        permissionDenied = permissionDenied,
+                        onRequestPermission = {
+                            permissionLauncher.launch(requiredPermissions())
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    )
+                }
+
+                filteredSongs.isEmpty() -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.search_no_results, searchQuery.trim()),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 32.dp)
+                        )
+                    }
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        items(filteredSongs, key = { it.id }, contentType = { "song" }) { song ->
+                            SongItem(
+                                song = song,
+                                isCurrent = song.id == uiState.currentSong?.id,
+                                isPlaying = uiState.isPlaying,
+                                onClick = { onSongClick(song) },
+                                onMoreClick = { selectedSongForDetails = it }
+                            )
                         }
                     }
                 }
             }
         }
+    }
 }
 
 @Composable
