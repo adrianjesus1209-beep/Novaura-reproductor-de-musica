@@ -154,7 +154,7 @@ fun AlbumListScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 16.dp, top = 8.dp)
+                    contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
                 ) {
                     items(albumGroups, key = { it.title }) { group ->
                         val isExpanded = expandedAlbums[group.title] ?: false
