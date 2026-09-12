@@ -109,8 +109,16 @@ tasks.register("copyApkToRoot") {
             rootApkDir.mkdirs()
         }
         val releaseApk = file("${layout.buildDirectory.get()}/outputs/apk/release/Novaura-v1.0.0.apk")
+        val debugApk = file("${layout.buildDirectory.get()}/outputs/apk/debug/Novaura-v1.0.0-debug.apk")
+        
         if (releaseApk.exists()) {
             releaseApk.copyTo(file("${rootApkDir}/Novaura-v1.0.0.apk"), overwrite = true)
+        } else if (debugApk.exists()) {
+            debugApk.copyTo(file("${rootApkDir}/Novaura-v1.0.0.apk"), overwrite = true)
+        }
+        
+        if (debugApk.exists()) {
+            debugApk.copyTo(file("${rootApkDir}/Novaura-v1.0.0-debug.apk"), overwrite = true)
         }
     }
 }
