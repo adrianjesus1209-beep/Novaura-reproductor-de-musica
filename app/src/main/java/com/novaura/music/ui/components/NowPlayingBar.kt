@@ -53,22 +53,10 @@ fun NowPlayingBar(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(24.dp),
-        color = Color(0x991E1E26), // Cristal gris flotante translúcido
-        border = BorderStroke(
-            width = 1.dp,
-            color = Color.White.copy(alpha = 0.18f)
-        ),
-        shadowElevation = 0.dp
-    ) {
+
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
         ) {
             Row(
                 modifier = Modifier
@@ -196,8 +184,7 @@ fun NowPlayingBar(
                     .fillMaxWidth()
                     .height(2.5.dp),
                 color = Color.White.copy(alpha = 0.90f),
-                trackColor = Color.White.copy(alpha = 0.15f),
+                trackColor = Color.White.copy(alpha = 0.15f)
             )
         }
-    }
 }
