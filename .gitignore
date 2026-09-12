@@ -14,3 +14,5 @@ captures/
 # OS
 .DS_Store
 Thumbs.db
+.settings/
+.vscode/
