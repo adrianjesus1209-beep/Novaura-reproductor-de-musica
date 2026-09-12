@@ -13,8 +13,8 @@ android {
         applicationId = "com.novaura.music"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11
-        versionName = "1.0.10"
+        versionCode = 12
+        versionName = "1.0.11"
 
         vectorDrawables {
             useSupportLibrary = true
