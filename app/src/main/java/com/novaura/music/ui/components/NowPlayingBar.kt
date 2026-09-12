@@ -38,9 +38,8 @@ import com.novaura.music.data.Song
 import com.novaura.music.ui.theme.NovauraIcons
 
 /**
- * Barra mini flotante — diseño GRIS translúcido (sin tonos morados),
- * misma transparencia que la barra de opciones, controles compactos
- * y botón de cierre "X" circular bien visible en la esquina derecha.
+ * Cápsula mini flotante "en reproducción" — diseño de cristal flotante independiente,
+ * sin paneles ni cuadros de fondo rectangulares que bloqueen la imagen de fondo.
  */
 @Composable
 fun NowPlayingBar(
@@ -57,9 +56,9 @@ fun NowPlayingBar(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = Color.Black.copy(alpha = 0.30f), // Mismo gris translúcido que las opciones
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = Color(0x991E1E26), // Cristal gris flotante translúcido
         border = BorderStroke(
             width = 1.dp,
             color = Color.White.copy(alpha = 0.18f)
@@ -69,26 +68,26 @@ fun NowPlayingBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(24.dp))
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onClick)
-                    .padding(start = 10.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                    .padding(start = 10.dp, end = 8.dp, top = 7.dp, bottom = 7.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Arte circular de la canción
                 Box(contentAlignment = Alignment.Center) {
                     AlbumArt(
                         song = song,
-                        size = 46.dp,
+                        size = 44.dp,
                         shape = CircleShape
                     )
                     if (isPlaying) {
                         Box(
                             modifier = Modifier
-                                .size(46.dp)
+                                .size(44.dp)
                                 .clip(CircleShape)
                                 .background(Color.Black.copy(alpha = 0.40f)),
                             contentAlignment = Alignment.Center
@@ -97,7 +96,7 @@ fun NowPlayingBar(
                                 isPlaying = true,
                                 barCount = 3,
                                 barWidth = 3.dp,
-                                maxHeight = 13.dp,
+                                maxHeight = 12.dp,
                                 color = Color.White
                             )
                         }
@@ -172,12 +171,12 @@ fun NowPlayingBar(
 
                 Spacer(modifier = Modifier.width(4.dp))
 
-                // Botón "X" de cierre — destacado en círculo gris translúcido para visibilidad garantizada
+                // Botón "X" de cierre circular bien visible
                 Box(
                     modifier = Modifier
                         .size(30.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.15f))
+                        .background(Color.White.copy(alpha = 0.16f))
                         .clickable(onClick = onClose),
                     contentAlignment = Alignment.Center
                 ) {

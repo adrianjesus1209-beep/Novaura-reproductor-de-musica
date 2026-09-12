@@ -20,10 +20,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,7 +44,8 @@ import com.novaura.music.ui.theme.icon
 private val ItemMinWidth = 72.dp
 
 /**
- * Barra de navegación inferior transparente/translúcida estilo cristal gris neutral.
+ * Barra de navegación inferior 100% transparente — sin cuadros oscuros de fondo
+ * ni divisiones, permitiendo que la imagen de fondo se vea de forma continua e ininterrumpida.
  */
 @Composable
 fun BottomNavBar(
@@ -57,34 +56,28 @@ fun BottomNavBar(
     val scrollState = rememberScrollState()
     val density = LocalDensity.current
 
-    Surface(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .navigationBarsPadding(),
-        color = Color.Black.copy(alpha = 0.30f),
-        shadowElevation = 0.dp
+            .navigationBarsPadding()
+            .background(Color.Transparent),
+        contentAlignment = Alignment.Center
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            HorizontalDivider(
-                color = Color.White.copy(alpha = 0.12f),
-                thickness = 1.dp
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp)
-                    .horizontalScroll(scrollState)
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                HomeTab.entries.forEach { tab ->
-                    BottomNavItem(
-                        tab = tab,
-                        selected = tab == selectedTab,
-                        onClick = { onTabSelected(tab) }
-                    )
-                }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp)
+                .horizontalScroll(scrollState)
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HomeTab.entries.forEach { tab ->
+                BottomNavItem(
+                    tab = tab,
+                    selected = tab == selectedTab,
+                    onClick = { onTabSelected(tab) }
+                )
             }
         }
     }
@@ -109,7 +102,7 @@ private fun BottomNavItem(
         label = "navItemColor"
     )
     val iconSize by animateDpAsState(
-        targetValue = if (selected) 25.dp else 21.dp,
+        targetValue = if (selected) 24.dp else 20.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
@@ -120,21 +113,21 @@ private fun BottomNavItem(
     Column(
         modifier = Modifier
             .widthIn(min = ItemMinWidth)
-            .height(64.dp)
+            .height(60.dp)
             .selectable(
                 selected = selected,
                 role = Role.Tab,
                 onClick = onClick
             )
-            .padding(horizontal = 4.dp, vertical = 5.dp),
+            .padding(horizontal = 4.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Pastilla de fondo para ícono activo
+        // Pastilla translúcida de fondo solo para el ícono activo
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(width = 50.dp, height = 28.dp)
+                .size(width = 48.dp, height = 28.dp)
                 .clip(RoundedCornerShape(50))
                 .background(
                     if (selected) Color.White.copy(alpha = 0.22f)

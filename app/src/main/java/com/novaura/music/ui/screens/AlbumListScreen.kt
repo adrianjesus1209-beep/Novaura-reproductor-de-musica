@@ -30,6 +30,8 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -84,8 +86,12 @@ fun AlbumListScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                ),
                 title = {
                     Text(
                         text = stringResource(R.string.tab_albums),
@@ -148,7 +154,7 @@ fun AlbumListScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 16.dp, top = 8.dp)
+                    contentPadding = PaddingValues(bottom = if (uiState.currentSong != null) 140.dp else 80.dp, top = 8.dp)
                 ) {
                     items(albumGroups, key = { it.title }) { group ->
                         val isExpanded = expandedAlbums[group.title] ?: false
