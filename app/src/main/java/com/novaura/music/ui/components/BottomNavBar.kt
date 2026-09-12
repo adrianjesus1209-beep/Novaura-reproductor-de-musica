@@ -61,7 +61,7 @@ fun BottomNavBar(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding(),
-        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.50f),
+        color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.25f),
         shadowElevation = 0.dp
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {

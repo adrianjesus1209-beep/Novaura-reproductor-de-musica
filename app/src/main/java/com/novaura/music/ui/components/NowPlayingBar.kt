@@ -58,12 +58,12 @@ fun NowPlayingBar(
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 4.dp),
         shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.82f),
+        color = Color.Black.copy(alpha = 0.55f),
         border = BorderStroke(
             width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
         ),
-        shadowElevation = 4.dp
+        shadowElevation = 0.dp
     ) {
         Column(
             modifier = Modifier

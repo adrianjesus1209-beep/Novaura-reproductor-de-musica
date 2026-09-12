@@ -316,7 +316,7 @@ fun SongListScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
-                        contentPadding = PaddingValues(bottom = 16.dp)
+                        contentPadding = PaddingValues(bottom = 120.dp)
                     ) {
                         items(filteredSongs, key = { it.id }, contentType = { "song" }) { song ->
                             SongItem(
