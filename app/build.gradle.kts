@@ -13,8 +13,8 @@ android {
         applicationId = "com.novaura.music"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -108,18 +108,21 @@ tasks.register("copyApkToRoot") {
         if (!rootApkDir.exists()) {
             rootApkDir.mkdirs()
         }
-        val releaseApk = file("${layout.buildDirectory.get()}/outputs/apk/release/Novaura-v1.0.1.apk")
-        val debugApk = file("${layout.buildDirectory.get()}/outputs/apk/debug/Novaura-v1.0.1-debug.apk")
+        val releaseApk = file("${layout.buildDirectory.get()}/outputs/apk/release/Novaura-v1.0.2.apk")
+        val debugApk = file("${layout.buildDirectory.get()}/outputs/apk/debug/Novaura-v1.0.2-debug.apk")
         
         if (releaseApk.exists()) {
+            releaseApk.copyTo(file("${rootApkDir}/Novaura-v1.0.2.apk"), overwrite = true)
             releaseApk.copyTo(file("${rootApkDir}/Novaura-v1.0.1.apk"), overwrite = true)
             releaseApk.copyTo(file("${rootApkDir}/Novaura-v1.0.0.apk"), overwrite = true)
         } else if (debugApk.exists()) {
+            debugApk.copyTo(file("${rootApkDir}/Novaura-v1.0.2.apk"), overwrite = true)
             debugApk.copyTo(file("${rootApkDir}/Novaura-v1.0.1.apk"), overwrite = true)
             debugApk.copyTo(file("${rootApkDir}/Novaura-v1.0.0.apk"), overwrite = true)
         }
         
         if (debugApk.exists()) {
+            debugApk.copyTo(file("${rootApkDir}/Novaura-v1.0.2-debug.apk"), overwrite = true)
             debugApk.copyTo(file("${rootApkDir}/Novaura-v1.0.1-debug.apk"), overwrite = true)
             debugApk.copyTo(file("${rootApkDir}/Novaura-v1.0.0-debug.apk"), overwrite = true)
         }

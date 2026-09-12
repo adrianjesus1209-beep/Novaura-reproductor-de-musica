@@ -186,121 +186,119 @@ fun AppNavigation() {
             modifier = Modifier.fillMaxSize(),
             color = if (bgImageUri.isNullOrEmpty()) MaterialTheme.colorScheme.background else Color.Transparent
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                // NavHost ocupa el 100% de la pantalla (full screen)
-                NavHost(
-                    navController = navController,
-                    startDestination = SongListRoute,
-                    modifier = Modifier.fillMaxSize()
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
                 ) {
-                    composable<SongListRoute> {
-                        SongListScreen(
-                            uiState = uiState,
-                            onSongClick = { song ->
-                                viewModel.playSong(song)
-                                navController.navigate(NowPlayingRoute)
-                            },
-                            onRefresh = viewModel::refreshSongs,
-                            onOpenOtrosMenu = { showOtrosMenu = true }
-                        )
+                    NavHost(
+                        navController = navController,
+                        startDestination = SongListRoute,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        composable<SongListRoute> {
+                            SongListScreen(
+                                uiState = uiState,
+                                onSongClick = { song ->
+                                    viewModel.playSong(song)
+                                    navController.navigate(NowPlayingRoute)
+                                },
+                                onRefresh = viewModel::refreshSongs,
+                                onOpenOtrosMenu = { showOtrosMenu = true }
+                            )
+                        }
+
+                        composable<ArtistListRoute> {
+                            ArtistListScreen(
+                                uiState = uiState,
+                                onSongClick = { song ->
+                                    viewModel.playSong(song)
+                                    navController.navigate(NowPlayingRoute)
+                                },
+                                onMoreClick = { selectedSongForDetails = it }
+                            )
+                        }
+
+                        composable<AlbumListRoute> {
+                            AlbumListScreen(
+                                uiState = uiState,
+                                onSongClick = { song ->
+                                    viewModel.playSong(song)
+                                    navController.navigate(NowPlayingRoute)
+                                },
+                                onMoreClick = { selectedSongForDetails = it }
+                            )
+                        }
+
+                        composable<PlaylistListRoute> {
+                            PlaylistListScreen(
+                                uiState = uiState,
+                                onSongClick = { song ->
+                                    viewModel.playSong(song)
+                                    navController.navigate(NowPlayingRoute)
+                                },
+                                onMoreClick = { selectedSongForDetails = it }
+                            )
+                        }
+
+                        composable<GenreListRoute> { PlaceholderScreen(HomeTab.GENRES) }
+
+                        composable<FolderListRoute> {
+                            FolderListScreen(
+                                uiState = uiState,
+                                onSongClick = { song ->
+                                    viewModel.playSong(song)
+                                    navController.navigate(NowPlayingRoute)
+                                },
+                                onMoreClick = { selectedSongForDetails = it }
+                            )
+                        }
+
+                        composable<NowPlayingRoute> {
+                            NowPlayingScreen(
+                                uiState = uiState,
+                                onBack = { navController.popBackStack() },
+                                onPlayPause = viewModel::playPause,
+                                onNext = viewModel::nextSong,
+                                onPrevious = viewModel::previousSong,
+                                onSeek = viewModel::seekTo,
+                                onShuffleChange = viewModel::setShuffle,
+                                onRepeatClick = viewModel::cycleRepeatMode
+                            )
+                        }
                     }
+                }
 
-                    composable<ArtistListRoute> {
-                        ArtistListScreen(
-                            uiState = uiState,
-                            onSongClick = { song ->
-                                viewModel.playSong(song)
-                                navController.navigate(NowPlayingRoute)
-                            },
-                            onMoreClick = { selectedSongForDetails = it }
-                        )
-                    }
+                AnimatedVisibility(
+                    visible = !inPlayer && uiState.currentSong != null,
+                    enter = slideInVertically { it } + fadeIn(),
+                    exit = slideOutVertically { it } + fadeOut()
+                ) {
+                    uiState.currentSong?.let { current ->
+                        val progressFraction = if (uiState.durationMs > 0) {
+                            uiState.currentPositionMs.toFloat() / uiState.durationMs.toFloat()
+                        } else 0f
 
-                    composable<AlbumListRoute> {
-                        AlbumListScreen(
-                            uiState = uiState,
-                            onSongClick = { song ->
-                                viewModel.playSong(song)
-                                navController.navigate(NowPlayingRoute)
-                            },
-                            onMoreClick = { selectedSongForDetails = it }
-                        )
-                    }
-
-                    composable<PlaylistListRoute> {
-                        PlaylistListScreen(
-                            uiState = uiState,
-                            onSongClick = { song ->
-                                viewModel.playSong(song)
-                                navController.navigate(NowPlayingRoute)
-                            },
-                            onMoreClick = { selectedSongForDetails = it }
-                        )
-                    }
-
-                    composable<GenreListRoute> { PlaceholderScreen(HomeTab.GENRES) }
-
-                    composable<FolderListRoute> {
-                        FolderListScreen(
-                            uiState = uiState,
-                            onSongClick = { song ->
-                                viewModel.playSong(song)
-                                navController.navigate(NowPlayingRoute)
-                            },
-                            onMoreClick = { selectedSongForDetails = it }
-                        )
-                    }
-
-                    composable<NowPlayingRoute> {
-                        NowPlayingScreen(
-                            uiState = uiState,
-                            onBack = { navController.popBackStack() },
+                        NowPlayingBar(
+                            song = current,
+                            isPlaying = uiState.isPlaying,
+                            progressFraction = progressFraction,
                             onPlayPause = viewModel::playPause,
                             onNext = viewModel::nextSong,
                             onPrevious = viewModel::previousSong,
-                            onSeek = viewModel::seekTo,
-                            onShuffleChange = viewModel::setShuffle,
-                            onRepeatClick = viewModel::cycleRepeatMode
+                            onClose = viewModel::stopPlayback,
+                            onClick = { navController.navigate(NowPlayingRoute) },
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
 
-                // Barras flotantes superiores sobre la lista (NowPlayingBar + BottomNavBar)
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                ) {
-                    AnimatedVisibility(
-                        visible = !inPlayer && uiState.currentSong != null,
-                        enter = slideInVertically { it } + fadeIn(),
-                        exit = slideOutVertically { it } + fadeOut()
-                    ) {
-                        uiState.currentSong?.let { current ->
-                            val progressFraction = if (uiState.durationMs > 0) {
-                                uiState.currentPositionMs.toFloat() / uiState.durationMs.toFloat()
-                            } else 0f
-
-                            NowPlayingBar(
-                                song = current,
-                                isPlaying = uiState.isPlaying,
-                                progressFraction = progressFraction,
-                                onPlayPause = viewModel::playPause,
-                                onNext = viewModel::nextSong,
-                                onPrevious = viewModel::previousSong,
-                                onClose = viewModel::stopPlayback,
-                                onClick = { navController.navigate(NowPlayingRoute) },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-
-                    if (!inPlayer) {
-                        BottomNavBar(
-                            selectedTab = activeTab,
-                            onTabSelected = ::selectTab
-                        )
-                    }
+                if (!inPlayer) {
+                    BottomNavBar(
+                        selectedTab = activeTab,
+                        onTabSelected = ::selectTab
+                    )
                 }
             }
         }

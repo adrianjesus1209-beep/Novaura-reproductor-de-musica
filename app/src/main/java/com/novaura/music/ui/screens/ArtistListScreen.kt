@@ -144,7 +144,7 @@ fun ArtistListScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 120.dp, top = 8.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp, top = 8.dp)
                 ) {
                     items(artistGroups, key = { it.name }) { group ->
                         val isExpanded = expandedArtists[group.name] ?: false
