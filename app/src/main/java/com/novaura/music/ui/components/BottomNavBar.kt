@@ -1,7 +1,13 @@
 package com.novaura.music.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -20,8 +27,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -36,10 +45,8 @@ import com.novaura.music.ui.theme.icon
 private val ItemMinWidth = 72.dp
 
 /**
- * Barra de navegación inferior elegante.
- * Se asegura de aplicar navigationBarsPadding al contenedor exterior
- * para que el fondo cubra la barra del sistema y los íconos/letras
- * se muestren perfectamente centrados y visibles arriba de los botones de navegación.
+ * Barra de navegación inferior elegante con indicador activo animado (pill/pastilla).
+ * Los iconos se animan en tamaño al ser seleccionados y tienen un fondo destacado.
  */
 @Composable
 fun BottomNavBar(
@@ -65,7 +72,7 @@ fun BottomNavBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(62.dp)
+                    .height(66.dp)
                     .horizontalScroll(scrollState)
                     .padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -95,33 +102,57 @@ private fun BottomNavItem(
     onClick: () -> Unit
 ) {
     val activeColor = MaterialTheme.colorScheme.primary
-    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
-    val contentColor = if (selected) activeColor else inactiveColor
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.60f)
+    val contentColor by animateColorAsState(
+        targetValue = if (selected) activeColor else inactiveColor,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "navItemColor"
+    )
+    val iconSize by animateDpAsState(
+        targetValue = if (selected) 26.dp else 22.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "navIconSize"
+    )
 
     Column(
         modifier = Modifier
             .widthIn(min = ItemMinWidth)
-            .height(62.dp)
+            .height(66.dp)
             .selectable(
                 selected = selected,
                 role = Role.Tab,
                 onClick = onClick
             )
-            .padding(horizontal = 4.dp, vertical = 4.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = tab.icon(),
-            contentDescription = stringResource(tab.labelRes),
-            tint = contentColor,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
+        // Pastilla/pill de fondo para el ícono activo
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(width = 52.dp, height = 30.dp)
+                .clip(RoundedCornerShape(50))
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+                    else androidx.compose.ui.graphics.Color.Transparent
+                )
+        ) {
+            Icon(
+                imageVector = tab.icon(),
+                contentDescription = stringResource(tab.labelRes),
+                tint = contentColor,
+                modifier = Modifier.size(iconSize)
+            )
+        }
+        Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = stringResource(tab.labelRes),
             style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 10.5.sp,
+                fontSize = 10.sp,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
             ),
             color = contentColor,

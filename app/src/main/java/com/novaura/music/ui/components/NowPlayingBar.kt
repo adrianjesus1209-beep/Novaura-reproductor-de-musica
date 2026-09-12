@@ -3,6 +3,7 @@ package com.novaura.music.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -36,7 +37,8 @@ import com.novaura.music.data.Song
 import com.novaura.music.ui.theme.NovauraIcons
 
 /**
- * Barra compacta "en reproducción" flotante estilo glassmorphism.
+ * Barra "en reproducción" flotante rediseñada — más prominente, arte circular,
+ * controles completos (anterior, play/pause, siguiente, cola).
  */
 @Composable
 fun NowPlayingBar(
@@ -52,50 +54,65 @@ fun NowPlayingBar(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.97f),
         border = BorderStroke(
             width = 1.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)
         ),
-        shadowElevation = 10.dp
+        shadowElevation = 14.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(22.dp))
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onClick)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // Arte circular
                 Box(contentAlignment = Alignment.Center) {
-                    AlbumArt(song = song, size = 46.dp, shape = RoundedCornerShape(12.dp))
+                    AlbumArt(
+                        song = song,
+                        size = 54.dp,
+                        shape = CircleShape
+                    )
+                    // Overlay equalizer si está reproduciendo
+                    if (isPlaying) {
+                        Box(
+                            modifier = Modifier
+                                .size(54.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.35f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AnimatedEqualizer(
+                                isPlaying = true,
+                                barCount = 3,
+                                barWidth = 3.dp,
+                                maxHeight = 14.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
+                // Título + artista
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        AnimatedEqualizer(
-                            isPlaying = isPlaying,
-                            barCount = 3,
-                            barWidth = 2.5.dp,
-                            maxHeight = 12.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = song.title,
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    Text(
+                        text = song.title,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = song.artist,
@@ -106,24 +123,28 @@ fun NowPlayingBar(
                     )
                 }
 
+                // Controles: Anterior · Play/Pause · Siguiente · Cola
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(end = 4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier.padding(end = 2.dp)
                 ) {
-                    IconButton(onClick = onPrevious, modifier = Modifier.size(34.dp)) {
+                    // Anterior
+                    IconButton(onClick = onPrevious, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = NovauraIcons.SkipPrevious,
                             contentDescription = stringResource(R.string.previous),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
 
+                    // Play / Pause (botón grande circular)
                     Surface(
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(42.dp)
                             .clip(CircleShape)
                             .clickable(onClick = onPlayPause)
                     ) {
@@ -134,22 +155,34 @@ fun NowPlayingBar(
                                     if (isPlaying) R.string.pause else R.string.play
                                 ),
                                 tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(26.dp)
                             )
                         }
                     }
 
-                    IconButton(onClick = onNext, modifier = Modifier.size(34.dp)) {
+                    // Siguiente
+                    IconButton(onClick = onNext, modifier = Modifier.size(36.dp)) {
                         Icon(
                             imageVector = NovauraIcons.SkipNext,
                             contentDescription = stringResource(R.string.next),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    // Cola / Queue
+                    IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
+                        Icon(
+                            imageVector = NovauraIcons.QueueMusic,
+                            contentDescription = "Cola de reproducción",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
                             modifier = Modifier.size(22.dp)
                         )
                     }
                 }
             }
 
+            // Barra de progreso al fondo
             LinearProgressIndicator(
                 progress = { progressFraction.coerceIn(0f, 1f) },
                 modifier = Modifier

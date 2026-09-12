@@ -103,7 +103,7 @@ fun SongItem(
                     )
                     Spacer(modifier = Modifier.padding(top = 2.dp))
                     Text(
-                        text = song.artist,
+                        text = "${formatDuration(song.duration)} · ${song.artist}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                         maxLines = 1,
@@ -111,26 +111,16 @@ fun SongItem(
                     )
                 }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+                IconButton(
+                    onClick = { onMoreClick(song) },
+                    modifier = Modifier.size(36.dp)
                 ) {
-                    Text(
-                        text = formatDuration(song.duration),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = stringResource(R.string.more_options),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp)
                     )
-
-                    IconButton(
-                        onClick = { onMoreClick(song) },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = stringResource(R.string.more_options),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
                 }
             }
 

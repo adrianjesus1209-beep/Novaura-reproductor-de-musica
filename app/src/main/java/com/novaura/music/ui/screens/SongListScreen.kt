@@ -2,6 +2,11 @@ package com.novaura.music.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -27,11 +33,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +43,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -66,6 +70,7 @@ import com.novaura.music.R
 import com.novaura.music.data.Song
 import com.novaura.music.ui.components.SongDetailsModal
 import com.novaura.music.ui.components.SongItem
+import com.novaura.music.ui.theme.NovauraIcons
 import com.novaura.music.ui.utils.filterSongs
 import com.novaura.music.ui.utils.hasRequiredPermissions
 import com.novaura.music.ui.utils.requiredPermissions
@@ -89,6 +94,7 @@ fun SongListScreen(
     var permissionDenied by rememberSaveable { mutableStateOf(false) }
     var crashHidden by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
     var currentSort by rememberSaveable { mutableStateOf(SortOption.TITLE) }
     var showSortMenu by remember { mutableStateOf(false) }
     var selectedSongForDetails by remember { mutableStateOf<Song?>(null) }
@@ -132,35 +138,48 @@ fun SongListScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
                 ),
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_launcher_logo),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                        )
-                        Text(
-                            text = stringResource(R.string.library_title),
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                title = { /* Sin logo ni título — solo iconos de acción */ },
+                actions = {
+                    // Búsqueda
+                    IconButton(onClick = {
+                        searchExpanded = !searchExpanded
+                        if (!searchExpanded) searchQuery = ""
+                    }) {
+                        Icon(
+                            imageVector = if (searchExpanded) Icons.Default.Close else Icons.Default.Search,
+                            contentDescription = if (searchExpanded) "Cerrar búsqueda" else "Buscar",
+                            tint = if (searchExpanded) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurface
                         )
                     }
-                },
-                actions = {
+                    // Historial
+                    IconButton(onClick = {}) {
+                        Icon(
+                            imageVector = NovauraIcons.History,
+                            contentDescription = "Historial",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    // Seleccionar
+                    IconButton(onClick = {}) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Seleccionar",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    // Menú
                     IconButton(onClick = onOpenOtrosMenu) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Otros"
+                            contentDescription = "Otros",
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -180,7 +199,12 @@ fun SongListScreen(
                 )
             }
 
-            if (uiState.songs.isNotEmpty()) {
+            // Barra de búsqueda plegable (aparece solo cuando el icono de búsqueda está activo)
+            AnimatedVisibility(
+                visible = searchExpanded && uiState.songs.isNotEmpty(),
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -218,7 +242,9 @@ fun SongListScreen(
                         imeAction = ImeAction.Search
                     )
                 )
+            }
 
+            if (uiState.songs.isNotEmpty()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

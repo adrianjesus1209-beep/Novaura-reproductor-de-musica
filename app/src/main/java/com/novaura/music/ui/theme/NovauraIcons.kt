@@ -362,6 +362,40 @@ object NovauraIcons {
             return _folder!!
         }
     private var _folder: ImageVector? = null
+
+    val History: ImageVector
+        get() {
+            if (_history != null) return _history!!
+            _history = materialIcon(name = "Filled.History") {
+                materialPath {
+                    moveTo(13f, 3f)
+                    curveTo(8.03f, 3f, 4f, 7.03f, 4f, 12f)
+                    horizontalLineTo(1f)
+                    lineTo(4.89f, 15.89f)
+                    lineTo(4.96f, 16.03f)
+                    lineTo(9f, 12f)
+                    horizontalLineTo(6f)
+                    curveTo(6f, 8.13f, 9.13f, 5f, 13f, 5f)
+                    reflectiveCurveTo(20f, 8.13f, 20f, 12f)
+                    reflectiveCurveTo(16.87f, 19f, 13f, 19f)
+                    curveTo(11.07f, 19f, 9.32f, 18.21f, 8.06f, 16.94f)
+                    lineTo(6.64f, 18.36f)
+                    curveTo(8.27f, 19.99f, 10.51f, 21f, 13f, 21f)
+                    curveTo(17.97f, 21f, 22f, 16.97f, 22f, 12f)
+                    reflectiveCurveTo(17.97f, 3f, 13f, 3f)
+                    close()
+                    moveTo(12f, 8f)
+                    verticalLineTo(13f)
+                    lineTo(16.25f, 15.52f)
+                    lineTo(17f, 14.24f)
+                    lineTo(13.5f, 12.15f)
+                    verticalLineTo(8f)
+                    close()
+                }
+            }
+            return _history!!
+        }
+    private var _history: ImageVector? = null
 }
 
 fun HomeTab.icon(): ImageVector = when (this) {
