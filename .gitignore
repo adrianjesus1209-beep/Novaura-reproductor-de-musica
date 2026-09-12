@@ -16,3 +16,5 @@ captures/
 Thumbs.db
 .settings/
 .vscode/
+.project
+.classpath
