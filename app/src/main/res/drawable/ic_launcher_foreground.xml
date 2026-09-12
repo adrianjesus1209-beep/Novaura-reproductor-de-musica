@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Logo oficial de Novaura como capa delantera del adaptive icon.
-  El inset de 21dp centra el emblema en el zona segura de 66dp para que
-  las máscaras de los launchers (círculo, redondeado) no lo corten.
--->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
-    android:drawable="@drawable/logo"
-    android:inset="21dp" />
+    android:drawable="@drawable/ic_launcher_logo"
+    android:inset="18dp" />
