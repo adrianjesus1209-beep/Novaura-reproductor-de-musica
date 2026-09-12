@@ -15,16 +15,17 @@ Aplicacion movil de reproduccion de musica local (MP3, WAV) construida con Kotli
 - Interfaz en Compose Material 3 con tema claro y oscuro segun la configuracion del sistema
 - Compatible con Android 8.0 (API 26) en adelante
 
-## APK descargable
+## APK descargable (Última versión v1.0.1)
 
-El instalador compilado esta disponible en la pagina de releases:
+El instalador compilado está disponible directamente en las releases principales de GitHub:
 
-- [Descargar APK desde GitHub Releases](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/tag/v1.0)
+- 🚀 [Descargar Novaura v1.0.1 APK (Última Versión)](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/latest)
+- 📦 [Descarga Directa Novaura-v1.0.1.apk](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.0.1/Novaura-v1.0.1.apk)
 
-## Instalacion
+## Instalación
 
-1. Descarga el archivo `apk/app-debug.apk`.
-2. Copialo al telefono o descargalo directamente desde el navegador.
+1. Descarga el archivo `apk/Novaura-v1.0.1.apk` (o descárgalo desde la página de releases).
+2. Cópialo al teléfono o descárgalo directamente desde el navegador.
 3. Abre el archivo desde el gestor de archivos.
 4. Si Android lo pide, habilita la opcion "Instalar aplicaciones desconocidas" para el origen de la descarga.
 5. Al abrir la aplicacion, concede el permiso de acceso a audio para que aparezcan tus canciones.
