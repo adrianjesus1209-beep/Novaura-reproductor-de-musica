@@ -18,8 +18,8 @@
     <application
         android:name=".NovauraApp"
         android:allowBackup="false"
-        android:icon="@drawable/ic_launcher_logo"
-        android:roundIcon="@drawable/ic_launcher_logo"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Novaura"
