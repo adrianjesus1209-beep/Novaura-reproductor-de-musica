@@ -126,7 +126,7 @@ fun PlaylistListScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
+                    contentPadding = PaddingValues(bottom = 160.dp, top = 8.dp)
                 ) {
                     items(playlists, key = { it.id }) { playlist ->
                         val isExpanded = expandedPlaylists[playlist.id] ?: false
