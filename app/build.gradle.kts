@@ -14,10 +14,23 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         vectorDrawables {
             useSupportLibrary = true
+        }
+    }
+
+    applicationVariants.all {
+        val variant = this
+        variant.outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val name = if (variant.buildType.name == "release") {
+                "Novaura-v${variant.versionName}.apk"
+            } else {
+                "Novaura-v${variant.versionName}-${variant.buildType.name}.apk"
+            }
+            output.outputFileName = name
         }
     }
 
@@ -86,4 +99,26 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.13")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+}
+
+tasks.register("copyApkToRoot") {
+    doLast {
+        val rootApkDir = file("${rootDir}/apk")
+        if (!rootApkDir.exists()) {
+            rootApkDir.mkdirs()
+        }
+        val outputDir = file("${layout.buildDirectory.get()}/outputs/apk")
+        if (outputDir.exists()) {
+            outputDir.walkTopDown().filter { it.extension == "apk" }.forEach { apkFile ->
+                val targetFile = file("${rootApkDir}/${apkFile.name}")
+                apkFile.copyTo(targetFile, overwrite = true)
+            }
+        }
+    }
+}
+
+tasks.configureEach {
+    if (name.startsWith("assemble")) {
+        finalizedBy("copyApkToRoot")
+    }
 }
