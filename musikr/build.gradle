@@ -86,9 +86,9 @@ tasks.register("assembleTaglib", Exec, {
     def jniDir = "$projectDir/src/main/cpp".replace('\\', '/')
     def libs = new File("$jniDir/taglib/pkg")
     def isWin = Os.isFamily(Os.FAMILY_WINDOWS)
-    if (libs.exists()) {
+    if (libs.exists() || isWin) {
         if (isWin) {
-            commandLine "cmd", "/c", "echo Taglib already built"
+            commandLine "cmd", "/c", "echo Taglib build managed via CMake"
         } else {
             commandLine "true"
         }

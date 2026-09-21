@@ -31,17 +31,25 @@ set(taglib_include "${taglib_pkg}/include")
 
 set(taglib_file_name libtag.a)
 set(taglib_file_path ${taglib_lib}/${taglib_file_name})
-set(taglib_lib_name, "taglib")
-add_library(
-        "taglib"
-        STATIC
-        IMPORTED)
-set_target_properties(
-        "taglib" PROPERTIES
-        IMPORTED_LOCATION
-        ${taglib_file_path}
-        INTERFACE_INCLUDE_DIRECTORIES
-        ${taglib_include})
+
+if(EXISTS "${taglib_file_path}")
+    add_library("taglib" STATIC IMPORTED)
+    set_target_properties("taglib" PROPERTIES
+            IMPORTED_LOCATION ${taglib_file_path}
+            INTERFACE_INCLUDE_DIRECTORIES ${taglib_include})
+else()
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(BUILD_BINDINGS OFF CACHE BOOL "" FORCE)
+    set(WITH_ZLIB OFF CACHE BOOL "" FORCE)
+    set(WITH_APE OFF CACHE BOOL "" FORCE)
+    set(WITH_ASF OFF CACHE BOOL "" FORCE)
+    set(WITH_MOD OFF CACHE BOOL "" FORCE)
+    set(WITH_SHORTEN OFF CACHE BOOL "" FORCE)
+    set(WITH_TRUEAUDIO OFF CACHE BOOL "" FORCE)
+    add_subdirectory("${taglib_location}" "${CMAKE_CURRENT_BINARY_DIR}/taglib_build")
+endif()
 add_library(${CMAKE_PROJECT_NAME} SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
         taglib_jni.cpp
