@@ -83,7 +83,7 @@ dependencies {
 }
 
 tasks.register("assembleTaglib", Exec, {
-    def jniDir = "$projectDir/src/main/cpp"
+    def jniDir = "$projectDir/src/main/cpp".replace('\\', '/')
     def libs = new File("$jniDir/taglib/pkg")
     def isWin = Os.isFamily(Os.FAMILY_WINDOWS)
     if (libs.exists()) {
@@ -94,9 +94,9 @@ tasks.register("assembleTaglib", Exec, {
         }
         return
     }
-    def ndkDir = androidComponents.sdkComponents.ndkDirectory.get().asFile
+    def ndkDir = androidComponents.sdkComponents.ndkDirectory.get().asFile.getAbsolutePath().replace('\\', '/')
     def shCmd = isWin ? "C:/Program Files/Git/bin/sh.exe" : "sh"
-    commandLine shCmd, "-c", "\"$jniDir/build_taglib.sh\" \"$jniDir\" \"$ndkDir\""
+    commandLine shCmd, "$jniDir/build_taglib.sh", jniDir, ndkDir
 })
 
 afterEvaluate {
