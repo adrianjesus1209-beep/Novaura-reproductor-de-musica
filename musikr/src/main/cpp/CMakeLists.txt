@@ -61,6 +61,12 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         JStringRef.cpp
         JByteArrayRef.cpp
 )
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/taglib"
+        "${CMAKE_CURRENT_BINARY_DIR}/taglib_build"
+        "${CMAKE_CURRENT_BINARY_DIR}/taglib_build/taglib"
+)
 target_link_options(${CMAKE_PROJECT_NAME}
         # @Tolriq found that these flags can reduce the size of the linked
         # taglib + jni shim shared library. Kudos to them.
