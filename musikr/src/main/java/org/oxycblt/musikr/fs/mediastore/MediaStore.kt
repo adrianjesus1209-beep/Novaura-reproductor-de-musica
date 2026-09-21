@@ -189,29 +189,48 @@ private constructor(
 
         private fun isExcludedPath(path: String): Boolean {
             val lower = path.lowercase()
-            return lower.contains("android/data/") ||
-                   lower.contains("android/media/") ||
-                   lower.contains("whatsapp/") ||
-                   lower.contains("telegram/") ||
-                   lower.contains("recordings/") ||
-                   lower.contains("call/")
+            return EXCLUDED_PATH_MARKERS.any { lower.contains(it) }
         }
+
+        private val EXCLUDED_PATH_MARKERS =
+            listOf(
+                "android/",
+                "whatsapp/",
+                "telegram/",
+                "recordings/",
+                "call/",
+                "callrecordings/",
+                "call recordings/",
+                "callrecorder/",
+                "voicenotes/",
+                "voice notes/",
+                "voicerecordings/",
+                "soundrecorder/",
+                "recorder/",
+            )
 
         /**
          * Direct indexed query selector:
          * Excludes zero-size files, non-music (IS_MUSIC != 0), tracks shorter than 30s (DURATION >= 30000 ms),
-         * and system/messaging/call directories.
+         * and system/messaging/call/voice-note directories.
          */
         private const val BASE_SELECTOR =
             "NOT ${AOSPMediaStore.Audio.Media.SIZE}=0 " +
             "AND ${AOSPMediaStore.Audio.AudioColumns.IS_MUSIC} != 0 " +
             "AND ${AOSPMediaStore.Audio.AudioColumns.DURATION} >= 30000 " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Android/data/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Android/media/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Android/%' " +
             "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/WhatsApp/%' " +
             "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Telegram/%' " +
             "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Recordings/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Call/%'"
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Call/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/CallRecordings/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Call Recordings/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/CallRecorder/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/VoiceNotes/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Voice Notes/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/VoiceRecordings/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/SoundRecorder/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Recorder/%'"
 
         /** Base projection strictly limiting extracted columns (ID, Title, Artist, Album, Data, Duration + file attributes). */
         private val BASE_PROJECTION =

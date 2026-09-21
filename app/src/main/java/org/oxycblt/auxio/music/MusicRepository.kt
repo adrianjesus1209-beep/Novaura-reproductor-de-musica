@@ -19,6 +19,7 @@
 package org.oxycblt.auxio.music
 
 import android.content.Context
+import android.provider.DocumentsContract
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
 import javax.inject.Inject
@@ -145,6 +146,14 @@ interface MusicRepository {
      * @param playlist The playlist to delete.
      */
     suspend fun deletePlaylist(playlist: Playlist)
+
+    /**
+     * Delete a [Song] and its backing file from disk.
+     *
+     * @param song The song to delete.
+     * @return Whether the song was successfully deleted.
+     */
+    suspend fun deleteSong(song: Song): Boolean
 
     /**
      * Add the given [Song]s to a [Playlist].
@@ -339,6 +348,27 @@ constructor(
         val newLibrary = library.deletePlaylist(playlist)
         synchronized(this) { this.library = newLibrary }
         withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
+    }
+
+    override suspend fun deleteSong(song: Song): Boolean {
+        L.d("Deleting $song")
+        val uri = song.uri
+        val deleted =
+            if (DocumentsContract.isDocumentUri(context, uri)) {
+                // Deletion via SAF tree grants does not need additional write permissions.
+                runCatching {
+                    DocumentsContract.deleteDocument(context.contentResolver, uri)
+                }.isSuccess
+            } else {
+                // MediaStore deletion (granted beforehand by the caller when needed).
+                runCatching { context.contentResolver.delete(uri, null, null) > 0 }.getOrDefault(false)
+            }
+
+        if (deleted) {
+            // Reload the library using the cache so the deleted song disappears everywhere.
+            requestIndex(true)
+        }
+        return deleted
     }
 
     override suspend fun addToPlaylist(songs: List<Song>, playlist: Playlist) {

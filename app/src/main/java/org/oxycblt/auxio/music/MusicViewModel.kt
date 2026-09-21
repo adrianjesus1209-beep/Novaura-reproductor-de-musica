@@ -36,6 +36,7 @@ import org.oxycblt.auxio.util.MutableEvent
 import org.oxycblt.musikr.Album
 import org.oxycblt.musikr.Artist
 import org.oxycblt.musikr.Genre
+import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
 import org.oxycblt.musikr.playlist.ExportConfig
@@ -75,6 +76,16 @@ constructor(
 
     val playlistMessage: Event<PlaylistMessage>
         field = MutableEvent<PlaylistMessage>()
+
+    /**
+     * A [SongDecision] command that is awaiting a view capable of responding to it. Null if none
+     * currently.
+     */
+    val songDecision: Event<SongDecision>
+        field = MutableEvent<SongDecision>()
+
+    val songMessage: Event<SongMessage>
+        field = MutableEvent<SongMessage>()
 
     init {
         musicRepository.addUpdateListener(this)
@@ -116,6 +127,14 @@ constructor(
         L.d("Rescanning library")
         musicRepository.requestIndex(false)
     }
+
+    /**
+     * Resolve the [Song] associated with the given [Music.UID], if it still exists in the library.
+     *
+     * @param uid The [Music.UID] to search for.
+     * @return The associated [Song], or null if it could not be found.
+     */
+    fun findSong(uid: Music.UID): Song? = musicRepository.find(uid) as? Song
 
     /**
      * Create a new generic [Playlist].
@@ -285,6 +304,29 @@ constructor(
         } else {
             L.d("Launching deletion dialog for $playlist")
             playlistDecision.put(PlaylistDecision.Delete(playlist))
+        }
+    }
+
+    /**
+     * Delete a [Song] and its backing file from disk.
+     *
+     * @param song The song to delete.
+     * @param rude Whether to immediately delete the song or prompt the user first. This should be
+     *   false at almost all times. This argument is internal and does not need to be specified in
+     *   normal use.
+     */
+    fun deleteSong(song: Song, rude: Boolean = false) {
+        if (rude) {
+            L.d("Deleting $song")
+            viewModelScope.launch(Dispatchers.IO) {
+                val success = musicRepository.deleteSong(song)
+                songMessage.put(
+                    if (success) SongMessage.DeleteSuccess else SongMessage.DeleteFailed
+                )
+            }
+        } else {
+            L.d("Launching deletion dialog for $song")
+            songDecision.put(SongDecision.Delete(song))
         }
     }
 
@@ -482,5 +524,33 @@ sealed interface PlaylistMessage {
     data object ExportFailed : PlaylistMessage {
         override val stringRes: Int
             get() = R.string.err_export_failed
+    }
+}
+
+/**
+ * Navigation command for when a [Song] must have some operation performed on it by the user.
+ *
+ * @author Alexander Capehart (OxygenCobalt)
+ */
+sealed interface SongDecision {
+    /**
+     * Navigate to a dialog that confirms the deletion of an existing [Song].
+     *
+     * @param song The song to act on.
+     */
+    data class Delete(val song: Song) : SongDecision
+}
+
+sealed interface SongMessage {
+    val stringRes: Int
+
+    data object DeleteSuccess : SongMessage {
+        override val stringRes: Int
+            get() = R.string.lng_song_deleted
+    }
+
+    data object DeleteFailed : SongMessage {
+        override val stringRes: Int
+            get() = R.string.err_delete_failed
     }
 }

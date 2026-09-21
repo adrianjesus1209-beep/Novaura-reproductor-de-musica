@@ -15,4 +15,8 @@
     <color name="widget_on_surface_inverse">@color/material_dynamic_neutral95</color>
 
     <color name="dynamic_primary">@color/m3_ref_palette_dynamic_primary40</color>
+
+    <!-- Novaura launcher/splash branding -->
+    <color name="launcher_background">#FFFFFF</color>
+    <color name="splash_background">#FFFFFF</color>
 </resources>

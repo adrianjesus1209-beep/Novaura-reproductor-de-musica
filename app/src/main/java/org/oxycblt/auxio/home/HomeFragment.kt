@@ -61,6 +61,8 @@ import org.oxycblt.auxio.music.MusicType
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.music.PlaylistDecision
 import org.oxycblt.auxio.music.PlaylistMessage
+import org.oxycblt.auxio.music.SongDecision
+import org.oxycblt.auxio.music.SongMessage
 import org.oxycblt.auxio.playback.PlaybackDecision
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.ui.FadingToolbarOffsetListener
@@ -177,6 +179,8 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         collectImmediately(musicModel.indexingState, ::updateIndexerState)
         collect(musicModel.playlistDecision.flow, ::handlePlaylistDecision)
         collectImmediately(musicModel.playlistMessage.flow, ::handlePlaylistMessage)
+        collect(musicModel.songDecision.flow, ::handleSongDecision)
+        collectImmediately(musicModel.songMessage.flow, ::handleSongMessage)
         collect(playbackModel.playbackDecision.flow, ::handlePlaybackDecision)
 
         // Check and request storage permission automatically on launch
@@ -408,6 +412,25 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         if (message == null) return
         requireContext().showToast(message.stringRes)
         musicModel.playlistMessage.consume()
+    }
+
+    private fun handleSongDecision(decision: SongDecision?) {
+        if (decision == null) return
+        musicModel.songDecision.consume()
+        val directions =
+            when (decision) {
+                is SongDecision.Delete -> {
+                    L.d("Deleting ${decision.song}")
+                    HomeFragmentDirections.deleteSong(decision.song.uid)
+                }
+            }
+        findNavController().navigateSafe(directions)
+    }
+
+    private fun handleSongMessage(message: SongMessage?) {
+        if (message == null) return
+        requireContext().showToast(message.stringRes)
+        musicModel.songMessage.consume()
     }
 
     private fun handlePlaybackDecision(decision: PlaybackDecision?) {

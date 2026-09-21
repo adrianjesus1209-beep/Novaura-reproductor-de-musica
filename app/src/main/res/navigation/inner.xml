@@ -44,7 +44,9 @@
             app:destination="@id/playlist_detail_fragment" />
         <action
             android:id="@+id/open_song_menu"
-            app:destination="@id/song_menu_dialog" />
+            app:destination="@id/song_menu_dialog" />        <action
+            android:id="@+id/deleteSong"
+            app:destination="@id/delete_song_dialog" />
         <action
             android:id="@+id/open_album_menu"
             app:destination="@id/album_menu_dialog" />
@@ -164,7 +166,9 @@
             app:destination="@id/playlist_detail_fragment" />
         <action
             android:id="@+id/open_song_menu"
-            app:destination="@id/song_menu_dialog" />
+            app:destination="@id/song_menu_dialog" />        <action
+            android:id="@+id/deleteSong"
+            app:destination="@id/delete_song_dialog" />
         <action
             android:id="@+id/open_album_menu"
             app:destination="@id/album_menu_dialog" />
@@ -228,7 +232,9 @@
             app:destination="@id/show_artist_choices_dialog" />
         <action
             android:id="@+id/open_song_menu"
-            app:destination="@id/song_menu_dialog" />
+            app:destination="@id/song_menu_dialog" />        <action
+            android:id="@+id/deleteSong"
+            app:destination="@id/delete_song_dialog" />
         <action
             android:id="@+id/open_album_menu"
             app:destination="@id/album_menu_dialog" />
@@ -277,7 +283,9 @@
             app:destination="@id/show_artist_choices_dialog" />
         <action
             android:id="@+id/open_song_menu"
-            app:destination="@id/song_menu_dialog" />
+            app:destination="@id/song_menu_dialog" />        <action
+            android:id="@+id/deleteSong"
+            app:destination="@id/delete_song_dialog" />
         <action
             android:id="@+id/open_album_menu"
             app:destination="@id/album_menu_dialog" />
@@ -326,7 +334,9 @@
             app:destination="@id/show_artist_choices_dialog" />
         <action
             android:id="@+id/open_song_menu"
-            app:destination="@id/song_menu_dialog" />
+            app:destination="@id/song_menu_dialog" />        <action
+            android:id="@+id/deleteSong"
+            app:destination="@id/delete_song_dialog" />
         <action
             android:id="@+id/open_artist_menu"
             app:destination="@id/artist_menu_dialog" />
@@ -375,7 +385,9 @@
             app:destination="@id/show_artist_choices_dialog" />
         <action
             android:id="@+id/open_song_menu"
-            app:destination="@id/song_menu_dialog" />
+            app:destination="@id/song_menu_dialog" />        <action
+            android:id="@+id/deleteSong"
+            app:destination="@id/delete_song_dialog" />
         <action
             android:id="@+id/open_playlist_menu"
             app:destination="@id/playlist_menu_dialog" />
@@ -462,6 +474,16 @@
         tools:layout="@layout/dialog_playlist_name">
         <argument
             android:name="playlistUid"
+            app:argType="org.oxycblt.musikr.Music$UID" />
+    </dialog>
+
+    <dialog
+        android:id="@+id/delete_song_dialog"
+        android:name="org.oxycblt.auxio.music.decision.DeleteSongDialog"
+        android:label="delete_song_dialog"
+        tools:layout="@layout/dialog_delete_song">
+        <argument
+            android:name="songUid"
             app:argType="org.oxycblt.musikr.Music$UID" />
     </dialog>
 
