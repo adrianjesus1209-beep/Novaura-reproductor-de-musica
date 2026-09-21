@@ -14,6 +14,17 @@ echo "Taglib package is at $TAGLIB_PKG_DIR"
 echo "NDK toolchain is at $NDK_TOOLCHAIN"
 echo "NDK path is at $NDK_PATH"
 
+if command -v cygpath >/dev/null 2>&1; then
+  range_ndk=$(cygpath -u "$NDK_PATH")
+else
+  range_ndk="$NDK_PATH"
+fi
+SDK_DIR=$(echo "$range_ndk" | sed 's|/ndk/.*||')
+SDK_CMAKE_DIR="$SDK_DIR/cmake/3.22.1/bin"
+if [ -d "$SDK_CMAKE_DIR" ]; then
+  export PATH="$SDK_CMAKE_DIR:$PATH"
+fi
+
 X86_ARCH=x86
 X86_64_ARCH=x86_64
 ARMV7_ARCH=armeabi-v7a
@@ -25,7 +36,7 @@ build_for_arch() {
   local PKG_DIR=$TAGLIB_PKG_DIR/$ARCH
 
   cd $TAGLIB_SRC_DIR
-  cmake -B $DST_DIR -DANDROID_NDK_PATH=${NDK_PATH} -DCMAKE_TOOLCHAIN_FILE=${NDK_TOOLCHAIN}  \
+  cmake -B $DST_DIR -GNinja -DANDROID_NDK_PATH=${NDK_PATH} -DCMAKE_TOOLCHAIN_FILE=${NDK_TOOLCHAIN}  \
     -DANDROID_ABI=$ARCH -DBUILD_SHARED_LIBS=OFF -DVISIBILITY_HIDDEN=ON -DBUILD_TESTING=OFF \
     -DBUILD_EXAMPLES=OFF -DBUILD_BINDINGS=OFF -DWITH_ZLIB=OFF -DCMAKE_BUILD_TYPE=Release \
     -DWITH_APE=OFF -DWITH_ASF=OFF -DWITH_ASF=OFF -DWITH_MOD=OFF -DWITH_SHORTEN=OFF \

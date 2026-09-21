@@ -32,24 +32,16 @@ set(taglib_include "${taglib_pkg}/include")
 set(taglib_file_name libtag.a)
 set(taglib_file_path ${taglib_lib}/${taglib_file_name})
 
-if(EXISTS "${taglib_file_path}")
-    add_library("taglib" STATIC IMPORTED)
-    set_target_properties("taglib" PROPERTIES
-            IMPORTED_LOCATION ${taglib_file_path}
-            INTERFACE_INCLUDE_DIRECTORIES ${taglib_include})
-else()
-    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-    set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
-    set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-    set(BUILD_BINDINGS OFF CACHE BOOL "" FORCE)
-    set(WITH_ZLIB OFF CACHE BOOL "" FORCE)
-    set(WITH_APE OFF CACHE BOOL "" FORCE)
-    set(WITH_ASF OFF CACHE BOOL "" FORCE)
-    set(WITH_MOD OFF CACHE BOOL "" FORCE)
-    set(WITH_SHORTEN OFF CACHE BOOL "" FORCE)
-    set(WITH_TRUEAUDIO OFF CACHE BOOL "" FORCE)
-    add_subdirectory("${taglib_location}" "${CMAKE_CURRENT_BINARY_DIR}/taglib_build")
-endif()
+add_library(
+        "taglib"
+        STATIC
+        IMPORTED)
+set_target_properties(
+        "taglib" PROPERTIES
+        IMPORTED_LOCATION
+        ${taglib_file_path}
+        INTERFACE_INCLUDE_DIRECTORIES
+        ${taglib_include})
 add_library(${CMAKE_PROJECT_NAME} SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
         taglib_jni.cpp
@@ -60,12 +52,6 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         JObjectRef.cpp
         JStringRef.cpp
         JByteArrayRef.cpp
-)
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/taglib"
-        "${CMAKE_CURRENT_BINARY_DIR}/taglib_build"
-        "${CMAKE_CURRENT_BINARY_DIR}/taglib_build/taglib"
 )
 target_link_options(${CMAKE_PROJECT_NAME}
         # @Tolriq found that these flags can reduce the size of the linked
