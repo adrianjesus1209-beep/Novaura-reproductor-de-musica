@@ -18,9 +18,13 @@
  
 package org.oxycblt.auxio.home.list
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
@@ -150,17 +154,37 @@ class PlaylistListFragment :
         indexingState: IndexingState?,
     ) {
         val binding = requireBinding()
+        val permission =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Manifest.permission.READ_MEDIA_AUDIO
+            } else {
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            }
+        val hasPermission =
+            ContextCompat.checkSelfPermission(requireContext(), permission) ==
+                PackageManager.PERMISSION_GRANTED
+
         binding.homeRecycler.isInvisible = empty
         binding.homeNoMusic.isInvisible = !empty && playlists.isNotEmpty()
-        if (!empty && playlists.isEmpty()) {
+
+        if (!hasPermission) {
+            binding.homeNoMusicMsg.text = getString(R.string.lng_permission_denied_msg)
+            binding.homeNoMusicAction.isVisible = true
+            binding.homeNoMusicAction.text = getString(R.string.lbl_grant_permission)
+            binding.homeNoMusicAction.setOnClickListener { homeModel.requestStoragePermission() }
+        } else if (indexingState is IndexingState.Indexing) {
+            binding.homeNoMusicMsg.text = getString(R.string.lng_scanning_music)
+            binding.homeNoMusicAction.isVisible = false
+        } else if (!empty && playlists.isEmpty()) {
+            binding.homeNoMusicMsg.text = getString(R.string.lng_empty_playlists)
             binding.homeNoMusicAction.isVisible = true
             binding.homeNoMusicAction.text = getString(R.string.lbl_new_playlist)
             binding.homeNoMusicAction.setOnClickListener { musicModel.createPlaylist() }
         } else {
-            binding.homeNoMusicAction.isVisible =
-                indexingState == null || (empty && indexingState is IndexingState.Completed)
-            binding.homeNoMusicAction.text = getString(R.string.set_locations)
-            binding.homeNoMusicAction.setOnClickListener { homeModel.startChooseMusicLocations() }
+            binding.homeNoMusicMsg.text = getString(R.string.lng_empty_playlists)
+            binding.homeNoMusicAction.isVisible = true
+            binding.homeNoMusicAction.text = getString(R.string.lbl_scan_again)
+            binding.homeNoMusicAction.setOnClickListener { musicModel.refresh() }
         }
     }
 

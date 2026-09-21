@@ -118,9 +118,9 @@ class MusicSettingsImpl @Inject constructor(@ApplicationContext private val cont
             val mode =
                 sharedPreferences.getInt(
                     getString(R.string.set_key_locations_mode),
-                    IntegerTable.LOCATION_MODE_SAF,
+                    IntegerTable.LOCATION_MODE_MEDIA_STORE,
                 )
-            return LocationMode.fromInt(mode) ?: LocationMode.SAF
+            return LocationMode.fromInt(mode) ?: LocationMode.MEDIA_STORE
         }
         set(value) {
             sharedPreferences.edit {

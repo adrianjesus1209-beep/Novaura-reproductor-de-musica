@@ -18,12 +18,16 @@
  
 package org.oxycblt.auxio.home
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.MenuItem
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.core.view.MenuCompat
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
@@ -165,6 +169,7 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         // --- VIEWMODEL SETUP ---
         collect(homeModel.recreateTabs.flow, ::handleRecreate)
         collect(homeModel.chooseMusicLocations.flow, ::handleChooseFolders)
+        collect(homeModel.requestPermission.flow, ::handleRequestPermission)
         collectImmediately(homeModel.currentTabType, ::updateCurrentTab)
         collect(detailModel.toShow.flow, ::handleShow)
         collect(listModel.menu.flow, ::handleMenu)
@@ -173,6 +178,17 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         collect(musicModel.playlistDecision.flow, ::handlePlaylistDecision)
         collectImmediately(musicModel.playlistMessage.flow, ::handlePlaylistMessage)
         collect(playbackModel.playbackDecision.flow, ::handlePlaybackDecision)
+
+        // Check and request storage permission automatically on launch
+        val storagePermission =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Manifest.permission.READ_MEDIA_AUDIO
+            } else {
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            }
+        if (ContextCompat.checkSelfPermission(requireContext(), storagePermission) != PackageManager.PERMISSION_GRANTED) {
+            storagePermissionLauncher?.launch(storagePermission)
+        }
     }
 
     override fun onDestroyBinding(binding: FragmentHomeBinding) {
@@ -286,6 +302,18 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         }
         findNavController().navigateSafe(HomeFragmentDirections.chooseLocations())
         homeModel.chooseMusicLocations.consume()
+    }
+
+    private fun handleRequestPermission(unit: Unit?) {
+        if (unit == null) return
+        val permission =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Manifest.permission.READ_MEDIA_AUDIO
+            } else {
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            }
+        storagePermissionLauncher?.launch(permission)
+        homeModel.requestPermission.consume()
     }
 
     private fun updateIndexerState(state: IndexingState?) {

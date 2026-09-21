@@ -154,6 +154,9 @@ constructor(
     val chooseMusicLocations: Event<Unit>
         field = MutableEvent<Unit>()
 
+    val requestPermission: Event<Unit>
+        field = MutableEvent<Unit>()
+
     init {
         homeGenerator.attach()
     }
@@ -263,6 +266,10 @@ constructor(
 
     fun startChooseMusicLocations() {
         chooseMusicLocations.put(Unit)
+    }
+
+    fun requestStoragePermission() {
+        requestPermission.put(Unit)
     }
 
     fun showSettings() {

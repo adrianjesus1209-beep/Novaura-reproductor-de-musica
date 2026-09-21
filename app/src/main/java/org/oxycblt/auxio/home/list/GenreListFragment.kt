@@ -18,9 +18,13 @@
  
 package org.oxycblt.auxio.home.list
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
@@ -145,10 +149,39 @@ class GenreListFragment :
 
     private fun updateNoMusicIndicator(empty: Boolean, indexingState: IndexingState?) {
         val binding = requireBinding()
+        val permission =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Manifest.permission.READ_MEDIA_AUDIO
+            } else {
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            }
+        val hasPermission =
+            ContextCompat.checkSelfPermission(requireContext(), permission) ==
+                PackageManager.PERMISSION_GRANTED
+
         binding.homeRecycler.isInvisible = empty
         binding.homeNoMusic.isInvisible = !empty
-        binding.homeNoMusicAction.isVisible =
-            indexingState == null || (empty && indexingState is IndexingState.Completed)
+
+        if (empty) {
+            when {
+                !hasPermission -> {
+                    binding.homeNoMusicMsg.text = getString(R.string.lng_permission_denied_msg)
+                    binding.homeNoMusicAction.isVisible = true
+                    binding.homeNoMusicAction.text = getString(R.string.lbl_grant_permission)
+                    binding.homeNoMusicAction.setOnClickListener { homeModel.requestStoragePermission() }
+                }
+                indexingState is IndexingState.Indexing -> {
+                    binding.homeNoMusicMsg.text = getString(R.string.lng_scanning_music)
+                    binding.homeNoMusicAction.isVisible = false
+                }
+                else -> {
+                    binding.homeNoMusicMsg.text = getString(R.string.lng_empty_genres)
+                    binding.homeNoMusicAction.isVisible = true
+                    binding.homeNoMusicAction.text = getString(R.string.lbl_scan_again)
+                    binding.homeNoMusicAction.setOnClickListener { musicModel.refresh() }
+                }
+            }
+        }
     }
 
     private fun updateSelection(selection: List<Music>) {
