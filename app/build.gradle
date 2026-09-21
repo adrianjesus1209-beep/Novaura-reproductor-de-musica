@@ -183,6 +183,7 @@ dependencies {
 
 afterEvaluate {
     tasks.matching { it.name.startsWith("ksp") && it.name.endsWith("Kotlin") }.configureEach {
+        dependsOn(tasks.matching { it.name.startsWith("dataBindingGenBaseClasses") })
         dependsOn(tasks.matching { it.name.startsWith("process") && it.name.endsWith("Resources") })
     }
 }
