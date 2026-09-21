@@ -20,6 +20,7 @@ package org.oxycblt.musikr.fs.mediastore
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore as AOSPMediaStore
 import androidx.core.database.getStringOrNull
 import kotlinx.coroutines.Deferred
@@ -44,7 +45,7 @@ import org.oxycblt.musikr.util.tryAsyncWith
 
 /**
  * MediaStore implementation of [FS] that queries the Android MediaStore database for audio files
- * and yields them as [File] instances.
+ * and yields them as [File] instances using high-speed indexed queries.
  */
 class MediaStore
 private constructor(
@@ -63,7 +64,7 @@ private constructor(
 
             // Filter out audio that is not music, if enabled
             if (query.excludeNonMusic) {
-                selector += " AND ${AOSPMediaStore.Audio.AudioColumns.IS_MUSIC}=1"
+                selector += " AND ${AOSPMediaStore.Audio.AudioColumns.IS_MUSIC} != 0"
             }
 
             // Handle include/exclude directories
@@ -89,8 +90,16 @@ private constructor(
             // Collect all files and track unique directories
             val allFiles = mutableListOf<File>()
 
+            // Query MediaStore.VOLUME_EXTERNAL on API 29+ to include mounted secondary/MicroSD storage
+            val mediaUri =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    AOSPMediaStore.Audio.Media.getContentUri(AOSPMediaStore.VOLUME_EXTERNAL)
+                } else {
+                    AOSPMediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                }
+
             context.contentResolverSafe.useQuery(
-                AOSPMediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                mediaUri,
                 projection,
                 selector,
                 args.toTypedArray(),
@@ -108,12 +117,14 @@ private constructor(
                 while (cursor.moveToNext()) {
                     val path = pathInterpreter.extract() ?: continue
 
+                    // Strict filter: exclude system folders (/Android/data/, /Android/media/)
+                    // and messaging/call folders (WhatsApp/, Telegram/, Recordings/, Call/)
+                    if (isExcludedPath(path.components.unixString)) {
+                        continue
+                    }
+
                     val id = cursor.getLong(idIndex)
-                    val uri =
-                        Uri.withAppendedPath(
-                            AOSPMediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                            id.toString(),
-                        )
+                    val uri = Uri.withAppendedPath(mediaUri, id.toString())
                     val mimeType = cursor.getStringOrNull(mimeTypeIndex) ?: "audio/*"
                     val size = cursor.getLong(sizeIndex)
                     val dateAdded = cursor.getLong(dateAddedIndex) * 1000 // Convert to milliseconds
@@ -140,8 +151,14 @@ private constructor(
     }
 
     override fun track(): Flow<FSUpdate> = callbackFlow {
+        val mediaUri =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                AOSPMediaStore.Audio.Media.getContentUri(AOSPMediaStore.VOLUME_EXTERNAL)
+            } else {
+                AOSPMediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            }
         val observer =
-            LocationObserver(context, AOSPMediaStore.Audio.Media.EXTERNAL_CONTENT_URI) {
+            LocationObserver(context, mediaUri) {
                 trySend(FSUpdate.LocationChanged(null))
             }
         awaitClose { observer.release() }
@@ -170,16 +187,41 @@ private constructor(
                 query = query,
             )
 
-        /**
-         * The base selector that works across all versions of android. Excludes files with zero
-         * size.
-         */
-        private const val BASE_SELECTOR = "NOT ${AOSPMediaStore.Audio.Media.SIZE}=0"
+        private fun isExcludedPath(path: String): Boolean {
+            val lower = path.lowercase()
+            return lower.contains("android/data/") ||
+                   lower.contains("android/media/") ||
+                   lower.contains("whatsapp/") ||
+                   lower.contains("telegram/") ||
+                   lower.contains("recordings/") ||
+                   lower.contains("call/")
+        }
 
-        /** The base projection that works across all versions of android. */
+        /**
+         * Direct indexed query selector:
+         * Excludes zero-size files, non-music (IS_MUSIC != 0), tracks shorter than 30s (DURATION >= 30000 ms),
+         * and system/messaging/call directories.
+         */
+        private const val BASE_SELECTOR =
+            "NOT ${AOSPMediaStore.Audio.Media.SIZE}=0 " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.IS_MUSIC} != 0 " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DURATION} >= 30000 " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Android/data/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Android/media/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/WhatsApp/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Telegram/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Recordings/%' " +
+            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Call/%'"
+
+        /** Base projection strictly limiting extracted columns (ID, Title, Artist, Album, Data, Duration + file attributes). */
         private val BASE_PROJECTION =
             arrayOf(
                 AOSPMediaStore.Audio.AudioColumns._ID,
+                AOSPMediaStore.Audio.AudioColumns.TITLE,
+                AOSPMediaStore.Audio.AudioColumns.ARTIST,
+                AOSPMediaStore.Audio.AudioColumns.ALBUM,
+                AOSPMediaStore.Audio.AudioColumns.DATA,
+                AOSPMediaStore.Audio.AudioColumns.DURATION,
                 AOSPMediaStore.Audio.AudioColumns.DATE_ADDED,
                 AOSPMediaStore.Audio.AudioColumns.DATE_MODIFIED,
                 AOSPMediaStore.Audio.AudioColumns.SIZE,
@@ -187,3 +229,4 @@ private constructor(
             )
     }
 }
+
