@@ -43,7 +43,7 @@
             android:resource="@xml/automotive_app_desc"/>
         <meta-data
                 android:name="androidx.car.app.TintableAttributionIcon"
-                android:resource="@drawable/ic_novaura_24" />
+                android:resource="@drawable/ic_novaura_stat_24" />
 
         <activity
             android:name=".MainActivity"

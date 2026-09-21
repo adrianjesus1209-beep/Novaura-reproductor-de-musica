@@ -395,7 +395,7 @@ private class PlaybackNotification(
     sessionToken: MediaSessionCompat.Token,
 ) : ForegroundServiceNotification(context, CHANNEL_INFO) {
     init {
-        setSmallIcon(R.drawable.ic_auxio_24)
+        setSmallIcon(R.drawable.ic_novaura_stat_24)
         setCategory(NotificationCompat.CATEGORY_TRANSPORT)
         setShowWhen(false)
         setSilent(true)
