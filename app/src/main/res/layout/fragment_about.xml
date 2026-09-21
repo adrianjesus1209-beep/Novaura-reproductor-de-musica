@@ -50,7 +50,7 @@
                         style="@style/Widget.Auxio.Image.Small"
                         android:layout_marginTop="@dimen/spacing_medium"
                         android:contentDescription="@string/desc_auxio_icon"
-                        android:src="@mipmap/ic_launcher"
+                        android:src="@drawable/logo"
                         app:layout_constraintEnd_toStartOf="@+id/about_app_name"
                         app:layout_constraintHorizontal_chainStyle="packed"
                         app:layout_constraintStart_toStartOf="parent"
