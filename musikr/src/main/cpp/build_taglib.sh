@@ -31,7 +31,7 @@ build_for_arch() {
     -DWITH_APE=OFF -DWITH_ASF=OFF -DWITH_ASF=OFF -DWITH_MOD=OFF -DWITH_SHORTEN=OFF \
     -DWITH_TRUEAUDIO=OFF -DCMAKE_CXX_FLAGS="-fPIC"
   # Try to parallelize the build
-  cmake --build $DST_DIR --config Release -j$(nproc)
+  cmake --build $DST_DIR --config Release -j$(nproc 2>/dev/null || echo 4)
   cd $WORKING_DIR
 
   cmake --install $DST_DIR --config Release --prefix $PKG_DIR --strip
