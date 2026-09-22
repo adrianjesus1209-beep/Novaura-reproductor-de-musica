@@ -85,6 +85,18 @@
                 app:iconTint="@color/sel_checkable_icon"
                 app:strokeColor="@color/sel_checkable_outline"
                 tools:icon="@drawable/ic_skip_next_24" />
+
+            <org.oxycblt.auxio.ui.RippleFixMaterialButton
+                android:id="@+id/playback_close"
+                style="@style/Widget.Material3Expressive.Button.IconButton"
+                app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Small"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/desc_exit"
+                app:backgroundTint="@android:color/transparent"
+                app:icon="@drawable/ic_close_24"
+                app:iconTint="?attr/colorOnSurfaceVariant"
+                tools:ignore="TouchTargetSizeCheck" />
         </com.google.android.material.button.MaterialButtonGroup>
 
     </org.oxycblt.auxio.playback.ui.ForcedLTRFrameLayout>

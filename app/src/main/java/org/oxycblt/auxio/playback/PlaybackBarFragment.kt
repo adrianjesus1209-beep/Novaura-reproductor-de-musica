@@ -67,6 +67,7 @@ class PlaybackBarFragment : ViewBindingFragment<FragmentPlaybackBarBinding>() {
 
         // Set up actions
         binding.playbackPlayPause.setOnClickListener { playbackModel.togglePlaying() }
+        binding.playbackClose.setOnClickListener { playbackModel.closePlayback() }
 
         // -- VIEWMODEL SETUP ---
         collectImmediately(playbackModel.song, ::updateSong)

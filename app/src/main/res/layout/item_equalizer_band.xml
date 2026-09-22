@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/band_freq"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?attr/textAppearanceLabelMedium"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textStyle="bold"
+        tools:ignore="MissingConstraints" />
+
+    <com.google.android.material.slider.Slider
+        android:id="@+id/band_slider"
+        style="@style/Widget.Auxio.Slider"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:thumbColor="?attr/colorPrimary"
+        app:trackColorActive="?attr/colorPrimary"
+        app:trackColorInactive="?attr/colorSurfaceContainerHighest" />
+
+</LinearLayout>

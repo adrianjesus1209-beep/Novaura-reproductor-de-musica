@@ -372,6 +372,11 @@
     <string name="desc_shuffle">Turn shuffle on or off</string>
     <string name="desc_exit">Stop playback</string>
 
+    <string name="lbl_equalizer_enabled">Enable equalizer</string>
+    <string name="lbl_equalizer_reset">Reset</string>
+    <string name="lbl_equalizer_no_session">No playback is currently active.</string>
+    <string name="desc_equalizer_band">Frequency band %1$d: %2$s</string>
+
     <string name="desc_remove_song">Remove this song</string>
     <string name="desc_song_handle">Move this song</string>
     <string name="desc_queue_bar">Open the queue</string>

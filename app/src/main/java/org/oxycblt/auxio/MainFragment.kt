@@ -280,6 +280,8 @@ class MainFragment :
             binding.queueSheet.coordinatorLayoutBehavior as QueueBottomSheetBehavior?
 
         val playbackRatio = max(playbackSheetBehavior.calculateSlideOffset(), 0f)
+        // If there is no active song, the mini bar must be hidden regardless of sheet state.
+        val playbackBarAlphaMultiplier = if (playbackModel.song.value != null) 1f else 0f
         // Stupid hack to prevent you from sliding the sheet up without closing the speed
         // dial. Filtering out ACTION_MOVE events will cause back gestures to close the
         // speed dial, which is super finicky behavior.
@@ -328,7 +330,7 @@ class MainFragment :
             val queuePanelBackRatio = min(queueBackRatio * 2, 1f)
             val queuePanelRatio = 1 - min(queuePanelEdgeRatio * queuePanelBackRatio, 1f)
 
-            binding.playbackBarFragment.alpha = max(playbackOutRatio, queueBarRatio)
+            binding.playbackBarFragment.alpha = max(playbackOutRatio, queueBarRatio) * playbackBarAlphaMultiplier
             binding.playbackPanelFragment.alpha = min(playbackInRatio, queuePanelRatio)
             binding.queueFragment.alpha = queueInRatio
 
@@ -340,7 +342,7 @@ class MainFragment :
             }
         } else {
             // No queue sheet, fade normally based on the playback sheet
-            binding.playbackBarFragment.alpha = playbackOutRatio
+            binding.playbackBarFragment.alpha = playbackOutRatio * playbackBarAlphaMultiplier
             binding.playbackPanelFragment.alpha = playbackInRatio
             (binding.queueSheet.background as MaterialShapeDrawable).shapeAppearanceModel =
                 ShapeAppearanceModel.builder()

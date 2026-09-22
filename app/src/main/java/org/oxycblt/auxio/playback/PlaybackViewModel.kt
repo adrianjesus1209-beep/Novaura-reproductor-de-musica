@@ -626,6 +626,12 @@ constructor(
         playbackManager.repeatMode(playbackManager.repeatMode.increment())
     }
 
+    /** End the current playback session, stopping playback and hiding the mini bar. */
+    fun closePlayback() {
+        L.d("Closing playback session")
+        playbackManager.endSession()
+    }
+
     // --- UI CONTROL ---
 
     /** Open the main panel, closing all other panels. */

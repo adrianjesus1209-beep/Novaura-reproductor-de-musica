@@ -411,9 +411,10 @@ private class PlaybackNotification(
             buildAction(context, PlaybackActions.ACTION_SKIP_NEXT, R.drawable.ic_skip_next_24)
         )
         addAction(buildShuffleAction(context, false))
+        addAction(buildAction(context, PlaybackActions.ACTION_EXIT, R.drawable.ic_close_24))
 
         setStyle(
-            MediaStyle(this).setMediaSession(sessionToken).setShowActionsInCompactView(1, 2, 3)
+            MediaStyle(this).setMediaSession(sessionToken).setShowActionsInCompactView(1, 2, 3, 5)
         )
     }
 

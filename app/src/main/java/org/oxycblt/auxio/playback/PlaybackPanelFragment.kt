@@ -19,16 +19,11 @@
 package org.oxycblt.auxio.playback
 
 import android.annotation.SuppressLint
-import android.content.ActivityNotFoundException
-import android.content.Intent
-import android.media.audiofx.AudioEffect
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.updatePadding
 import androidx.dynamicanimation.animation.SpringForce
@@ -80,7 +75,6 @@ class PlaybackPanelFragment :
     private val detailModel: DetailViewModel by activityViewModels()
     private val listModel: ListViewModel by activityViewModels()
     private val queueModel: QueueViewModel by viewModels()
-    private var equalizerLauncher: ActivityResultLauncher<Intent>? = null
     private var userAwarePagerCallback: UserAwarePagerCallback? = null
 
     override fun onCreateBinding(inflater: LayoutInflater) =
@@ -91,13 +85,6 @@ class PlaybackPanelFragment :
         savedInstanceState: Bundle?,
     ) {
         super.onBindingCreated(binding, savedInstanceState)
-
-        // AudioEffect expects you to use startActivityForResult with the panel intent. There is no
-        // contract analogue for this intent, so the generic contract is used instead.
-        equalizerLauncher =
-            registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-                // Nothing to do
-            }
 
         // --- UI SETUP ---
         binding.root.setOnApplyWindowInsetsListener { view, insets ->
@@ -219,7 +206,6 @@ class PlaybackPanelFragment :
     //    }
 
     override fun onDestroyBinding(binding: FragmentPlaybackPanelBinding) {
-        equalizerLauncher = null
         binding.playbackRepeat.clearPendingIcon()
         binding.playbackSong.isSelected = false
         binding.playbackArtist.isSelected = false
@@ -231,22 +217,9 @@ class PlaybackPanelFragment :
 
     override fun onMenuItemClick(item: MenuItem): Boolean {
         if (item.itemId == R.id.action_open_equalizer) {
-            // Launch the system equalizer app, if possible.
-            L.d("Launching equalizer")
-            val equalizerIntent =
-                Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL)
-                    // Provide audio session ID so the equalizer can show options for this app
-                    // in particular.
-                    .putExtra(AudioEffect.EXTRA_AUDIO_SESSION, playbackModel.currentAudioSessionId)
-                    // Signal music type so that the equalizer settings are appropriate for
-                    // music playback.
-                    .putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
-            try {
-                requireNotNull(equalizerLauncher) { "Equalizer panel launcher was not available" }
-                    .launch(equalizerIntent)
-            } catch (e: ActivityNotFoundException) {
-                requireContext().showToast(R.string.err_no_app)
-            }
+            // Show the in-app equalizer instead of relying on the system panel.
+            L.d("Opening equalizer")
+            EqualizerDialogFragment().show(parentFragmentManager, "equalizer")
             return true
         }
 
