@@ -114,7 +114,7 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         // Have to set up the permission launcher before the view is shown
         storagePermissionLauncher =
             registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-                musicModel.refresh()
+                musicModel.rescan()
             }
 
         getContentLauncher =

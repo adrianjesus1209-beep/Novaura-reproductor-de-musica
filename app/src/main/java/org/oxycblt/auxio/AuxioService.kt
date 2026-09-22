@@ -144,9 +144,6 @@ class AuxioService :
                 } else {
                     ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
                     isForeground = false
-                    // Nothing is being foregrounded (e.g a playback session was fully ended
-                    // and no indexing is running), so shut the service down completely.
-                    stopSelf()
                 }
             }
         }
