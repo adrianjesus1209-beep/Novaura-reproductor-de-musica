@@ -364,12 +364,11 @@ private constructor(
         mediaSession.setPlaybackState(state.build())
     }
 
-    /** Invalidate both repeat and shuffle notification actions. */
+    /** Invalidate the repeat and shuffle notification actions. */
     private fun invalidateNotificationActions() {
         L.d("Invalidating notification actions")
         invalidateSessionState()
 
-        notification.updateRepeatMode(playbackManager.repeatMode)
         notification.updateShuffled(playbackManager.isShuffled)
 
         if (!bitmapProvider.isBusy) {
@@ -402,7 +401,6 @@ private class PlaybackNotification(
         setContentIntent(context.newMainPendingIntent())
         setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-        addAction(buildRepeatAction(context, RepeatMode.NONE))
         addAction(
             buildAction(context, PlaybackActions.ACTION_SKIP_PREV, R.drawable.ic_skip_prev_24)
         )
@@ -414,7 +412,7 @@ private class PlaybackNotification(
         addAction(buildAction(context, PlaybackActions.ACTION_EXIT, R.drawable.ic_close_24))
 
         setStyle(
-            MediaStyle(this).setMediaSession(sessionToken).setShowActionsInCompactView(1, 2, 3, 5)
+            MediaStyle(this).setMediaSession(sessionToken).setShowActionsInCompactView(0, 1, 2, 4)
         )
     }
 
@@ -450,17 +448,7 @@ private class PlaybackNotification(
      */
     fun updatePlaying(isPlaying: Boolean) {
         L.d("Updating playing state: $isPlaying")
-        mActions[2] = buildPlayPauseAction(context, isPlaying)
-    }
-
-    /**
-     * Update the secondary action in this notification to show the current [RepeatMode].
-     *
-     * @param repeatMode The current [RepeatMode].
-     */
-    fun updateRepeatMode(repeatMode: RepeatMode) {
-        L.d("Applying repeat mode action: $repeatMode")
-        mActions[0] = buildRepeatAction(context, repeatMode)
+        mActions[1] = buildPlayPauseAction(context, isPlaying)
     }
 
     /**
@@ -470,7 +458,7 @@ private class PlaybackNotification(
      */
     fun updateShuffled(isShuffled: Boolean) {
         L.d("Applying shuffle action: $isShuffled")
-        mActions[4] = buildShuffleAction(context, isShuffled)
+        mActions[3] = buildShuffleAction(context, isShuffled)
     }
 
     // --- NOTIFICATION ACTION BUILDERS ---
@@ -486,13 +474,6 @@ private class PlaybackNotification(
                 R.drawable.ic_play_24
             }
         return buildAction(context, PlaybackActions.ACTION_PLAY_PAUSE, drawableRes)
-    }
-
-    private fun buildRepeatAction(
-        context: Context,
-        repeatMode: RepeatMode,
-    ): NotificationCompat.Action {
-        return buildAction(context, PlaybackActions.ACTION_INC_REPEAT_MODE, repeatMode.icon)
     }
 
     private fun buildShuffleAction(

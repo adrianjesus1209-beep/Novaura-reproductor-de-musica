@@ -64,6 +64,19 @@
             app:buttonSizeChange="@xml/safe_button_group_size_change">
 
             <org.oxycblt.auxio.ui.RippleFixMaterialButton
+                android:id="@+id/playback_prev"
+                style="@style/Widget.Material3Expressive.Button.IconButton.Outlined"
+                app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Small"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="@string/desc_skip_prev"
+                app:backgroundTint="?attr/colorSurfaceContainerLow"
+                app:icon="@drawable/ic_skip_prev_24"
+                app:iconTint="@color/sel_checkable_icon"
+                app:strokeColor="@color/sel_checkable_outline"
+                tools:ignore="TouchTargetSizeCheck" />
+
+            <org.oxycblt.auxio.ui.RippleFixMaterialButton
                 android:id="@+id/playback_play_pause"
                 style="@style/Widget.Auxio.Button.Playback.PlayPause"
                 android:layout_width="wrap_content"
@@ -73,18 +86,18 @@
                 app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Small"
                 app:icon="@drawable/sel_playing_state_24" />
 
-            <org.oxycblt.auxio.playback.ui.button.WidthFixMaterialButton
-                android:id="@+id/playback_secondary_action"
+            <org.oxycblt.auxio.ui.RippleFixMaterialButton
+                android:id="@+id/playback_next"
                 style="@style/Widget.Material3Expressive.Button.IconButton.Outlined"
                 app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Small"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:checkable="true"
-                app:toggleCheckedStateOnClick="false"
+                android:contentDescription="@string/desc_skip_next"
                 app:backgroundTint="?attr/colorSurfaceContainerLow"
+                app:icon="@drawable/ic_skip_next_24"
                 app:iconTint="@color/sel_checkable_icon"
                 app:strokeColor="@color/sel_checkable_outline"
-                tools:icon="@drawable/ic_skip_next_24" />
+                tools:ignore="TouchTargetSizeCheck" />
 
             <org.oxycblt.auxio.ui.RippleFixMaterialButton
                 android:id="@+id/playback_close"

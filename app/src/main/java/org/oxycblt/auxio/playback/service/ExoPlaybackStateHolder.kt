@@ -451,7 +451,13 @@ class ExoPlaybackStateHolder(
             // User could feasibly start playing again if they were fast enough, so
             // we need to avoid stopping the foreground state if that's the case.
             if (!playbackManager.progression.isPlaying) {
+                // Completely close out the session instead of merely pausing: stop the
+                // player (releasing the audio focus) and clear the queue so that the
+                // current track is removed from the UI as well.
+                player.stop()
+                player.setMediaItems(listOf())
                 sessionOngoing = false
+                playbackManager.ack(this, StateAck.NewPlayback)
                 playbackManager.ack(this, StateAck.SessionEnded)
             }
         }
