@@ -88,6 +88,7 @@ class ExoPlaybackStateHolder(
     private val restoreScope = CoroutineScope(Dispatchers.IO + saveJob)
     private var currentSaveJob: Job? = null
     private var openAudioEffectSession = false
+    private var lastErrorMediaItemIndex = C.INDEX_UNSET
 
     var sessionOngoing = false
         private set
@@ -529,12 +530,43 @@ class ExoPlaybackStateHolder(
     }
 
     override fun onPlayerError(error: PlaybackException) {
-        // TODO: Replace with no skipping and a notification instead
-        // If there's any issue, just go to the next song.
-        L.e("Player error occurred")
+        val failingIndex = player.currentMediaItemIndex
+        val failingUri = player.currentMediaItem?.localConfiguration?.uri
+
+        // Log the failing item + reason so playback failures are diagnosable instead of
+        // skipping silently.
+        L.e("Player error while preparing/changing playback")
+        L.e("Error code: ${error.errorCodeName} (${error.errorCode})")
+        L.e("Error message: ${error.message}")
+        failingUri?.let { L.e("Failed URI: $it") }
         L.e(error.stackTraceToString())
-        player.prepare()
-        playbackManager.next()
+
+        // Avoid getting stuck retrying the same item forever: if the same item fails twice in a
+        // row, stop playback instead of skipping in an infinite loop.
+        if (lastErrorMediaItemIndex == failingIndex) {
+            L.e("Repeated error on the same media item, stopping playback")
+            player.stop()
+            player.setMediaItems(listOf())
+            lastErrorMediaItemIndex = C.INDEX_UNSET
+            sessionOngoing = false
+            playbackManager.ack(this, StateAck.NewPlayback)
+            playbackManager.ack(this, StateAck.SessionEnded)
+            return
+        }
+        lastErrorMediaItemIndex = failingIndex
+
+        // If there's any issue, just go to the next song.
+        if (player.hasNextMediaItem()) {
+            L.d("Playback failed, skipping to the next media item")
+            player.seekToNextMediaItem()
+            player.prepare()
+            player.play()
+            playbackManager.ack(this, StateAck.IndexMoved)
+        } else {
+            L.d("Playback of the last item failed, restarting the queue")
+            player.prepare()
+            playbackManager.next()
+        }
     }
 
     private fun broadcastAudioEffectAction(event: String) {
@@ -598,7 +630,16 @@ class ExoPlaybackStateHolder(
         currentSaveJob = saveScope.launch { block() }
     }
 
-    private fun Song.buildMediaItem() = MediaItem.Builder().setUri(uri).setTag(this).build()
+    private fun Song.buildMediaItem() =
+        MediaItem.Builder()
+            .setUri(uri)
+            .setTag(this)
+            .build()
+            .also {
+                if (uri.scheme.isNullOrEmpty()) {
+                    L.w("Song \"$name\" has no URI scheme: $uri")
+                }
+            }
 
     private val MediaItem.song: Song?
         get() = this.localConfiguration?.tag as? Song?

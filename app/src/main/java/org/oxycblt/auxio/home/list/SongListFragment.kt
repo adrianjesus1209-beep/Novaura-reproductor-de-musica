@@ -106,6 +106,15 @@ class SongListFragment :
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Re-evaluate the no-music indicator so that permission changes (e.g. grants made
+        // from the system settings) are reflected immediately.
+        if (view != null) {
+            updateNoMusicIndicator(homeModel.empty.value, musicModel.indexingState.value)
+        }
+    }
+
     override fun getPopupData(pos: Int): FastScrollRecyclerView.PopupProvider.PopupData? {
         val song = homeModel.songList.value.getOrNull(pos) ?: return null
         // Change how we display the popup depending on the current sort mode.

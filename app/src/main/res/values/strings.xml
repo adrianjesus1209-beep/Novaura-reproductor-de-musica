@@ -219,6 +219,7 @@
     <string name="lng_empty_playlists">Your playlists will show up here.</string>
     <string name="lng_permission_denied_msg">Se requiere acceso al almacenamiento para detectar automáticamente tu música local y metadatos. Otorga el permiso para continuar.</string>
     <string name="lbl_grant_permission">Otorgar Permiso</string>
+    <string name="lng_permission_required_settings">Habilita el permiso de almacenamiento desde los ajustes de la aplicación.</string>
     <string name="lng_scanning_music">Buscando música local y metadatos…</string>
     <string name="lbl_scan_again">Escanear de nuevo</string>
     <string name="lng_file_picker">Load music from the folders that you select. Slower, but more reliable. Requires the vanilla file manager app to be installed.</string>

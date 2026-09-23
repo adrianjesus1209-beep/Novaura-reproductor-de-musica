@@ -20,9 +20,12 @@ package org.oxycblt.auxio.home
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.MenuItem
 import androidx.activity.result.ActivityResultLauncher
@@ -93,6 +96,8 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
     private var storagePermissionLauncher: ActivityResultLauncher<String>? = null
     private var getContentLauncher: ActivityResultLauncher<String>? = null
     private var pendingImportTarget: Playlist? = null
+    private var hasRequestedPermission = false
+    private var pendingPermissionRescan = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -113,8 +118,14 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
 
         // Have to set up the permission launcher before the view is shown
         storagePermissionLauncher =
-            registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-                musicModel.rescan()
+            registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+                pendingPermissionRescan = false
+                if (isGranted) {
+                    L.d("Storage permission granted, scanning now")
+                    musicModel.rescan()
+                } else {
+                    L.w("Storage permission denied")
+                }
             }
 
         getContentLauncher =
@@ -184,14 +195,26 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         collect(playbackModel.playbackDecision.flow, ::handlePlaybackDecision)
 
         // Check and request storage permission automatically on launch
-        val storagePermission =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                Manifest.permission.READ_MEDIA_AUDIO
-            } else {
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            }
-        if (ContextCompat.checkSelfPermission(requireContext(), storagePermission) != PackageManager.PERMISSION_GRANTED) {
-            storagePermissionLauncher?.launch(storagePermission)
+        if (!hasStoragePermission()) {
+            storagePermissionLauncher?.launch(storagePermission())
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // If the user granted the permission while the app was backgrounded (e.g. from the
+        // system settings), scan the library immediately so it shows up without a restart.
+        if (pendingPermissionRescan && hasStoragePermission()) {
+            pendingPermissionRescan = false
+            L.d("Storage permission granted while backgrounded, scanning now")
+            musicModel.rescan()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (!hasStoragePermission()) {
+            pendingPermissionRescan = true
         }
     }
 
@@ -310,15 +333,41 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
 
     private fun handleRequestPermission(unit: Unit?) {
         if (unit == null) return
-        val permission =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                Manifest.permission.READ_MEDIA_AUDIO
+        if (!hasStoragePermission()) {
+            val permission = storagePermission()
+            if (hasRequestedPermission && !shouldShowRequestPermissionRationale(permission)) {
+                L.d("Storage permission permanently denied, opening app settings")
+                requireContext().showToast(R.string.lng_permission_required_settings)
+                openAppSettings()
             } else {
-                Manifest.permission.READ_EXTERNAL_STORAGE
+                hasRequestedPermission = true
+                storagePermissionLauncher?.launch(permission)
             }
-        storagePermissionLauncher?.launch(permission)
+        }
         homeModel.requestPermission.consume()
     }
+
+    private fun openAppSettings() {
+        val packageName = requireContext().packageName
+        val intent =
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", packageName, null),
+            )
+        runCatching { startActivity(intent) }
+            .onFailure { L.e("Could not open app settings for $packageName", it) }
+    }
+
+    private fun storagePermission(): String =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_AUDIO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+
+    private fun hasStoragePermission(): Boolean =
+        ContextCompat.checkSelfPermission(requireContext(), storagePermission()) ==
+            PackageManager.PERMISSION_GRANTED
 
     private fun updateIndexerState(state: IndexingState?) {
         val binding = requireBinding()

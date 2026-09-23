@@ -58,7 +58,18 @@ private constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     override suspend fun explore(files: Channel<File>): Deferred<Result<Unit>> = coroutineScope {
         tryAsyncWith(files, Dispatchers.IO) { channel ->
-            val projection = BASE_PROJECTION + pathInterpreterFactory.projection
+            val baseProjection = BASE_PROJECTION + pathInterpreterFactory.projection
+            val projection =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                    !baseProjection.contains(AOSPMediaStore.Audio.AudioColumns.VOLUME_NAME)
+                ) {
+                    // Rows on API 29+ may reside on different volumes (e.g. a microSD), so we
+                    // need the row's volume to build a file URI that can actually be opened for
+                    // playback instead of the aggregate "external" volume.
+                    baseProjection + AOSPMediaStore.Audio.AudioColumns.VOLUME_NAME
+                } else {
+                    baseProjection
+                }
             var selector = BASE_SELECTOR
             val args = mutableListOf<String>()
 
@@ -113,6 +124,12 @@ private constructor(
                     cursor.getColumnIndexOrThrow(AOSPMediaStore.Audio.AudioColumns.DATE_ADDED)
                 val dateModifiedIndex =
                     cursor.getColumnIndexOrThrow(AOSPMediaStore.Audio.AudioColumns.DATE_MODIFIED)
+                val volumeIndex =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        cursor.getColumnIndexOrThrow(AOSPMediaStore.Audio.AudioColumns.VOLUME_NAME)
+                    } else {
+                        -1
+                    }
 
                 while (cursor.moveToNext()) {
                     val path = pathInterpreter.extract() ?: continue
@@ -124,7 +141,19 @@ private constructor(
                     }
 
                     val id = cursor.getLong(idIndex)
-                    val uri = Uri.withAppendedPath(mediaUri, id.toString())
+                    val uri =
+                        if (volumeIndex != -1) {
+                            val volumeName = cursor.getStringOrNull(volumeIndex)
+                            val baseUri =
+                                if (volumeName != null) {
+                                    AOSPMediaStore.Audio.Media.getContentUri(volumeName)
+                                } else {
+                                    mediaUri
+                                }
+                            Uri.withAppendedPath(baseUri, id.toString())
+                        } else {
+                            Uri.withAppendedPath(mediaUri, id.toString())
+                        }
                     val mimeType = cursor.getStringOrNull(mimeTypeIndex) ?: "audio/*"
                     val size = cursor.getLong(sizeIndex)
                     val dateAdded = cursor.getLong(dateAddedIndex) * 1000 // Convert to milliseconds
