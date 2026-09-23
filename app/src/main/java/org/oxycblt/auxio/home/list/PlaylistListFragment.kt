@@ -48,6 +48,7 @@ import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.MusicParent
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
+import timber.log.Timber as L
 
 /**
  * A [ListFragment] that shows a list of [Playlist]s.
@@ -181,6 +182,7 @@ class PlaylistListFragment :
         binding.homeNoMusic.isInvisible = !empty && playlists.isNotEmpty()
 
         if (!hasPermission) {
+            L.d("[PERMISSIONS_DEBUG] UI=PERMISSION_REQUIRED")
             binding.homeNoMusicMsg.text = getString(R.string.lng_permission_denied_msg)
             binding.homeNoMusicAction.isVisible = true
             binding.homeNoMusicAction.text = getString(R.string.lbl_grant_permission)

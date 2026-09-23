@@ -18,8 +18,8 @@
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.0.0 APK** | 9.2 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/raw/main/apk/Novaura-v1.0.0.apk) |
-| **Novaura v1.0.0 ZIP** | 5.0 MB | [Descargar ZIP](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/raw/main/apk/Novaura-v1.0.0.zip) |
+| **Novaura v1.0.0 APK** | 9.3 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/raw/main/apk/Novaura-v1.0.0.apk) |
+| **Novaura v1.0.0 ZIP** | 5.1 MB | [Descargar ZIP](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/raw/main/apk/Novaura-v1.0.0.zip) |
 
 ---
 

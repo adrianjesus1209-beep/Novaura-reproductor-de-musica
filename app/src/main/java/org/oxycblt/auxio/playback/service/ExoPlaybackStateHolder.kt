@@ -249,19 +249,34 @@ class ExoPlaybackStateHolder(
 
     override fun newPlayback(command: PlaybackCommand) {
         parent = command.parent
-        player.shuffleModeEnabled = command.shuffled
-        player.setMediaItems(command.queue.map { it.buildMediaItem() })
-        val startIndex =
-            command.song
-                ?.let { command.queue.indexOf(it) }
-                .also { check(it != -1) { "Start song not in queue" } }
-        if (command.shuffled) {
-            player.setShuffleOrder(BetterShuffleOrder(command.queue.size, startIndex ?: -1))
+        val items = command.queue.map { it.buildMediaItem() }
+        runCatching {
+            // Force a clean player lifecycle per track, mirroring a MediaPlayer
+            // stop() -> reset() -> setDataSource() -> prepareAsync() -> onPrepared -> start().
+            // stop() drops the player back to the idle state so no residual error/prepared
+            // state from a previous session can ever block the new queue.
+            player.stop()
+            player.clearMediaItems()
+            player.shuffleModeEnabled = command.shuffled
+            player.setMediaItems(items)
+            val startIndex =
+                command.song
+                    ?.let { command.queue.indexOf(it) }
+                    .also { check(it != -1) { "Start song not in queue" } }
+            if (command.shuffled) {
+                player.setShuffleOrder(BetterShuffleOrder(command.queue.size, startIndex ?: -1))
+            }
+            val target = startIndex ?: player.currentTimeline.getFirstWindowIndex(command.shuffled)
+            player.seekTo(target, C.TIME_UNSET)
+            player.prepare()
+            player.play()
+        }.onFailure {
+            L.e("[PLAYBACK_ERROR] Failed to start a new playback session", it)
+            runCatching {
+                player.stop()
+                player.setMediaItems(listOf())
+            }
         }
-        val target = startIndex ?: player.currentTimeline.getFirstWindowIndex(command.shuffled)
-        player.seekTo(target, C.TIME_UNSET)
-        player.prepare()
-        player.play()
         playbackManager.ack(this, StateAck.NewPlayback)
         deferSave()
     }
@@ -535,16 +550,17 @@ class ExoPlaybackStateHolder(
 
         // Log the failing item + reason so playback failures are diagnosable instead of
         // skipping silently.
-        L.e("Player error while preparing/changing playback")
-        L.e("Error code: ${error.errorCodeName} (${error.errorCode})")
-        L.e("Error message: ${error.message}")
-        failingUri?.let { L.e("Failed URI: $it") }
-        L.e(error.stackTraceToString())
+        L.e("[PLAYBACK_ERROR] code=${error.errorCodeName} (${error.errorCode})")
+        L.e("[PLAYBACK_ERROR] message=${error.message}")
+        failingUri?.let {
+            L.e("[PLAYBACK_ERROR] uri=$it scheme=${it.scheme ?: "null"}")
+        }
+        L.e("[PLAYBACK_ERROR] stacktrace:\n${error.stackTraceToString()}")
 
         // Avoid getting stuck retrying the same item forever: if the same item fails twice in a
         // row, stop playback instead of skipping in an infinite loop.
         if (lastErrorMediaItemIndex == failingIndex) {
-            L.e("Repeated error on the same media item, stopping playback")
+            L.e("[PLAYBACK_ERROR] Repeated error on the same media item, stopping playback")
             player.stop()
             player.setMediaItems(listOf())
             lastErrorMediaItemIndex = C.INDEX_UNSET
@@ -557,13 +573,13 @@ class ExoPlaybackStateHolder(
 
         // If there's any issue, just go to the next song.
         if (player.hasNextMediaItem()) {
-            L.d("Playback failed, skipping to the next media item")
+            L.d("[PLAYBACK_ERROR] Skipping to the next media item after failure")
             player.seekToNextMediaItem()
             player.prepare()
             player.play()
             playbackManager.ack(this, StateAck.IndexMoved)
         } else {
-            L.d("Playback of the last item failed, restarting the queue")
+            L.d("[PLAYBACK_ERROR] Last item failed, restarting the queue")
             player.prepare()
             playbackManager.next()
         }
@@ -636,8 +652,14 @@ class ExoPlaybackStateHolder(
             .setTag(this)
             .build()
             .also {
-                if (uri.scheme.isNullOrEmpty()) {
-                    L.w("Song \"$name\" has no URI scheme: $uri")
+                val scheme = uri.scheme
+                if (scheme != "content") {
+                    // The player only accepts Content URIs built from MediaStore IDs. Flag any
+                    // legacy file:///absolute-path URI so the blocking failure is diagnosable.
+                    L.w(
+                        "[PLAYBACK_ERROR] NON_CONTENT_URI song=\"$name\" uri=$uri " +
+                            "scheme=${scheme ?: "null"}"
+                    )
                 }
             }
 

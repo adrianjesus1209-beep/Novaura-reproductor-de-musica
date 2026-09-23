@@ -121,10 +121,13 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
             registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
                 pendingPermissionRescan = false
                 if (isGranted) {
-                    L.d("Storage permission granted, scanning now")
+                    // The system callback confirmed the grant: update the app state reactively on
+                    // the main thread and start scanning right away, without requiring a restart.
+                    L.d("[PERMISSIONS_DEBUG] RESULT=GRANTED")
                     musicModel.rescan()
+                    L.d("[PERMISSIONS_DEBUG] RESCAN triggered from grant callback")
                 } else {
-                    L.w("Storage permission denied")
+                    L.w("[PERMISSIONS_DEBUG] RESULT=DENIED")
                 }
             }
 
@@ -196,17 +199,25 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
 
         // Check and request storage permission automatically on launch
         if (!hasStoragePermission()) {
+            L.d("[PERMISSIONS_DEBUG] REQUESTING permission=${storagePermission()}")
             storagePermissionLauncher?.launch(storagePermission())
+        } else {
+            L.d("[PERMISSIONS_DEBUG] CHECK=GRANTED, skipping request")
         }
     }
 
     override fun onResume() {
         super.onResume()
+        val granted = hasStoragePermission()
+        L.d("[PERMISSIONS_DEBUG] onResume CHECK=${if (granted) "GRANTED" else "DENIED"}")
+        if (granted) {
+            pendingPermissionRescan = false
+        }
         // If the user granted the permission while the app was backgrounded (e.g. from the
         // system settings), scan the library immediately so it shows up without a restart.
-        if (pendingPermissionRescan && hasStoragePermission()) {
+        if (pendingPermissionRescan && granted) {
             pendingPermissionRescan = false
-            L.d("Storage permission granted while backgrounded, scanning now")
+            L.d("[PERMISSIONS_DEBUG] RESCAN triggered on resume (grant in background)")
             musicModel.rescan()
         }
     }
@@ -336,13 +347,16 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         if (!hasStoragePermission()) {
             val permission = storagePermission()
             if (hasRequestedPermission && !shouldShowRequestPermissionRationale(permission)) {
-                L.d("Storage permission permanently denied, opening app settings")
+                L.d("[PERMISSIONS_DEBUG] PERMANENTLY_DENIED, opening app settings")
                 requireContext().showToast(R.string.lng_permission_required_settings)
                 openAppSettings()
             } else {
                 hasRequestedPermission = true
+                L.d("[PERMISSIONS_DEBUG] REQUESTING permission=$permission")
                 storagePermissionLauncher?.launch(permission)
             }
+        } else {
+            L.d("[PERMISSIONS_DEBUG] Already granted, nothing to request")
         }
         homeModel.requestPermission.consume()
     }
