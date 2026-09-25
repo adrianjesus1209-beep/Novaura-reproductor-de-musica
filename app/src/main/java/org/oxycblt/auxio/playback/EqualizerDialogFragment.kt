@@ -47,6 +47,7 @@ class EqualizerDialogFragment : DialogFragment() {
     private var _binding: DialogEqualizerBinding? = null
     private val binding get() = _binding!!
     private val bandBindings = mutableListOf<ItemEqualizerBandBinding>()
+    private val desiredGains = mutableListOf<Short>()
     private var equalizer: Equalizer? = null
 
     override fun onCreateView(
@@ -94,19 +95,27 @@ class EqualizerDialogFragment : DialogFragment() {
         equalizer = newEqualizer
 
         val profile = EqualizerSettings.load(requireContext())
+        // Keep the device equalizer in sync with the persisted switch state.
+        try {
+            newEqualizer.enabled = profile.enabled
+        } catch (e: RuntimeException) {
+            L.w("Failed to set equalizer state", e)
+        }
         val bandCount = newEqualizer.numberOfBands
         val bandRange = newEqualizer.bandLevelRange
         val minLevel = bandRange[0].toFloat()
         val maxLevel = bandRange[1].toFloat()
+        desiredGains.clear()
 
         for (bandIndex in 0 until bandCount.toInt()) {
             val savedGain = profile.gains.getOrNull(bandIndex)
             val defaultLevel =
                 if (savedGain != null) {
-                    savedGain.toFloat()
+                    savedGain
                 } else {
-                    newEqualizer.getBandLevel(bandIndex.toShort()).toFloat()
+                    newEqualizer.getBandLevel(bandIndex.toShort())
                 }
+            desiredGains.add(defaultLevel)
 
             val freqLabel = formatFreq(newEqualizer.getCenterFreq(bandIndex.toShort()))
 
@@ -117,7 +126,11 @@ class EqualizerDialogFragment : DialogFragment() {
             row.bandSlider.valueFrom = minLevel
             row.bandSlider.valueTo = maxLevel
             row.bandSlider.stepSize = 50f
-            row.bandSlider.value = defaultLevel.coerceIn(minLevel, maxLevel)
+            // Only surface the saved gains while the equalizer is enabled; otherwise show a flat
+            // response so the dialog does not look modified while disabled.
+            row.bandSlider.value =
+                if (profile.enabled) defaultLevel.toFloat().coerceIn(minLevel, maxLevel) else 0f
+            row.bandSlider.isEnabled = profile.enabled
             row.bandSlider.addOnChangeListener { _, value, fromUser ->
                 if (fromUser) setBandLevel(bandIndex, value)
             }
@@ -129,8 +142,9 @@ class EqualizerDialogFragment : DialogFragment() {
 
     private fun setBandLevel(band: Int, levelMillis: Float) {
         val eq = equalizer ?: return
+        desiredGains[band] = levelMillis.roundToInt().toShort()
         try {
-            eq.setBandLevel(band.toShort(), levelMillis.roundToInt().toShort())
+            eq.setBandLevel(band.toShort(), desiredGains[band])
         } catch (e: RuntimeException) {
             L.w("Failed to set equalizer band level", e)
             return
@@ -146,12 +160,27 @@ class EqualizerDialogFragment : DialogFragment() {
             L.w("Failed to set equalizer state", e)
             return
         }
+        bandBindings.forEachIndexed { band, row ->
+            if (enabled) {
+                row.bandSlider.value =
+                    desiredGains[band].toFloat().coerceIn(row.bandSlider.valueFrom, row.bandSlider.valueTo)
+                try {
+                    eq.setBandLevel(band.toShort(), desiredGains[band])
+                } catch (e: RuntimeException) {
+                    L.w("Failed to set equalizer band level", e)
+                }
+            } else {
+                row.bandSlider.value = 0f
+            }
+            row.bandSlider.isEnabled = enabled
+        }
         persist()
     }
 
     private fun reset() {
         val eq = equalizer ?: return
         bandBindings.forEachIndexed { band, row ->
+            desiredGains[band] = 0
             try {
                 eq.setBandLevel(band.toShort(), 0)
             } catch (e: RuntimeException) {
@@ -164,8 +193,7 @@ class EqualizerDialogFragment : DialogFragment() {
 
     private fun persist() {
         val eq = equalizer ?: return
-        val gains = bandBindings.map { it.bandSlider.value.roundToInt().toShort() }
-        EqualizerSettings.save(requireContext(), eq.enabled, gains)
+        EqualizerSettings.save(requireContext(), eq.enabled, desiredGains)
     }
 
     private fun formatFreq(milliHz: Int): String {

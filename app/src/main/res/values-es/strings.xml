@@ -198,6 +198,10 @@
     <string name="lbl_mixes">Mezclas de DJ</string>
     <string name="lbl_mix">Mezcla de DJ</string>
     <string name="lbl_equalizer">Ecualizador</string>
+    <string name="lbl_equalizer_enabled">Activar ecualizador</string>
+    <string name="lbl_equalizer_reset">Restablecer</string>
+    <string name="lbl_equalizer_no_session">No hay reproducción activa.</string>
+    <string name="desc_equalizer_band">Banda de frecuencia %1$d: %2$s</string>
     <string name="set_cover_mode">Portadas de álbumes</string>
     <string name="set_cover_mode_off">Desactivadas</string>
     <string name="set_action_mode_repeat">Modo de repetición</string>
