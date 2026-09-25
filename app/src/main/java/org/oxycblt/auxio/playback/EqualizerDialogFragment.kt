@@ -17,6 +17,8 @@
  */
 package org.oxycblt.auxio.playback
 
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.media.audiofx.Equalizer
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -58,6 +60,7 @@ class EqualizerDialogFragment : DialogFragment() {
 
     override fun onStart() {
         super.onStart()
+        dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog?.window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
         setupEqualizer()
     }
