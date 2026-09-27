@@ -213,6 +213,18 @@
         <item name="colorOnPrimary">?attr/colorSurface</item>
     </style>
 
+    <!--
+        The equalizer dialog is backed by a fixed dark layer (ui_equalizer_bg) rather than a
+        themed surface, so its contents need to stay legible in *both* the light and dark themes.
+        Applied via android:theme on the dialog layout, and via a ContextThemeWrapper for the
+        band rows, which are inflated programmatically.
+    -->
+    <style name="ThemeOverlay.Auxio.Equalizer" parent="">
+        <item name="colorOnSurface">#ffffffff</item>
+        <item name="colorOnSurfaceVariant">#b3ffffff</item>
+        <item name="colorSurfaceContainerHighest">#33ffffff</item>
+    </style>
+
     <!-- TEXTVIEW STYLES -->
 
     <style name="Widget.Auxio.TextView.Base" parent="Widget.AppCompat.TextView">

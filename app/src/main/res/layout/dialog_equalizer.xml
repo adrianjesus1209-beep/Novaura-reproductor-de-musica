@@ -4,6 +4,8 @@
     android:id="@+id/equalizer_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@drawable/ui_equalizer_bg"
+    android:theme="@style/ThemeOverlay.Auxio.Equalizer"
     android:paddingStart="24dp"
     android:paddingTop="16dp"
     android:paddingEnd="24dp"

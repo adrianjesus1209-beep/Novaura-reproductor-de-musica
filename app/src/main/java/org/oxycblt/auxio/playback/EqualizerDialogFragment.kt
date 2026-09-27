@@ -21,6 +21,7 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.media.audiofx.Equalizer
 import android.os.Bundle
+import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -63,6 +64,7 @@ class EqualizerDialogFragment : DialogFragment() {
         super.onStart()
         dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog?.window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
+        dialog?.window?.setDimAmount(0.9f)
         setupEqualizer()
     }
 
@@ -107,6 +109,13 @@ class EqualizerDialogFragment : DialogFragment() {
         val maxLevel = bandRange[1].toFloat()
         desiredGains.clear()
 
+        // The band rows are inflated programmatically rather than in dialog_equalizer.xml, so the
+        // android:theme on the dialog root does not reach them. Re-create the inflater from a
+        // themed context so they pick up the same overlay, otherwise the labels keep the light
+        // theme's dark onSurface color and vanish.
+        val themedContext = ContextThemeWrapper(requireContext(), R.style.ThemeOverlay_Auxio_Equalizer)
+        val bandInflater = LayoutInflater.from(themedContext)
+
         for (bandIndex in 0 until bandCount.toInt()) {
             val savedGain = profile.gains.getOrNull(bandIndex)
             val defaultLevel =
@@ -119,7 +128,7 @@ class EqualizerDialogFragment : DialogFragment() {
 
             val freqLabel = formatFreq(newEqualizer.getCenterFreq(bandIndex.toShort()))
 
-            val row = ItemEqualizerBandBinding.inflate(layoutInflater, binding.equalizerBands, true)
+            val row = ItemEqualizerBandBinding.inflate(bandInflater, binding.equalizerBands, true)
             row.bandFreq.text = freqLabel
             row.bandSlider.contentDescription =
                 getString(R.string.desc_equalizer_band, bandIndex + 1, freqLabel)
