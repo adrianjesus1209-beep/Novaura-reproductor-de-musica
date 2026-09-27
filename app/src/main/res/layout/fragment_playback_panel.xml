@@ -82,13 +82,14 @@
             android:spacing="@dimen/spacing_tiny">
 
             <org.oxycblt.auxio.playback.ui.button.ScaledPlaybackButton
-                android:id="@+id/playback_repeat"
+                android:id="@+id/playback_shuffle"
                 style="@style/Widget.Auxio.Button.Playback.Toggle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:contentDescription="@string/desc_change_repeat"
-                app:icon="@drawable/ic_repeat_off_24"
-                app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Medium" />
+                android:contentDescription="@string/desc_shuffle"
+                app:icon="@drawable/sel_shuffle_state_24"
+                app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Medium"
+                app:tint="@color/sel_activatable_icon" />
 
             <org.oxycblt.auxio.playback.ui.button.ScaledPlaybackButton
                 android:id="@+id/playback_skip_prev"
@@ -119,14 +120,13 @@
                 app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Large.Narrow" />
 
             <org.oxycblt.auxio.playback.ui.button.ScaledPlaybackButton
-                android:id="@+id/playback_shuffle"
+                android:id="@+id/playback_repeat"
                 style="@style/Widget.Auxio.Button.Playback.Toggle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:contentDescription="@string/desc_shuffle"
-                app:icon="@drawable/sel_shuffle_state_24"
-                app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Medium"
-                app:tint="@color/sel_activatable_icon" />
+                android:contentDescription="@string/desc_change_repeat"
+                app:icon="@drawable/ic_repeat_off_24"
+                app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Medium" />
 
         </org.oxycblt.auxio.playback.ui.button.ScaledPlaybackButtonGroup>
 
