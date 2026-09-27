@@ -28,6 +28,13 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    testOptions {
+        // AudioLevelProcessorTest exercises a real media3 AudioProcessor off-device. The framework
+        // stubs in the unit-test android.jar throw on every call, so let the few Log paths inside
+        // media3 return defaults instead of failing the test.
+        unitTests.returnDefaultValues = true
+    }
+
     compileOptions {
         coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_21
@@ -185,5 +192,9 @@ dependencies {
     implementation 'com.joaomgcd:taskerpluginlibrary:0.4.10'
 
     // Fuzzy search
-    implementation 'org.apache.commons:commons-text:1.15.0'
+    implementation "org.apache.commons:commons-text:1.15.0"
+
+    // --- TESTS ---
+
+    testImplementation "junit:junit:4.13.2"
 }
