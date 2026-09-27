@@ -14,6 +14,21 @@ android {
     ndkVersion ndk_version
     namespace "org.oxycblt.auxio"
 
+    signingConfigs {
+        release {
+            // Loaded from an untracked keystore.properties at the repo root, so that no key or
+            // password is ever committed. See .gitignore.
+            if (rootProject.file("keystore.properties").exists()) {
+                def keystoreProps = new Properties()
+                rootProject.file("keystore.properties").withInputStream { keystoreProps.load(it) }
+                storeFile rootProject.file(keystoreProps["storeFile"])
+                storePassword keystoreProps["storePassword"]
+                keyAlias keystoreProps["keyAlias"]
+                keyPassword keystoreProps["keyPassword"]
+            }
+        }
+    }
+
     defaultConfig {
         applicationId "com.novaura.music"
         versionName "1.2.0"
@@ -54,7 +69,16 @@ android {
         }
 
         release {
-            signingConfig signingConfigs.debug
+            // A release signed with the debug key can never be replaced by one signed with a real
+            // key, so anyone installing it has to uninstall before updating. Fall back to the debug
+            // key only to keep the repository buildable for anyone who clones it without a
+            // keystore, and make it loud so a debug-signed release is never mistaken for a real one.
+            signingConfig rootProject.file("keystore.properties").exists()
+                    ? signingConfigs.release
+                    : signingConfigs.debug
+            if (!rootProject.file("keystore.properties").exists()) {
+                logger.warn("Novaura: keystore.properties not found, signing this build with the DEBUG key. Do not publish it.")
+            }
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"

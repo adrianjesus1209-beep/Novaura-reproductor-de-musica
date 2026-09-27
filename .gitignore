@@ -4,6 +4,14 @@ local.properties
 build/
 release/
 
+# Release signing. The keystore holds the private key that identifies the app forever: anyone with
+# it can ship an update, and losing it means no further update can ever be published without users
+# uninstalling first. It must never enter the repository, and neither must the passwords.
+keystore.properties
+keystore/
+*.jks
+*.keystore
+
 # Studio
 .idea/
 .DS_Store/
