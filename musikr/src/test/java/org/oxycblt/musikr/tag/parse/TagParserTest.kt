@@ -120,6 +120,12 @@ class TagParserTest {
             createTestMetadata(
                 id3v2Tags =
                     mapOf(
+                        "TIT2" to listOf("Test Song"),
+                        // The parser only keeps the artist MBIDs while it also has an artist name
+                        // to
+                        // match them to. Without a name it deliberately falls back to the composer
+                        // and drops them, so this fixture needs both to be meaningful.
+                        "TPE1" to listOf("Test Artist"),
                         "TXXX:MUSICBRAINZ RELEASE TRACK ID" to listOf("track-id-123"),
                         "TXXX:MUSICBRAINZ ALBUM ID" to listOf("album-id-456"),
                         "TXXX:MUSICBRAINZ ARTIST ID" to listOf("artist-id-789"),
