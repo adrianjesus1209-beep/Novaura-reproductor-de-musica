@@ -28,6 +28,16 @@
             android:orientation="vertical"
             android:padding="@dimen/spacing_medium">
 
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:id="@+id/home_no_music_progress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="@dimen/spacing_medium"
+                android:indeterminate="true"
+                android:visibility="gone"
+                app:indicatorSize="48dp"
+                app:trackThickness="4dp" />
+
             <org.oxycblt.auxio.home.list.CookieImageView
                 android:id="@+id/home_no_music_placeholder"
                 android:layout_width="@dimen/size_fast_scroll_popup"

@@ -9,9 +9,9 @@
     <eat-comment />
 
     <!-- Not an active task -->
-    <string name="lbl_indexer">Music loading</string>
+    <string name="lbl_indexer">Scanning audio files</string>
     <!-- Is an active task -->
-    <string name="lbl_indexing">Loading music</string>
+    <string name="lbl_indexing">Scanning audio files</string>
     <!-- Monitoring music library for changes -->
     <string name="lbl_observing">Monitoring music library</string>
     <!-- As in to retry loading music -->
@@ -217,11 +217,12 @@
     <string name="lng_empty_artists">Your artists will show up here.</string>
     <string name="lng_empty_genres">Your genres will show up here.</string>
     <string name="lng_empty_playlists">Your playlists will show up here.</string>
-    <string name="lng_permission_denied_msg">Se requiere acceso al almacenamiento para detectar automáticamente tu música local y metadatos. Otorga el permiso para continuar.</string>
-    <string name="lbl_grant_permission">Otorgar Permiso</string>
-    <string name="lng_permission_required_settings">Habilita el permiso de almacenamiento desde los ajustes de la aplicación.</string>
-    <string name="lng_scanning_music">Buscando música local y metadatos…</string>
-    <string name="lbl_scan_again">Escanear de nuevo</string>
+    <string name="lng_permission_denied_msg">Storage access is required to automatically detect your local music and metadata. Grant the permission to continue.</string>
+    <string name="lbl_grant_permission">Grant Permission</string>
+    <string name="lng_permission_required_settings">Enable the storage permission from the app settings.</string>
+    <string name="lng_scanning_music">Searching for music in device…</string>
+    <string name="fmt_scan_progress">Scanning audio files… (%1$d/%2$d)</string>
+    <string name="lbl_scan_again">Scan again</string>
     <string name="lng_file_picker">Load music from the folders that you select. Slower, but more reliable. Requires the vanilla file manager app to be installed.</string>
     <string name="lng_system_database">Load music that the Android OS automatically detects. Faster, but less reliable. No support for filesystem-dependent features like cover.jpg.</string>
     <string name="lng_grant_storage_anyway">Granting external storage permissions can fix issues on some devices.</string>

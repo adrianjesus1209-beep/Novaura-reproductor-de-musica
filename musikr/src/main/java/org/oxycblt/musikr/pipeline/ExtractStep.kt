@@ -68,17 +68,25 @@ private class ExtractStepImpl(
         extracted: Channel<Extracted>,
     ): Deferred<Result<Unit>> {
         val addingMs = System.currentTimeMillis()
-        val extract = Channel<ParsedExtractItem>(PARALLELISM)
+        val extract = Channel<ParsedExtractItem>(PipelineTuning.stageBuffer)
         val extractTask =
-            scope.mapParallel(PARALLELISM, explored, extract, Dispatchers.IO) { item ->
+            scope.mapParallel(PipelineTuning.parallelism, explored, extract, Dispatchers.IO) { item
+                ->
                 when (item) {
                     is RawSong -> Finalized(item)
                     is RawPlaylist -> Finalized(item)
                     is NewSong -> {
                         when (val result = metadataExtractor.extract(item.file)) {
-                            is MetadataResult.Success ->
-                                result.metadata?.let { metadata -> NeedsParsing(item, metadata) }
-                                    ?: Finalized(InvalidSong)
+                            is MetadataResult.Success -> {
+                                val metadata = result.metadata
+                                if (metadata == null) {
+                                    Finalized(InvalidSong)
+                                } else if (metadata.properties.durationMs in 1 until 30000L) {
+                                    Finalized(NotAudio)
+                                } else {
+                                    NeedsParsing(item, metadata)
+                                }
+                            }
                             MetadataResult.NoMetadata -> Finalized(InvalidSong)
                             MetadataResult.NotAudio -> Finalized(NotAudio)
                             MetadataResult.ProviderFailed -> Finalized(InvalidSong)
@@ -87,13 +95,19 @@ private class ExtractStepImpl(
                     is NotAudio -> Finalized(NotAudio)
                 }
             }
-        val parsed = Channel<ParsedCachingItem>(Channel.UNLIMITED)
+        // Bounded on purpose: this channel carries fully parsed tags and cover references, so an
+        // unbounded buffer let a large library accumulate in RAM faster than the JNI tag parser
+        // and cover transcoder could drain it.
+        val parsed = Channel<ParsedCachingItem>(PipelineTuning.stageBuffer)
         val parsedTask =
-            scope.mapParallel(PARALLELISM, extract, parsed, Dispatchers.IO) { item ->
+            scope.mapParallel(PipelineTuning.parallelism, extract, parsed, Dispatchers.IO) { item ->
                 when (item) {
                     is Finalized -> item
                     is NeedsParsing -> {
                         val tags = tagParser.parse(item.metadata)
+                        if (tags.durationMs in 1 until 30000L) {
+                            return@mapParallel Finalized(NotAudio)
+                        }
                         val cover =
                             when (val result = covers.create(item.newSong.file, item.metadata)) {
                                 is CoverResult.Hit -> result.cover
@@ -165,7 +179,6 @@ private class ExtractStepImpl(
         CachedFile(file, audio = Audio(properties, tags, cover?.id), addedMs)
 
     private companion object {
-        const val PARALLELISM = 8
         const val CACHE_BATCH_SIZE = 500
     }
 }

@@ -27,6 +27,7 @@ import org.oxycblt.musikr.pipeline.ExploreStep
 import org.oxycblt.musikr.pipeline.Explored
 import org.oxycblt.musikr.pipeline.ExtractStep
 import org.oxycblt.musikr.pipeline.Extracted
+import org.oxycblt.musikr.pipeline.PipelineTuning
 import org.oxycblt.musikr.util.merge
 import org.oxycblt.musikr.util.tryAsyncWith
 
@@ -116,25 +117,44 @@ private class MusikrImpl(
         onProgress(IndexingProgress.Songs(0, 0))
         var explored = 0
         var loaded = 0
-        val exploredChannel = Channel<Explored>(Channel.UNLIMITED)
+        var lastProgressReportUptime = 0L
+
+        suspend fun dispatchProgress() {
+            val now = android.os.SystemClock.uptimeMillis()
+            if (now - lastProgressReportUptime >= 100L) {
+                lastProgressReportUptime = now
+                onProgress(IndexingProgress.Songs(loaded, explored))
+            }
+        }
+
+        // The tracking channels are bounded so that a fast producer cannot buffer the whole
+        // device in memory while a slow stage (JNI tag parsing, cover decoding) catches up. Each
+        // capacity is a multiple of the stage's parallelism so that no worker is ever blocked
+        // behind a full buffer.
+        val exploredChannel = Channel<Explored>(PipelineTuning.stageBuffer)
         val exploredTask = exploreStep.explore(this, exploredChannel)
-        val trackedExploredChannel = Channel<Explored>(Channel.UNLIMITED)
+        val trackedExploredChannel = Channel<Explored>(PipelineTuning.stageBuffer)
+        // These trackers only count items and forward them, so they must not run on the main
+        // thread. On Dispatchers.Main with an UNLIMITED destination the send never suspended,
+        // which turned this into a hot loop that starved the UI thread on large libraries.
+        // Dispatchers.Default also keeps the main thread free to render the progress it reports.
         val trackedExploredTask =
-            tryAsyncWith(trackedExploredChannel, Dispatchers.Main) {
+            tryAsyncWith(trackedExploredChannel, Dispatchers.Default) {
                 for (item in exploredChannel) {
                     explored++
-                    onProgress(IndexingProgress.Songs(loaded, explored))
+                    dispatchProgress()
                     trackedExploredChannel.send(item)
                 }
+                onProgress(IndexingProgress.Songs(loaded, explored))
             }
-        val extractedChannel = Channel<Extracted>(Channel.UNLIMITED)
+        val extractedChannel = Channel<Extracted>(PipelineTuning.stageBuffer)
         val extractedTask = extractStep.extract(this, trackedExploredChannel, extractedChannel)
-        val trackedExtractedChannel = Channel<Extracted>(Channel.UNLIMITED)
+        val trackedExtractedChannel = Channel<Extracted>(PipelineTuning.stageBuffer)
         val trackedExtractedTask =
-            tryAsyncWith(trackedExtractedChannel, Dispatchers.Main) {
+            tryAsyncWith(trackedExtractedChannel, Dispatchers.Default) {
                 for (item in extractedChannel) {
                     loaded++
-                    onProgress(IndexingProgress.Songs(loaded, explored))
+                    dispatchProgress()
                     trackedExtractedChannel.send(item)
                 }
                 onProgress(IndexingProgress.Indeterminate)

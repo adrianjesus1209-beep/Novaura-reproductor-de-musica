@@ -52,24 +52,33 @@ private class EvaluateStepImpl(
     private val storedPlaylists: StoredPlaylists,
     private val libraryFactory: LibraryFactory,
 ) : EvaluateStep {
-    override suspend fun evaluate(extractedMusic: Channel<Extracted>): MutableLibrary {
-        val builder = MusicGraph.builder()
-        for (extracted in extractedMusic) {
-            when (extracted) {
-                is RawSong -> builder.add(tagInterpreter.interpret(extracted))
-                is RawPlaylist -> builder.add(playlistInterpreter.interpret(extracted.file))
-                is NotAudio -> {}
-                is InvalidSong -> {}
+    override suspend fun evaluate(extractedMusic: Channel<Extracted>): MutableLibrary =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            val builder = MusicGraph.builder()
+            for (extracted in extractedMusic) {
+                when (extracted) {
+                    is RawSong -> {
+                        if (
+                            extracted.tags.durationMs in 1 until 30000L ||
+                                extracted.properties.durationMs in 1 until 30000L
+                        ) {
+                            continue
+                        }
+                        builder.add(tagInterpreter.interpret(extracted))
+                    }
+                    is RawPlaylist -> builder.add(playlistInterpreter.interpret(extracted.file))
+                    is NotAudio -> {}
+                    is InvalidSong -> {}
+                }
             }
-        }
-        val graph = builder.build()
+            val graph = builder.build()
 
-        // Render graph to Graphviz in debug mode
-        if (BuildConfig.DEBUG) {
-            val fileName = "music_graph_debug.dot"
-            graph.renderToGraphviz(context, fileName)
-        }
+            // Render graph to Graphviz in debug mode
+            if (BuildConfig.DEBUG) {
+                val fileName = "music_graph_debug.dot"
+                graph.renderToGraphviz(context, fileName)
+            }
 
-        return libraryFactory.create(graph, storedPlaylists, playlistInterpreter)
-    }
+            libraryFactory.create(graph, storedPlaylists, playlistInterpreter)
+        }
 }

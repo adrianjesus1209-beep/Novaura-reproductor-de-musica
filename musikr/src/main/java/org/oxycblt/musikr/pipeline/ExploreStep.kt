@@ -49,18 +49,28 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
         scope: CoroutineScope,
         explored: Channel<Explored>,
     ): Deferred<Result<Unit>> {
-        val files = Channel<File>(Channel.UNLIMITED)
+        val files = Channel<File>(PipelineTuning.stageBuffer)
         val filesTask = fs.explore(files)
 
-        val classified = Channel<Classified>(Channel.UNLIMITED)
+        val classified = Channel<Classified>(PipelineTuning.stageBuffer)
         val classifiedTask =
-            scope.mapParallel(PARALLELISM, files, classified, Dispatchers.IO) { file ->
+            scope.mapParallel(PipelineTuning.parallelism, files, classified, Dispatchers.IO) { file
+                ->
+                val pathStr = file.path.components.unixString.lowercase()
+                if (EXCLUDED_PATH_MARKERS.any { pathStr.contains(it) }) {
+                    return@mapParallel Finalized(NotAudio)
+                }
+                val ext = file.path.name?.substringAfterLast('.', "")?.lowercase() ?: ""
+                if (ext.isNotEmpty() && ext in EXCLUDED_EXTENSIONS) {
+                    return@mapParallel Finalized(NotAudio)
+                }
                 if (
                     file.mimeType == M3U.MIME_TYPE ||
                         (!file.mimeType.startsWith("audio/") &&
                             file.mimeType != "application/ogg" &&
                             file.mimeType != "application/x-ogg" &&
-                            file.mimeType != "application/octet-stream")
+                            file.mimeType != "application/octet-stream" &&
+                            ext !in VALID_AUDIO_EXTENSIONS)
                 ) {
                     return@mapParallel Finalized(NotAudio)
                 }
@@ -71,13 +81,20 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
                 }
             }
 
-        val finalized = Channel<Finalized>(Channel.UNLIMITED)
+        val finalized = Channel<Finalized>(PipelineTuning.stageBuffer)
         val exploredTask =
-            scope.mapParallel(PARALLELISM, classified, finalized, Dispatchers.IO) { item ->
+            scope.mapParallel(PipelineTuning.parallelism, classified, finalized, Dispatchers.IO) {
+                item ->
                 when (item) {
                     is Finalized -> item
                     is NeedsHydration -> {
                         val audio = item.cachedFile.audio ?: return@mapParallel Finalized(NotAudio)
+                        if (
+                            audio.tags.durationMs in 1 until 30000L ||
+                                audio.properties.durationMs in 1 until 30000L
+                        ) {
+                            return@mapParallel Finalized(NotAudio)
+                        }
                         val coverId =
                             when (
                                 val result = audio.coverId?.let { id -> storage.covers.obtain(id) }
@@ -100,7 +117,7 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
                     }
                 }
             }
-        val playlists = Channel<Explored>(Channel.UNLIMITED)
+        val playlists = Channel<Explored>(PipelineTuning.stageBuffer)
         val playlistsTask =
             scope.tryAsyncWith(playlists, Dispatchers.IO) {
                 for (playlist in storage.storedPlaylists.read()) {
@@ -110,7 +127,7 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
             }
 
         val mergeTask =
-            scope.tryAsyncWith(explored, Dispatchers.Main) {
+            scope.tryAsyncWith(explored, Dispatchers.Default) {
                 for (item in finalized) {
                     it.send(item.explored)
                 }
@@ -129,6 +146,61 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
     private data class Finalized(val explored: Explored) : Classified
 
     private companion object {
-        const val PARALLELISM = 8
+        val EXCLUDED_PATH_MARKERS =
+            listOf(
+                "android/",
+                "whatsapp/",
+                "telegram/",
+                "recordings/",
+                "call/",
+                "callrecordings/",
+                "call recordings/",
+                "callrecorder/",
+                "voicenotes/",
+                "voice notes/",
+                "voicerecordings/",
+                "soundrecorder/",
+                "recorder/",
+                "ringtones/",
+                "notifications/",
+                "alarms/",
+                "ui/",
+                "system/",
+            )
+
+        val EXCLUDED_EXTENSIONS =
+            setOf(
+                "nomedia",
+                "txt",
+                "jpg",
+                "png",
+                "jpeg",
+                "gif",
+                "webp",
+                "xml",
+                "json",
+                "db",
+                "pdf",
+                "zip",
+                "apk",
+                "amr",
+                "3ga",
+            )
+
+        val VALID_AUDIO_EXTENSIONS =
+            setOf(
+                "mp3",
+                "wav",
+                "flac",
+                "m4a",
+                "ogg",
+                "opus",
+                "aac",
+                "wma",
+                "alac",
+                "aiff",
+                "3gp",
+                "m4b",
+            )
     }
 }
