@@ -3,8 +3,8 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.1.1/Novaura-v1.1.1.apk">
-    <b>📥 Descargar APK (Novaura v1.1.1)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.2.0/Novaura-v1.2.0.apk">
+    <b>📥 Descargar APK (Novaura v1.2.0)</b>
   </a>
   &nbsp;|&nbsp;
   <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/raw/main/apk/Novaura-v1.0.0.zip">
@@ -14,11 +14,11 @@
 
 ---
 
-## 🚀 Descargas (Versión 1.1.1)
+## 🚀 Descargas (Versión 1.2.0)
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.1.1 APK** | 8.8 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.1.1/Novaura-v1.1.1.apk) |
+| **Novaura v1.2.0 APK** | 8.8 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.2.0/Novaura-v1.2.0.apk) |
 | **Novaura v1.0.0 ZIP** | 4.8 MB | [Descargar ZIP](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/raw/main/apk/Novaura-v1.0.0.zip) |
 
 ---
