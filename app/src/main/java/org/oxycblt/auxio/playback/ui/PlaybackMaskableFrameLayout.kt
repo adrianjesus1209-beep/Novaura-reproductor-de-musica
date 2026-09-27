@@ -78,6 +78,27 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleRes: Int = -1
     private val reactivity: Float
         get() = audioReactivityProvider?.invoke()?.coerceIn(0f, 1f) ?: 0f
 
+    /**
+     * Whether this cover is the one currently on screen and should therefore animate its glow.
+     *
+     * The pager keeps the neighbouring pages attached, and every one of them would otherwise run
+     * its own vsync ticker and paint a full-viewport gradient. Restricting it to the selected page
+     * turns three permanent animations into one. When disabled the glow is dropped immediately
+     * rather than faded, since the page is on its way out of view anyway.
+     */
+    var glowEnabled: Boolean = true
+        set(value) {
+            if (field == value) {
+                return
+            }
+            field = value
+            if (!value && displayedLevel != 0f) {
+                displayedLevel = 0f
+            }
+            ensureTicker()
+            invalidate()
+        }
+
     private val frameTicker =
         object : Runnable {
             override fun run() {
@@ -219,7 +240,8 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleRes: Int = -1
     }
 
     private fun shouldTick() =
-        reactivity > 0f &&
+        glowEnabled &&
+            reactivity > 0f &&
             audioLevelProvider != null &&
             isAttachedToWindow &&
             windowVisibility == VISIBLE &&

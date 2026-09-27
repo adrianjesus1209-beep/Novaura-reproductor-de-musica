@@ -42,11 +42,43 @@ class CoverPagerAdapter(
     private val audioReactivityProvider: () -> Float,
 ) : FlexibleListAdapter<Song, CoverViewHolder>(CoverViewHolder.DIFF_CALLBACK) {
 
+    private var recyclerView: RecyclerView? = null
+    private var selectedPosition = RecyclerView.NO_POSITION
+
+    override fun onAttachedToRecyclerView(recyclerView: RecyclerView) {
+        super.onAttachedToRecyclerView(recyclerView)
+        this.recyclerView = recyclerView
+    }
+
+    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
+        super.onDetachedFromRecyclerView(recyclerView)
+        this.recyclerView = null
+    }
+
+    /**
+     * Tell the adapter which cover is on screen, so only that one animates its glow.
+     *
+     * Applied immediately to the attached holders rather than waiting for a rebind, otherwise the
+     * glow would keep running on the page the user just swiped away from.
+     */
+    fun setSelectedPosition(position: Int) {
+        if (position == selectedPosition) {
+            return
+        }
+        selectedPosition = position
+        val list = recyclerView ?: return
+        for (i in 0 until list.childCount) {
+            val holder = list.getChildViewHolder(list.getChildAt(i)) as? CoverViewHolder ?: continue
+            holder.setGlowEnabled(holder.bindingAdapterPosition == position)
+        }
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, pos: Int) =
         CoverViewHolder.from(parent, audioLevelProvider, audioReactivityProvider)
 
     override fun onBindViewHolder(viewHolder: CoverViewHolder, pos: Int) {
         viewHolder.bind(currentList[pos], listener)
+        viewHolder.setGlowEnabled(pos == selectedPosition)
     }
 }
 
@@ -70,6 +102,16 @@ private constructor(
     fun bind(song: Song, listener: StepperOverlay.Listener) {
         binding.cover.bind(song)
         binding.coverFastSeekOverlay.listener = listener
+    }
+
+    /**
+     * Enable or disable the audio glow for this cover.
+     *
+     * Only the selected page should animate: each one runs its own ticker and paints a
+     * full-viewport gradient, and the pager keeps the pages either side attached.
+     */
+    fun setGlowEnabled(enabled: Boolean) {
+        binding.root.glowEnabled = enabled
     }
 
     init {

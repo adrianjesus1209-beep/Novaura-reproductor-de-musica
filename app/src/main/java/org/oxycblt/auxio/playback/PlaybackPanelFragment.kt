@@ -29,6 +29,7 @@ import androidx.core.view.updatePadding
 import androidx.dynamicanimation.animation.SpringForce
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import androidx.viewpager2.widget.ViewPager2
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlin.math.abs
@@ -117,6 +118,15 @@ class PlaybackPanelFragment :
                     }
                     .also { it.attach() }
             setPageTransformer(CarouselTransformer())
+            // Only the visible cover animates its glow, so the adapter needs to follow the pager.
+            registerOnPageChangeCallback(
+                object : ViewPager2.OnPageChangeCallback() {
+                    override fun onPageSelected(position: Int) {
+                        coverPagerAdapter.setSelectedPosition(position)
+                    }
+                }
+            )
+            coverPagerAdapter.setSelectedPosition(currentItem)
             recycler().apply {
                 // Make it possible to collapse the bottom sheet from the ViewPager's touch area.
                 isNestedScrollingEnabled = false
