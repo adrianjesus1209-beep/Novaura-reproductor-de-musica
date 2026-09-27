@@ -75,7 +75,16 @@ class AudioLevelProcessor @Inject constructor(private val playbackSettings: Play
     @Volatile private var isEnabled: Boolean = true
 
     private var sampleRate = 0
-    private var smoothed = 0f
+
+    /**
+     * The smoothing state that the next buffer will build on.
+     *
+     * Volatile for the same reason as [level]: [resetLevel] clears this from the main thread when
+     * playback stops, while the audio thread is reading and writing it. Without the guarantee, the
+     * audio thread can miss the reset and carry the previous track's peak forward instead of
+     * starting from silence.
+     */
+    @Volatile private var smoothed = 0f
 
     init {
         applyReactivity(playbackSettings.audioReactivity)
