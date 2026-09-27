@@ -105,6 +105,40 @@ constructor(
 
     @Px private var waveSpeed: Int = 0
 
+    /**
+     * Supplies the current audio level in the range 0..1, sampled once per drawn frame.
+     *
+     * Intentionally a provider rather than a pushed value: this view already has a vsync-gated
+     * ticker, so reading on demand costs one volatile read per frame and avoids any chance of
+     * waking the main thread from the audio thread.
+     */
+    var audioLevelProvider: (() -> Float)? = null
+
+    /**
+     * Supplies how strongly to react to the audio, from 0 (ignore audio entirely, keeping the
+     * original fixed-amplitude look) to 1 (full range).
+     *
+     * Also a provider so that changing the setting takes effect on the next frame, with no listener
+     * plumbing to keep in sync.
+     */
+    var audioReactivityProvider: (() -> Float)? = null
+
+    /**
+     * The amplitude multiplier implied by the current audio level.
+     *
+     * Amplitude is floored rather than allowed to reach zero, so silence produces a calm wave
+     * instead of making the progress bar disappear.
+     */
+    private val audioReactiveAmplitude: Float
+        get() {
+            val reactivity = audioReactivityProvider?.invoke()?.coerceIn(0f, 1f) ?: 0f
+            if (reactivity <= 0f) {
+                return 1f
+            }
+            val level = audioLevelProvider?.invoke()?.coerceIn(0f, 1f) ?: return 1f
+            return MIN_REACTIVE_AMPLITUDE + (1f - MIN_REACTIVE_AMPLITUDE) * level * reactivity
+        }
+
     private val phaseTicker =
         object : Runnable {
             override fun run() {
@@ -294,7 +328,8 @@ constructor(
             } else {
                 0f
             }
-        displayedAmplitude = configuredAmplitudePx.toFloat() * rampedAmplitudeFraction
+        displayedAmplitude =
+            configuredAmplitudePx.toFloat() * rampedAmplitudeFraction * audioReactiveAmplitude
 
         val activeTrackColor =
             tmpTrackTintList.getColorForState(drawableState, tmpTrackTintList.defaultColor)
@@ -797,6 +832,8 @@ constructor(
         const val MIN_SPRING_VISIBLE_CHANGE = 0.001f
         const val DEFAULT_WAVE_RAMP_PROGRESS_MAX = 0.03f
         const val MIN_VISIBLE_WAVE_FRACTION = 0.001f
+        /** Amplitude the wave falls to at silence, so the bar never fully flattens out. */
+        const val MIN_REACTIVE_AMPLITUDE = 0.35f
         const val MIN_PHASE_FRACTION = 0.0001f
         const val EPSILON = 0.0001f
         const val WAVE_SMOOTHNESS = 0.48f

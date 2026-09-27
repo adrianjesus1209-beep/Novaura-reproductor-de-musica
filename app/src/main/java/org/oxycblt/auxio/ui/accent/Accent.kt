@@ -153,15 +153,17 @@ class Accent private constructor(val index: Int) {
             return Accent(index)
         }
 
-        /** The default accent. */
-        val DEFAULT =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // Use dynamic coloring on devices that support it.
-                accentThemes.lastIndex
-            } else {
-                // Use blue everywhere else.
-                5
-            }
+        /** Novaura's signature accent. Cyan, which lines up with the turquoise/blue branding. */
+        const val CYAN = 7
+
+        /**
+         * The default accent.
+         *
+         * Deliberately Cyan on every OS version rather than dynamic colors, so that the app keeps
+         * the same identity on Android 12+ and below. Users that explicitly picked an accent have
+         * it persisted and are unaffected by this.
+         */
+        val DEFAULT = CYAN
 
         /** The amount of valid accents. */
         val MAX =

@@ -28,6 +28,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.BaseRenderer
 import androidx.media3.exoplayer.ExoPlayer
@@ -50,6 +51,7 @@ import kotlinx.coroutines.yield
 import org.oxycblt.auxio.image.ImageSettings
 import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.playback.PlaybackSettings
+import org.oxycblt.auxio.playback.audio.AudioLevelProcessor
 import org.oxycblt.auxio.playback.persist.PersistenceRepository
 import org.oxycblt.auxio.playback.replaygain.ReplayGainAudioProcessor
 import org.oxycblt.auxio.playback.state.DeferredPlayback
@@ -250,32 +252,34 @@ class ExoPlaybackStateHolder(
         parent = command.parent
         val items = command.queue.map { it.buildMediaItem() }
         runCatching {
-            // Force a clean player lifecycle per track, mirroring a MediaPlayer
-            // stop() -> reset() -> setDataSource() -> prepareAsync() -> onPrepared -> start().
-            // stop() drops the player back to the idle state so no residual error/prepared
-            // state from a previous session can ever block the new queue.
-            player.stop()
-            player.clearMediaItems()
-            player.shuffleModeEnabled = command.shuffled
-            player.setMediaItems(items)
-            val startIndex =
-                command.song
-                    ?.let { command.queue.indexOf(it) }
-                    .also { check(it != -1) { "Start song not in queue" } }
-            if (command.shuffled) {
-                player.setShuffleOrder(BetterShuffleOrder(command.queue.size, startIndex ?: -1))
-            }
-            val target = startIndex ?: player.currentTimeline.getFirstWindowIndex(command.shuffled)
-            player.seekTo(target, C.TIME_UNSET)
-            player.prepare()
-            player.play()
-        }.onFailure {
-            L.e("[PLAYBACK_ERROR] Failed to start a new playback session", it)
-            runCatching {
+                // Force a clean player lifecycle per track, mirroring a MediaPlayer
+                // stop() -> reset() -> setDataSource() -> prepareAsync() -> onPrepared -> start().
+                // stop() drops the player back to the idle state so no residual error/prepared
+                // state from a previous session can ever block the new queue.
                 player.stop()
-                player.setMediaItems(listOf())
+                player.clearMediaItems()
+                player.shuffleModeEnabled = command.shuffled
+                player.setMediaItems(items)
+                val startIndex =
+                    command.song
+                        ?.let { command.queue.indexOf(it) }
+                        .also { check(it != -1) { "Start song not in queue" } }
+                if (command.shuffled) {
+                    player.setShuffleOrder(BetterShuffleOrder(command.queue.size, startIndex ?: -1))
+                }
+                val target =
+                    startIndex ?: player.currentTimeline.getFirstWindowIndex(command.shuffled)
+                player.seekTo(target, C.TIME_UNSET)
+                player.prepare()
+                player.play()
             }
-        }
+            .onFailure {
+                L.e("[PLAYBACK_ERROR] Failed to start a new playback session", it)
+                runCatching {
+                    player.stop()
+                    player.setMediaItems(listOf())
+                }
+            }
         playbackManager.ack(this, StateAck.NewPlayback)
         deferSave()
     }
@@ -646,21 +650,17 @@ class ExoPlaybackStateHolder(
     }
 
     private fun Song.buildMediaItem() =
-        MediaItem.Builder()
-            .setUri(uri)
-            .setTag(this)
-            .build()
-            .also {
-                val scheme = uri.scheme
-                if (scheme != "content") {
-                    // The player only accepts Content URIs built from MediaStore IDs. Flag any
-                    // legacy file:///absolute-path URI so the blocking failure is diagnosable.
-                    L.w(
-                        "[PLAYBACK_ERROR] NON_CONTENT_URI song=\"$name\" uri=$uri " +
-                            "scheme=${scheme ?: "null"}"
-                    )
-                }
+        MediaItem.Builder().setUri(uri).setTag(this).build().also {
+            val scheme = uri.scheme
+            if (scheme != "content") {
+                // The player only accepts Content URIs built from MediaStore IDs. Flag any
+                // legacy file:///absolute-path URI so the blocking failure is diagnosable.
+                L.w(
+                    "[PLAYBACK_ERROR] NON_CONTENT_URI song=\"$name\" uri=$uri " +
+                        "scheme=${scheme ?: "null"}"
+                )
             }
+        }
 
     private val MediaItem.song: Song?
         get() = this.localConfiguration?.tag as? Song?
@@ -720,6 +720,7 @@ class ExoPlaybackStateHolder(
         private val commandFactory: PlaybackCommand.Factory,
         private val mediaSourceFactory: MediaSource.Factory,
         private val replayGainProcessor: ReplayGainAudioProcessor,
+        private val audioLevelProcessor: AudioLevelProcessor,
         private val musicRepository: MusicRepository,
         private val imageSettings: ImageSettings,
     ) {
@@ -734,9 +735,15 @@ class ExoPlaybackStateHolder(
                         handler,
                         audioListener,
                         DefaultAudioSink.Builder(context)
-                            .setAudioProcessors(arrayOf(replayGainProcessor))
+                            // ReplayGain first so the level meter reads the signal the user
+                            // actually hears, gain adjustment included. The explicit type argument
+                            // is required: without it Kotlin infers an intersection type from the
+                            // two very different processor supertypes.
+                            .setAudioProcessors(
+                                arrayOf<AudioProcessor>(replayGainProcessor, audioLevelProcessor)
+                            )
                             .build(),
-                    ),
+                    )
                 )
             }
 

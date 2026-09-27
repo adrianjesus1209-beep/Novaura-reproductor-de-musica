@@ -12,4 +12,12 @@
     <color name="widget_on_surface_inverse">@color/material_dynamic_neutral20</color>
 
     <color name="dynamic_primary">@color/m3_ref_palette_dynamic_primary80</color>
+
+    <!--
+    Novaura splash. Left as-is in launcher_background on purpose: the adaptive icon foreground
+    draws a blue mark, so a dark backdrop would kill its contrast. The splash, on the other hand,
+    was hardcoded white and produced a white flash before the dark UI appeared on cold start.
+    Matches the default (cyan) dark surface.
+    -->
+    <color name="splash_background">#0E1416</color>
 </resources>

@@ -24,6 +24,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import org.oxycblt.auxio.IntegerTable
 import org.oxycblt.auxio.R
+import org.oxycblt.auxio.playback.audio.AudioReactivity
 import org.oxycblt.auxio.playback.replaygain.ReplayGainMode
 import org.oxycblt.auxio.playback.replaygain.ReplayGainPreAmp
 import org.oxycblt.auxio.settings.Settings
@@ -60,6 +61,8 @@ interface PlaybackSettings : Settings<PlaybackSettings.Listener> {
     val rememberPause: Boolean
     /** Whether to always exit when task is removed, even if playing. */
     val exitOnTaskRemoval: Boolean
+    /** How strongly the playback UI should react to the audio. */
+    val audioReactivity: AudioReactivity
 
     interface Listener {
         /** Called when one of the ReplayGain configurations have changed. */
@@ -70,6 +73,9 @@ interface PlaybackSettings : Settings<PlaybackSettings.Listener> {
 
         /** Called when [pauseOnRepeat] has changed. */
         fun onPauseOnRepeatChanged() {}
+
+        /** Called when [audioReactivity] has changed. */
+        fun onAudioReactivityChanged() {}
     }
 }
 
@@ -137,6 +143,15 @@ class PlaybackSettingsImpl @Inject constructor(@ApplicationContext context: Cont
     override val exitOnTaskRemoval: Boolean
         get() = sharedPreferences.getBoolean(getString(R.string.set_key_task_exit), false)
 
+    override val audioReactivity: AudioReactivity
+        get() =
+            AudioReactivity.fromIntCode(
+                sharedPreferences.getInt(
+                    getString(R.string.set_key_audio_reactivity),
+                    IntegerTable.AUDIO_REACTIVITY_NORMAL,
+                )
+            ) ?: AudioReactivity.NORMAL
+
     override fun migrate() {
         // MusicMode was converted to PlaySong in 3.2.0
         fun Int.migrateMusicMode() =
@@ -200,6 +215,10 @@ class PlaybackSettingsImpl @Inject constructor(@ApplicationContext context: Cont
             getString(R.string.set_key_repeat_pause) -> {
                 L.d("Dispatching pause on repeat change")
                 listener.onPauseOnRepeatChanged()
+            }
+            getString(R.string.set_key_audio_reactivity) -> {
+                L.d("Dispatching audio reactivity change")
+                listener.onAudioReactivityChanged()
             }
         }
     }

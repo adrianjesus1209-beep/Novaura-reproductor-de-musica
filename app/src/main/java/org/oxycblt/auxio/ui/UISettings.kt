@@ -19,7 +19,6 @@
 package org.oxycblt.auxio.ui
 
 import android.content.Context
-import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -56,7 +55,9 @@ class UISettingsImpl @Inject constructor(@ApplicationContext context: Context) :
         get() =
             sharedPreferences.getInt(
                 getString(R.string.set_key_theme),
-                AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM,
+                // Novaura leads with a dark UI. Users can still switch to light or follow the
+                // system from settings, and anyone who already picked a theme keeps it.
+                AppCompatDelegate.MODE_NIGHT_YES,
             )
 
     override val useBlackTheme: Boolean
@@ -81,16 +82,10 @@ class UISettingsImpl @Inject constructor(@ApplicationContext context: Context) :
         if (sharedPreferences.contains(OLD_KEY_ACCENT3)) {
             L.d("Migrating $OLD_KEY_ACCENT3")
 
-            var accent = sharedPreferences.getInt(OLD_KEY_ACCENT3, 5)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // Accents were previously frozen as soon as the OS was updated to android
-                // twelve, as dynamic colors were enabled by default. This is no longer the
-                // case, so we need to re-update the setting to dynamic colors here.
-                accent = 16
-            }
-
             sharedPreferences.edit {
-                putInt(getString(R.string.set_key_accent), accent)
+                // Novaura is rebranded, so legacy Auxio installs land on our signature accent
+                // rather than the dynamic color scheme the old app defaulted to.
+                putInt(getString(R.string.set_key_accent), Accent.CYAN)
                 remove(OLD_KEY_ACCENT3)
                 apply()
             }

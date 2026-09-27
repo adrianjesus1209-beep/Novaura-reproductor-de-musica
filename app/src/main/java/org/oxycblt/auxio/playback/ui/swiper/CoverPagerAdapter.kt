@@ -32,12 +32,18 @@ import org.oxycblt.musikr.Song
  * gesture overlays.
  *
  * @param listener The [StepperOverlay.Listener] that step gesture events will be forwarded to
+ * @param audioLevelProvider Supplies the current audio level in 0..1, for the cover glow
+ * @param audioReactivityProvider Supplies how strongly to react, from 0 to 1
  * @author Alexander Capehart (OxygenCobalt)
  */
-class CoverPagerAdapter(private val listener: StepperOverlay.Listener) :
-    FlexibleListAdapter<Song, CoverViewHolder>(CoverViewHolder.DIFF_CALLBACK) {
+class CoverPagerAdapter(
+    private val listener: StepperOverlay.Listener,
+    private val audioLevelProvider: () -> Float,
+    private val audioReactivityProvider: () -> Float,
+) : FlexibleListAdapter<Song, CoverViewHolder>(CoverViewHolder.DIFF_CALLBACK) {
 
-    override fun onCreateViewHolder(parent: ViewGroup, pos: Int) = CoverViewHolder.from(parent)
+    override fun onCreateViewHolder(parent: ViewGroup, pos: Int) =
+        CoverViewHolder.from(parent, audioLevelProvider, audioReactivityProvider)
 
     override fun onBindViewHolder(viewHolder: CoverViewHolder, pos: Int) {
         viewHolder.bind(currentList[pos], listener)
@@ -49,8 +55,12 @@ class CoverPagerAdapter(private val listener: StepperOverlay.Listener) :
  *
  * @author Alexander Capehart (OxygenCobalt)
  */
-class CoverViewHolder private constructor(private val binding: ItemCoverBinding) :
-    RecyclerView.ViewHolder(binding.root) {
+class CoverViewHolder
+private constructor(
+    private val binding: ItemCoverBinding,
+    private val audioLevelProvider: () -> Float,
+    private val audioReactivityProvider: () -> Float,
+) : RecyclerView.ViewHolder(binding.root) {
     /**
      * Bind new data to this instance.
      *
@@ -62,6 +72,11 @@ class CoverViewHolder private constructor(private val binding: ItemCoverBinding)
         binding.coverFastSeekOverlay.listener = listener
     }
 
+    init {
+        binding.root.audioLevelProvider = audioLevelProvider
+        binding.root.audioReactivityProvider = audioReactivityProvider
+    }
+
     companion object {
         /**
          * Create a new instance.
@@ -69,8 +84,16 @@ class CoverViewHolder private constructor(private val binding: ItemCoverBinding)
          * @param parent The parent to inflate this instance from.
          * @return A new instance.
          */
-        fun from(parent: ViewGroup) =
-            CoverViewHolder(ItemCoverBinding.inflate(parent.context.inflater, parent, false))
+        fun from(
+            parent: ViewGroup,
+            audioLevelProvider: () -> Float,
+            audioReactivityProvider: () -> Float,
+        ) =
+            CoverViewHolder(
+                ItemCoverBinding.inflate(parent.context.inflater, parent, false),
+                audioLevelProvider,
+                audioReactivityProvider,
+            )
 
         /** A comparator that can be used with DiffUtil. */
         val DIFF_CALLBACK =

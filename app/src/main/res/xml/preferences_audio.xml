@@ -27,6 +27,14 @@
             app:summary="@string/set_remember_pause_desc"
             app:title="@string/set_remember_pause" />
 
+        <org.oxycblt.auxio.settings.ui.IntListPreference
+            app:defaultValue="@integer/audio_reactivity_normal"
+            app:entries="@array/entries_audio_reactivity"
+            app:entryValues="@array/values_audio_reactivity"
+            app:key="@string/set_key_audio_reactivity"
+            app:summary="@string/set_audio_reactivity_desc"
+            app:title="@string/set_audio_reactivity" />
+
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/set_replay_gain">

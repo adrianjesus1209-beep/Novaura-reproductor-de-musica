@@ -30,6 +30,7 @@ import androidx.dynamicanimation.animation.SpringForce
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlin.math.abs
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentPlaybackPanelBinding
@@ -37,6 +38,7 @@ import org.oxycblt.auxio.detail.DetailViewModel
 import org.oxycblt.auxio.list.ListViewModel
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.music.resolveNames
+import org.oxycblt.auxio.playback.audio.AudioLevelProcessor
 import org.oxycblt.auxio.playback.queue.QueueViewModel
 import org.oxycblt.auxio.playback.state.RepeatMode
 import org.oxycblt.auxio.playback.ui.StyledSeekBar
@@ -49,7 +51,6 @@ import org.oxycblt.auxio.ui.ViewBindingFragment
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.dampen
 import org.oxycblt.auxio.util.recycler
-import org.oxycblt.auxio.util.showToast
 import org.oxycblt.auxio.util.smoothScrollByPageTo
 import org.oxycblt.auxio.util.systemBarInsetsCompat
 import org.oxycblt.musikr.MusicParent
@@ -70,7 +71,13 @@ class PlaybackPanelFragment :
     Toolbar.OnMenuItemClickListener,
     StyledSeekBar.Listener,
     StepperOverlay.Listener {
-    private val coverPagerAdapter = CoverPagerAdapter(this)
+    @Inject lateinit var audioLevelProcessor: AudioLevelProcessor
+
+    private val audioLevelProvider = { audioLevelProcessor.level }
+    private val audioReactivityProvider = { audioLevelProcessor.strength }
+
+    private val coverPagerAdapter =
+        CoverPagerAdapter(this, audioLevelProvider, audioReactivityProvider)
     private val playbackModel: PlaybackViewModel by activityViewModels()
     private val detailModel: DetailViewModel by activityViewModels()
     private val listModel: ListViewModel by activityViewModels()
@@ -137,6 +144,13 @@ class PlaybackPanelFragment :
         }
 
         binding.playbackSeekBar?.listener = this
+        // Hand the seek bar the same audio sources the cover glow uses. These are read on each
+        // drawn frame rather than pushed, so neither the audio thread nor the settings need to
+        // notify anything here.
+        binding.playbackSeekBar?.apply {
+            setAudioLevelProvider(audioLevelProvider)
+            setAudioReactivityProvider(audioReactivityProvider)
+        }
 
         // Set up actions
         // TODO: Add better playback button accessibility
@@ -265,6 +279,12 @@ class PlaybackPanelFragment :
     private fun updatePlaying(isPlaying: Boolean) {
         requireBinding().playbackPlayPause.isChecked = isPlaying
         requireBinding().playbackSeekBar?.setWaveEnabled(isPlaying)
+        if (!isPlaying) {
+            // Pausing leaves the audio pipeline intact, so the last measured level would otherwise
+            // be held and the wave and cover glow would keep pulsing over a stopped track. The
+            // processors read this on their next frame, so both settle immediately.
+            audioLevelProcessor.resetLevel()
+        }
     }
 
     private fun updateShuffled(isShuffled: Boolean) {

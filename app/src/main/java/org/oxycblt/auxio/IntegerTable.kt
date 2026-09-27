@@ -153,4 +153,12 @@ object IntegerTable {
     const val FILTER_MODE_INCLUDE = 0xA129
     /** LocationMode.FileSystem */
     const val FILTER_MODE_EXCLUDE = 0xA12A
+    /** AudioReactivity.Off */
+    const val AUDIO_REACTIVITY_OFF = 0xA12B
+    /** AudioReactivity.Subtle */
+    const val AUDIO_REACTIVITY_SUBTLE = 0xA12C
+    /** AudioReactivity.Normal */
+    const val AUDIO_REACTIVITY_NORMAL = 0xA12D
+    /** AudioReactivity.Intense */
+    const val AUDIO_REACTIVITY_INTENSE = 0xA12E
 }

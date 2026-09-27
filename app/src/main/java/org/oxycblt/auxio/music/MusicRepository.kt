@@ -19,6 +19,7 @@
 package org.oxycblt.auxio.music
 
 import android.content.Context
+import android.os.SystemClock
 import android.provider.DocumentsContract
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
@@ -262,6 +263,9 @@ constructor(
     @Volatile override var library: MutableLibrary? = null
     @Volatile private var previousCompletedState: IndexingState.Completed? = null
     @Volatile private var currentIndexingState: IndexingState? = null
+
+    /** Rate limiting for indexing progress dispatches, see [emitIndexingProgress]. */
+    @Volatile private var lastIndexingProgressEmitUptime = 0L
     override val indexingState: IndexingState?
         get() = currentIndexingState ?: previousCompletedState
 
@@ -357,11 +361,13 @@ constructor(
             if (DocumentsContract.isDocumentUri(context, uri)) {
                 // Deletion via SAF tree grants does not need additional write permissions.
                 runCatching {
-                    DocumentsContract.deleteDocument(context.contentResolver, uri)
-                }.isSuccess
+                        DocumentsContract.deleteDocument(context.contentResolver, uri)
+                    }
+                    .isSuccess
             } else {
                 // MediaStore deletion (granted beforehand by the caller when needed).
-                runCatching { context.contentResolver.delete(uri, null, null) > 0 }.getOrDefault(false)
+                runCatching { context.contentResolver.delete(uri, null, null) > 0 }
+                    .getOrDefault(false)
             }
 
         if (deleted) {
@@ -459,6 +465,22 @@ constructor(
     }
 
     private suspend fun emitIndexingProgress(progress: IndexingProgress) {
+        // Musikr reports progress once per song, so a large library produces tens of thousands of
+        // callbacks. Each one used to take the lock and fan out to every listener, which is far
+        // more
+        // often than a progress bar can actually be seen changing. Coalescing to a fixed rate keeps
+        // the bar smooth and drops the dispatch count by orders of magnitude. Safe to drop events
+        // here because the terminal state is delivered separately by emitIndexingCompletion.
+        val now = SystemClock.uptimeMillis()
+        val elapsed = now - lastIndexingProgressEmitUptime
+        if (elapsed < INDEXING_PROGRESS_INTERVAL_MS) {
+            // Still yield even when skipping, otherwise the tight indexing loop stops cooperating
+            // with the rest of the coroutine.
+            yield()
+            return
+        }
+        lastIndexingProgressEmitUptime = now
+
         yield()
         synchronized(this) {
             currentIndexingState = IndexingState.Indexing(progress)
@@ -520,5 +542,13 @@ constructor(
         for (listener in updateListeners) {
             listener.onMusicChanges(changes)
         }
+    }
+
+    private companion object {
+        /**
+         * Minimum gap between indexing progress dispatches. 10Hz is already faster than a progress
+         * bar can be perceived to move, so nothing is lost visually.
+         */
+        const val INDEXING_PROGRESS_INTERVAL_MS = 100L
     }
 }

@@ -51,6 +51,19 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         binding.seekBarSlider.setWaveEnabled(enabled)
     }
 
+    /**
+     * Sets the source of the current audio level, in the range 0..1. The slider samples this on
+     * each drawn frame rather than being pushed to.
+     */
+    fun setAudioLevelProvider(provider: (() -> Float)?) {
+        binding.seekBarSlider.audioLevelProvider = provider
+    }
+
+    /** Sets the source of the current audio reactivity strength, from 0 to 1. */
+    fun setAudioReactivityProvider(provider: (() -> Float)?) {
+        binding.seekBarSlider.audioReactivityProvider = provider
+    }
+
     /** The current [Listener] attached to this instance. */
     var listener: Listener? = null
 
