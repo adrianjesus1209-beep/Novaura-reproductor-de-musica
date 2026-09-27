@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2026 Novaura Project
- * EqualizerDialogFragment.kt is part of Novaura.
+ * Copyright (c) 2026 Auxio Project
+ * EqualizerDialogFragment.kt is part of Auxio.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+ 
 package org.oxycblt.auxio.playback
 
 import android.graphics.Color
@@ -46,7 +47,9 @@ class EqualizerDialogFragment : DialogFragment() {
     private val playbackModel: PlaybackViewModel by activityViewModels()
 
     private var _binding: DialogEqualizerBinding? = null
-    private val binding get() = _binding!!
+    private val binding
+        get() = _binding!!
+
     private val bandBindings = mutableListOf<ItemEqualizerBandBinding>()
     private val desiredGains = mutableListOf<Short>()
     private var equalizer: Equalizer? = null
@@ -63,7 +66,12 @@ class EqualizerDialogFragment : DialogFragment() {
     override fun onStart() {
         super.onStart()
         dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog?.window?.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
+        dialog
+            ?.window
+            ?.setLayout(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+            )
         dialog?.window?.setDimAmount(0.9f)
         setupEqualizer()
     }
@@ -113,7 +121,8 @@ class EqualizerDialogFragment : DialogFragment() {
         // android:theme on the dialog root does not reach them. Re-create the inflater from a
         // themed context so they pick up the same overlay, otherwise the labels keep the light
         // theme's dark onSurface color and vanish.
-        val themedContext = ContextThemeWrapper(requireContext(), R.style.ThemeOverlay_Auxio_Equalizer)
+        val themedContext =
+            ContextThemeWrapper(requireContext(), R.style.ThemeOverlay_Auxio_Equalizer)
         val bandInflater = LayoutInflater.from(themedContext)
 
         for (bandIndex in 0 until bandCount.toInt()) {
@@ -172,7 +181,9 @@ class EqualizerDialogFragment : DialogFragment() {
         bandBindings.forEachIndexed { band, row ->
             if (enabled) {
                 row.bandSlider.value =
-                    desiredGains[band].toFloat().coerceIn(row.bandSlider.valueFrom, row.bandSlider.valueTo)
+                    desiredGains[band]
+                        .toFloat()
+                        .coerceIn(row.bandSlider.valueFrom, row.bandSlider.valueTo)
                 try {
                     eq.setBandLevel(band.toShort(), desiredGains[band])
                 } catch (e: RuntimeException) {

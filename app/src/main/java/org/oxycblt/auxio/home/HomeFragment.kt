@@ -32,7 +32,6 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.view.MenuCompat
-import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
@@ -387,10 +386,14 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         val binding = requireBinding()
         when (state) {
             is IndexingState.Completed -> {
-                binding.homeIndexingContainer.isInvisible = state.error == null
-                binding.homeIndexingProgress.isInvisible = state.error != null
-                binding.homeIndexingError.isInvisible = state.error == null
+                // The card is GONE, not INVISIBLE, so a hidden card does not keep reserving its
+                // corner of the screen. It still holds the error state in its place, so the retry
+                // affordance is reachable.
+                binding.homeIndexingContainer.isVisible = state.error != null
+                binding.homeIndexingProgress.isVisible = false
+                binding.homeIndexingError.isVisible = state.error != null
                 if (state.error != null) {
+                    binding.homeIndexingLabel.setText(R.string.err_index_failed)
                     binding.homeIndexingContainer.setOnClickListener {
                         findNavController()
                             .navigateSafe(HomeFragmentDirections.reportError(state.error))
@@ -400,24 +403,38 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                 }
             }
             is IndexingState.Indexing -> {
-                binding.homeIndexingContainer.isInvisible = false
+                binding.homeIndexingContainer.isVisible = true
+                // Clear any error affordance left over from a previous run, otherwise a stray
+                // click can still open the error dialog for a finished index.
+                binding.homeIndexingContainer.setOnClickListener(null)
+                binding.homeIndexingError.isVisible = false
                 binding.homeIndexingProgress.apply {
-                    isInvisible = false
+                    isVisible = true
                     when (state.progress) {
                         is IndexingProgress.Songs -> {
                             isIndeterminate = false
                             progress = state.progress.loaded
                             max = state.progress.explored
+                            binding.homeIndexingLabel.text =
+                                getString(
+                                    R.string.fmt_scan_progress,
+                                    state.progress.loaded,
+                                    state.progress.explored,
+                                )
                         }
                         is IndexingProgress.Indeterminate -> {
                             isIndeterminate = true
+                            // Reset the determinate counters, otherwise the ring resumes from
+                            // whatever the previous Songs update left behind.
+                            progress = 0
+                            max = 0
+                            binding.homeIndexingLabel.setText(R.string.lng_scanning_music)
                         }
                     }
                 }
-                binding.homeIndexingError.isInvisible = true
             }
             null -> {
-                binding.homeIndexingContainer.isInvisible = true
+                binding.homeIndexingContainer.isVisible = false
             }
         }
     }

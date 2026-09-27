@@ -330,7 +330,8 @@ class MainFragment :
             val queuePanelBackRatio = min(queueBackRatio * 2, 1f)
             val queuePanelRatio = 1 - min(queuePanelEdgeRatio * queuePanelBackRatio, 1f)
 
-            binding.playbackBarFragment.alpha = max(playbackOutRatio, queueBarRatio) * playbackBarAlphaMultiplier
+            binding.playbackBarFragment.alpha =
+                max(playbackOutRatio, queueBarRatio) * playbackBarAlphaMultiplier
             binding.playbackPanelFragment.alpha = min(playbackInRatio, queuePanelRatio)
             binding.queueFragment.alpha = queueInRatio
 

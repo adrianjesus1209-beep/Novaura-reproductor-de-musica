@@ -2,8 +2,23 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_search"
+        android:icon="@drawable/ic_search_24"
+        android:title="@string/lbl_search"
+        app:showAsAction="always" />
+    <item
         android:id="@+id/action_open_equalizer"
         android:icon="@drawable/ic_config_24"
-        android:title="@string/lbl_equalizer"
+        android:title="@string/set_audio"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_song_details"
+        android:icon="@drawable/ic_song_24"
+        android:title="@string/lbl_about"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_playback_more"
+        android:icon="@drawable/ic_more_24"
+        android:title="@string/lbl_selection"
         app:showAsAction="always" />
 </menu>

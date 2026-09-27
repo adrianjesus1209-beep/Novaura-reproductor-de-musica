@@ -35,6 +35,7 @@ import org.oxycblt.auxio.list.adapter.SimpleDiffCallback
 import org.oxycblt.auxio.music.areNamesTheSame
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.music.resolveNames
+import org.oxycblt.auxio.playback.formatDurationMs
 import org.oxycblt.auxio.util.context
 import org.oxycblt.auxio.util.getPlural
 import org.oxycblt.auxio.util.inflater
@@ -61,11 +62,14 @@ class SongViewHolder private constructor(private val binding: ItemSongBinding) :
         listener.bind(song, this, menuButton = binding.songMenu)
         binding.songAlbumCover.bind(song)
         binding.songName.text = song.name.resolve(binding.context)
-        binding.songInfo.text = song.artists.resolveNames(binding.context)
+        val duration = song.durationMs.formatDurationMs(false)
+        val artists = song.artists.resolveNames(binding.context)
+        binding.songInfo.text = "$duration  •  $artists"
     }
 
     override fun updatePlayingIndicator(isActive: Boolean, isPlaying: Boolean) {
         binding.root.isSelected = isActive
+        binding.songName.isSelected = isActive
         binding.songAlbumCover.setPlaying(isPlaying)
     }
 

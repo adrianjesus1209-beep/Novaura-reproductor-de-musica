@@ -24,6 +24,33 @@ import org.oxycblt.musikr.metadata.Properties
 import org.oxycblt.musikr.playlist.PlaylistFile
 import org.oxycblt.musikr.tag.parse.ParsedTags
 
+/**
+ * Shared tuning for the indexing pipeline.
+ *
+ * Lives here so that [org.oxycblt.musikr.Musikr], [ExploreStep] and [ExtractStep] cannot drift
+ * apart on how much work is in flight at once.
+ */
+internal object PipelineTuning {
+    /**
+     * Number of concurrent workers per stage.
+     *
+     * Half of the available cores is deliberately left free so the main thread, the JNI tag parser
+     * and cover transcoding do not starve each other. A hard-coded 8 saturated CPU and IO on
+     * low-end devices, which is what made the UI stutter while scanning.
+     */
+    val parallelism: Int = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(2, 8)
+
+    /**
+     * Capacity of the channels connecting pipeline stages.
+     *
+     * A small multiple of [parallelism], so a fast producer applies backpressure instead of
+     * buffering the whole device in memory, while never leaving a worker blocked behind a full
+     * buffer. Previously every stage channel was UNLIMITED, which let extracted songs (and the
+     * embedded cover bitmaps they carry) pile up unboundedly on large libraries.
+     */
+    val stageBuffer: Int = parallelism * 2
+}
+
 internal sealed interface PipelineItem
 
 internal sealed interface Incomplete : PipelineItem

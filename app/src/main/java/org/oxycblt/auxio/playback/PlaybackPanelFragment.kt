@@ -106,7 +106,7 @@ class PlaybackPanelFragment :
             setOnMenuItemClickListener(this@PlaybackPanelFragment)
         }
 
-        binding.playbackPager?.apply {
+        binding.playbackPager.apply {
             // intentional LTR override since thepager is a chronological element
             layoutDirection = View.LAYOUT_DIRECTION_LTR
             adapter = coverPagerAdapter
@@ -183,6 +183,21 @@ class PlaybackPanelFragment :
                 listModel.openMenu(R.menu.playback_song, it, PlaySong.ByItself)
             }
         }
+        binding.playbackActionAdd?.setOnClickListener {
+            playbackModel.song.value?.let { song ->
+                listModel.openMenu(R.menu.playback_song, song, PlaySong.ByItself)
+            }
+        }
+        binding.playbackActionFavorite?.setOnClickListener { button ->
+            button.isSelected = !button.isSelected
+            val iconRes =
+                if (button.isSelected) R.drawable.ic_favorite_24
+                else R.drawable.ic_favorite_border_24
+            (button as? org.oxycblt.auxio.ui.RippleFixMaterialButton)?.setIconResource(iconRes)
+        }
+        binding.playbackActionQueue?.setOnClickListener {
+            playbackModel.openQueue()
+        }
 
         // --- VIEWMODEL SETUP --
         collectImmediately(playbackModel.song, ::updateSong)
@@ -236,18 +251,32 @@ class PlaybackPanelFragment :
         binding.playbackAlbum?.isSelected = false
         binding.playbackToolbar.setOnMenuItemClickListener(null)
         userAwarePagerCallback?.release()
-        binding.playbackPager?.adapter = null
+        binding.playbackPager.adapter = null
     }
 
     override fun onMenuItemClick(item: MenuItem): Boolean {
-        if (item.itemId == R.id.action_open_equalizer) {
-            // Show the in-app equalizer instead of relying on the system panel.
-            L.d("Opening equalizer")
-            EqualizerDialogFragment().show(parentFragmentManager, "equalizer")
-            return true
+        return when (item.itemId) {
+            R.id.action_open_equalizer -> {
+                L.d("Opening equalizer")
+                EqualizerDialogFragment().show(parentFragmentManager, "equalizer")
+                true
+            }
+            R.id.action_search -> {
+                playbackModel.openMain()
+                true
+            }
+            R.id.action_song_details -> {
+                navigateToCurrentSong()
+                true
+            }
+            R.id.action_playback_more -> {
+                playbackModel.song.value?.let {
+                    listModel.openMenu(R.menu.playback_song, it, PlaySong.ByItself)
+                }
+                true
+            }
+            else -> false
         }
-
-        return false
     }
 
     override fun onSeekConfirmed(positionDs: Long) {

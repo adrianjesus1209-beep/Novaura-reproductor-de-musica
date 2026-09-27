@@ -40,9 +40,7 @@ import org.oxycblt.auxio.util.showToast
 import org.oxycblt.musikr.Song
 import timber.log.Timber as L
 
-/**
- * A [ViewBindingMaterialDialogFragment] that asks the user to confirm the deletion of a [Song].
- */
+/** A [ViewBindingMaterialDialogFragment] that asks the user to confirm the deletion of a [Song]. */
 @AndroidEntryPoint
 class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBinding>() {
     private val musicModel: MusicViewModel by activityViewModels()
@@ -109,7 +107,9 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
         grantResults: IntArray,
     ) {
         if (requestCode == permissionRequestCode) {
-            val granted = grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+            val granted =
+                grantResults.isNotEmpty() &&
+                    grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
             if (granted) {
                 performDelete(songToDelete)
             } else {

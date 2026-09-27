@@ -60,8 +60,9 @@ private constructor(
         tryAsyncWith(files, Dispatchers.IO) { channel ->
             val baseProjection = BASE_PROJECTION + pathInterpreterFactory.projection
             val projection =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                    !baseProjection.contains(AOSPMediaStore.Audio.AudioColumns.VOLUME_NAME)
+                if (
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                        !baseProjection.contains(AOSPMediaStore.Audio.AudioColumns.VOLUME_NAME)
                 ) {
                     // Rows on API 29+ may reside on different volumes (e.g. a microSD), so we
                     // need the row's volume to build a file URI that can actually be opened for
@@ -101,7 +102,8 @@ private constructor(
             // Collect all files and track unique directories
             val allFiles = mutableListOf<File>()
 
-            // Query MediaStore.VOLUME_EXTERNAL on API 29+ to include mounted secondary/MicroSD storage
+            // Query MediaStore.VOLUME_EXTERNAL on API 29+ to include mounted secondary/MicroSD
+            // storage
             val mediaUri =
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     AOSPMediaStore.Audio.Media.getContentUri(AOSPMediaStore.VOLUME_EXTERNAL)
@@ -239,29 +241,32 @@ private constructor(
             )
 
         /**
-         * Direct indexed query selector:
-         * Excludes zero-size files, non-music (IS_MUSIC != 0), tracks shorter than 30s (DURATION >= 30000 ms),
-         * and system/messaging/call/voice-note directories.
+         * Direct indexed query selector: Excludes zero-size files, non-music (IS_MUSIC != 0),
+         * tracks shorter than 30s (DURATION >= 30000 ms), and system/messaging/call/voice-note
+         * directories.
          */
         private const val BASE_SELECTOR =
             "NOT ${AOSPMediaStore.Audio.Media.SIZE}=0 " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.IS_MUSIC} != 0 " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DURATION} >= 30000 " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Android/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/WhatsApp/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Telegram/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Recordings/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Call/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/CallRecordings/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Call Recordings/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/CallRecorder/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/VoiceNotes/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Voice Notes/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/VoiceRecordings/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/SoundRecorder/%' " +
-            "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Recorder/%'"
+                "AND ${AOSPMediaStore.Audio.AudioColumns.IS_MUSIC} != 0 " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DURATION} >= 30000 " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Android/%' " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/WhatsApp/%' " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Telegram/%' " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Recordings/%' " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Call/%' " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/CallRecordings/%' " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Call Recordings/%' " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/CallRecorder/%' " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/VoiceNotes/%' " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Voice Notes/%' " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/VoiceRecordings/%' " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/SoundRecorder/%' " +
+                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Recorder/%'"
 
-        /** Base projection strictly limiting extracted columns (ID, Title, Artist, Album, Data, Duration + file attributes). */
+        /**
+         * Base projection strictly limiting extracted columns (ID, Title, Artist, Album, Data,
+         * Duration + file attributes).
+         */
         private val BASE_PROJECTION =
             arrayOf(
                 AOSPMediaStore.Audio.AudioColumns._ID,
@@ -277,4 +282,3 @@ private constructor(
             )
     }
 }
-
