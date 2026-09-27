@@ -225,39 +225,19 @@ private constructor(
 
         private val EXCLUDED_PATH_MARKERS =
             listOf(
-                "android/",
-                "whatsapp/",
-                "telegram/",
-                "recordings/",
-                "call/",
-                "callrecordings/",
-                "call recordings/",
-                "callrecorder/",
-                "voicenotes/",
-                "voice notes/",
-                "voicerecordings/",
-                "soundrecorder/",
-                "recorder/",
+                "/whatsapp voice notes/",
+                "/.whatsapp/",
+                "/voice notes/",
+                "/voicerecordings/",
+                "/soundrecorder/",
+                "/ringtones/",
+                "/notifications/",
+                "/alarms/",
             )
 
-        /**
-         * Direct indexed query selector: Excludes zero-size files, non-music (IS_MUSIC != 0),
-         * tracks shorter than 30s (DURATION >= 30000 ms), and system/messaging/call/voice-note
-         * directories.
-         */
+        /** Direct indexed query selector: Excludes zero-size files. */
         private const val BASE_SELECTOR =
             "NOT ${AOSPMediaStore.Audio.Media.SIZE}=0 " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.IS_MUSIC} != 0 " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DURATION} >= 30000 " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Android/%' " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/WhatsApp/%' " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Telegram/%' " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Recordings/%' " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Call/%' " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/CallRecordings/%' " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Call Recordings/%' " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/CallRecorder/%' " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/VoiceNotes/%' " +
                 "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Voice Notes/%' " +
                 "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/VoiceRecordings/%' " +
                 "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/SoundRecorder/%' " +

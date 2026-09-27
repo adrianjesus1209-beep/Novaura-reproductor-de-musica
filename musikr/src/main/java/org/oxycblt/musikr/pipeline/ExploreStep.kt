@@ -90,8 +90,8 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
                     is NeedsHydration -> {
                         val audio = item.cachedFile.audio ?: return@mapParallel Finalized(NotAudio)
                         if (
-                            audio.tags.durationMs in 1 until 30000L ||
-                                audio.properties.durationMs in 1 until 30000L
+                            audio.tags.durationMs in 1 until 3000L ||
+                                audio.properties.durationMs in 1 until 3000L
                         ) {
                             return@mapParallel Finalized(NotAudio)
                         }
@@ -148,24 +148,14 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
     private companion object {
         val EXCLUDED_PATH_MARKERS =
             listOf(
-                "android/",
-                "whatsapp/",
-                "telegram/",
-                "recordings/",
-                "call/",
-                "callrecordings/",
-                "call recordings/",
-                "callrecorder/",
-                "voicenotes/",
-                "voice notes/",
-                "voicerecordings/",
-                "soundrecorder/",
-                "recorder/",
-                "ringtones/",
-                "notifications/",
-                "alarms/",
-                "ui/",
-                "system/",
+                "/whatsapp voice notes/",
+                "/.whatsapp/",
+                "/voice notes/",
+                "/voicerecordings/",
+                "/soundrecorder/",
+                "/ringtones/",
+                "/notifications/",
+                "/alarms/",
             )
 
         val EXCLUDED_EXTENSIONS =

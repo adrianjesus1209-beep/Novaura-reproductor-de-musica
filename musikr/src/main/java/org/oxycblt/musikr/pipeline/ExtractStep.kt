@@ -81,7 +81,7 @@ private class ExtractStepImpl(
                                 val metadata = result.metadata
                                 if (metadata == null) {
                                     Finalized(InvalidSong)
-                                } else if (metadata.properties.durationMs in 1 until 30000L) {
+                                } else if (metadata.properties.durationMs in 1 until 3000L) {
                                     Finalized(NotAudio)
                                 } else {
                                     NeedsParsing(item, metadata)
@@ -105,7 +105,7 @@ private class ExtractStepImpl(
                     is Finalized -> item
                     is NeedsParsing -> {
                         val tags = tagParser.parse(item.metadata)
-                        if (tags.durationMs in 1 until 30000L) {
+                        if (tags.durationMs in 1 until 3000L) {
                             return@mapParallel Finalized(NotAudio)
                         }
                         val cover =
