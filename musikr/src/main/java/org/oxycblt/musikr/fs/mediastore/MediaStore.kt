@@ -22,6 +22,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore as AOSPMediaStore
+import android.util.Log
 import androidx.core.database.getStringOrNull
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +33,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import org.oxycblt.musikr.fs.AddedMs
+import org.oxycblt.musikr.fs.ExcludedPaths
 import org.oxycblt.musikr.fs.FS
 import org.oxycblt.musikr.fs.FSUpdate
 import org.oxycblt.musikr.fs.File
@@ -41,6 +43,8 @@ import org.oxycblt.musikr.fs.path.VolumeManager
 import org.oxycblt.musikr.fs.saf.contentResolverSafe
 import org.oxycblt.musikr.fs.saf.useQuery
 import org.oxycblt.musikr.fs.track.LocationObserver
+import org.oxycblt.musikr.pipeline.ScanDiagnostics
+import org.oxycblt.musikr.pipeline.ScanReject
 import org.oxycblt.musikr.util.tryAsyncWith
 
 /**
@@ -76,7 +80,15 @@ private constructor(
 
             // Filter out audio that is not music, if enabled
             if (query.excludeNonMusic) {
-                selector += " AND ${AOSPMediaStore.Audio.AudioColumns.IS_MUSIC} != 0"
+                // IS_MUSIC is a MediaProvider heuristic, not a fact about the file: it stays 0 for
+                // tracks pushed over MTP/USB, copied while the provider was down, restored from a
+                // backup or living on a volume it has not indexed. Gating on it alone made the
+                // library come up completely empty, because the rows were never even queried. A
+                // file that is unambiguously music is therefore admitted regardless of the flag.
+                selector +=
+                    " AND (${AOSPMediaStore.Audio.AudioColumns.IS_MUSIC} != 0" +
+                        " OR ${AOSPMediaStore.Audio.AudioColumns.DURATION} >=" +
+                        " ${MIN_MUSIC_DURATION_MS})"
             }
 
             // Handle include/exclude directories
@@ -111,6 +123,10 @@ private constructor(
                     AOSPMediaStore.Audio.Media.EXTERNAL_CONTENT_URI
                 }
 
+            // Log the exact selector so a stale or unexpected filter can be spotted without
+            // having to reproduce the query by hand.
+            Log.i(TAG, "Querying $mediaUri with \"$selector\" args=$args")
+
             context.contentResolverSafe.useQuery(
                 mediaUri,
                 projection,
@@ -134,11 +150,17 @@ private constructor(
                     }
 
                 while (cursor.moveToNext()) {
-                    val path = pathInterpreter.extract() ?: continue
+                    ScanDiagnostics.recordRow()
+                    val path = pathInterpreter.extract()
+                    if (path == null) {
+                        ScanDiagnostics.recordRejected(ScanReject.PATH_UNRESOLVED)
+                        continue
+                    }
 
                     // Strict filter: exclude system folders (/Android/data/, /Android/media/)
                     // and messaging/call folders (WhatsApp/, Telegram/, Recordings/, Call/)
                     if (isExcludedPath(path.components.unixString)) {
+                        ScanDiagnostics.recordRejected(ScanReject.EXCLUDED_PATH)
                         continue
                     }
 
@@ -211,6 +233,14 @@ private constructor(
     }
 
     companion object {
+        private const val TAG = "MediaStore"
+
+        /**
+         * A track at least this long is music even when the MediaProvider never got round to
+         * setting IS_MUSIC on it.
+         */
+        private const val MIN_MUSIC_DURATION_MS = 30000
+
         fun from(context: Context, query: Query) =
             MediaStore(
                 context = context,
@@ -218,43 +248,18 @@ private constructor(
                 query = query,
             )
 
-        private fun isExcludedPath(path: String): Boolean {
-            val lower = path.lowercase()
-            return EXCLUDED_PATH_MARKERS.any { lower.contains(it) }
-        }
-
-        private val EXCLUDED_PATH_MARKERS =
-            listOf(
-                "/whatsapp voice notes/",
-                "/.whatsapp/",
-                "/voice notes/",
-                "/voicerecordings/",
-                "/soundrecorder/",
-                "/ringtones/",
-                "/notifications/",
-                "/alarms/",
-            )
-
-        /** Direct indexed query selector: Excludes zero-size files. */
-        private const val BASE_SELECTOR =
-            "NOT ${AOSPMediaStore.Audio.Media.SIZE}=0 " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Voice Notes/%' " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/VoiceRecordings/%' " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/SoundRecorder/%' " +
-                "AND ${AOSPMediaStore.Audio.AudioColumns.DATA} NOT LIKE '%/Recorder/%'"
+        private fun isExcludedPath(path: String): Boolean = ExcludedPaths.isExcluded(path)
 
         /**
-         * Base projection strictly limiting extracted columns (ID, Title, Artist, Album, Data,
-         * Duration + file attributes).
+         * The base selector that works across all versions of android. Excludes files with zero
+         * size.
          */
+        private const val BASE_SELECTOR = "NOT ${AOSPMediaStore.Audio.Media.SIZE}=0"
+
+        /** The base projection that works across all versions of android. */
         private val BASE_PROJECTION =
             arrayOf(
                 AOSPMediaStore.Audio.AudioColumns._ID,
-                AOSPMediaStore.Audio.AudioColumns.TITLE,
-                AOSPMediaStore.Audio.AudioColumns.ARTIST,
-                AOSPMediaStore.Audio.AudioColumns.ALBUM,
-                AOSPMediaStore.Audio.AudioColumns.DATA,
-                AOSPMediaStore.Audio.AudioColumns.DURATION,
                 AOSPMediaStore.Audio.AudioColumns.DATE_ADDED,
                 AOSPMediaStore.Audio.AudioColumns.DATE_MODIFIED,
                 AOSPMediaStore.Audio.AudioColumns.SIZE,

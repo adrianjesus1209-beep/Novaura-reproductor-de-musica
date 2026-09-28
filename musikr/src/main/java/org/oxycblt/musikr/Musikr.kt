@@ -28,6 +28,7 @@ import org.oxycblt.musikr.pipeline.Explored
 import org.oxycblt.musikr.pipeline.ExtractStep
 import org.oxycblt.musikr.pipeline.Extracted
 import org.oxycblt.musikr.pipeline.PipelineTuning
+import org.oxycblt.musikr.pipeline.ScanDiagnostics
 import org.oxycblt.musikr.util.merge
 import org.oxycblt.musikr.util.tryAsyncWith
 
@@ -114,6 +115,7 @@ private class MusikrImpl(
     private val evaluateStep: EvaluateStep,
 ) : Musikr {
     override suspend fun run(onProgress: suspend (IndexingProgress) -> Unit) = coroutineScope {
+        ScanDiagnostics.reset()
         onProgress(IndexingProgress.Songs(0, 0))
         var explored = 0
         var loaded = 0
@@ -161,6 +163,9 @@ private class MusikrImpl(
             }
         val library = evaluateStep.evaluate(trackedExtractedChannel)
         merge(exploredTask, extractedTask, trackedExploredTask, trackedExtractedTask).await()
+        // Report the tally before the library is handed out, so an empty result always has a
+        // matching explanation in logcat.
+        ScanDiagnostics.logSummary(library.songs.size)
         LibraryResultImpl(config, library)
     }
 }

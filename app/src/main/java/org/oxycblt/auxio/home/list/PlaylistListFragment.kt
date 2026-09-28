@@ -182,6 +182,7 @@ class PlaylistListFragment :
         binding.homeNoMusic.isInvisible = !empty && playlists.isNotEmpty()
 
         val isIndexing = indexingState is IndexingState.Indexing
+        val hasFailed = (indexingState as? IndexingState.Completed)?.error != null
         binding.homeNoMusicProgress.isVisible = isIndexing && hasPermission
         binding.homeNoMusicPlaceholder.isVisible = !isIndexing || !hasPermission
 
@@ -191,6 +192,11 @@ class PlaylistListFragment :
             binding.homeNoMusicAction.isVisible = true
             binding.homeNoMusicAction.text = getString(R.string.lbl_grant_permission)
             binding.homeNoMusicAction.setOnClickListener { homeModel.requestStoragePermission() }
+        } else if (hasFailed) {
+            binding.homeNoMusicMsg.text = getString(R.string.lng_scan_failed)
+            binding.homeNoMusicAction.isVisible = true
+            binding.homeNoMusicAction.text = getString(R.string.lbl_scan_again)
+            binding.homeNoMusicAction.setOnClickListener { musicModel.refresh() }
         } else if (isIndexing) {
             binding.homeNoMusicMsg.text = getString(R.string.lng_scanning_music)
             binding.homeNoMusicAction.isVisible = false

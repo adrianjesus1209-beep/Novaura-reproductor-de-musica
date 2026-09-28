@@ -58,10 +58,12 @@ private class EvaluateStepImpl(
             for (extracted in extractedMusic) {
                 when (extracted) {
                     is RawSong -> {
-                        if (
-                            extracted.tags.durationMs in 1 until 30000L ||
-                                extracted.properties.durationMs in 1 until 30000L
-                        ) {
+                        // Third and last place the duration was measured. It was checked here, in
+                        // ExtractStep and again in ExploreStep against both the raw properties and
+                        // the parsed tags, so a single TagLib mis-report could drop a song at any
+                        // of six points. Only the parsed tags matter now.
+                        if (extracted.tags.durationMs in 1 until MIN_PLAUSIBLE_DURATION_MS) {
+                            ScanDiagnostics.recordRejected(ScanReject.DURATION_TOO_SHORT)
                             continue
                         }
                         builder.add(tagInterpreter.interpret(extracted))
@@ -81,4 +83,11 @@ private class EvaluateStepImpl(
 
             libraryFactory.create(graph, storedPlaylists, playlistInterpreter)
         }
+
+    private companion object {
+        /**
+         * Must match [ExploreStep] and [ExtractStep] so a song is judged the same at every stage.
+         */
+        const val MIN_PLAUSIBLE_DURATION_MS = 3000L
+    }
 }

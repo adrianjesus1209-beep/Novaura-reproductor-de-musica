@@ -21,6 +21,7 @@ package org.oxycblt.musikr.fs.path
 import android.database.Cursor
 import android.os.Build
 import android.provider.MediaStore
+import androidx.core.database.getStringOrNull
 import org.oxycblt.musikr.fs.Components
 import org.oxycblt.musikr.fs.Path
 
@@ -102,7 +103,8 @@ private constructor(private val cursor: Cursor, volumeManager: VolumeManager) :
     private val volumes = volumeManager.getVolumes()
 
     override fun extract(): Path? {
-        val data = Components.parseUnix(cursor.getString(dataIndex))
+        val dataStr = cursor.getStringOrNull(dataIndex) ?: return null
+        val data = Components.parseUnix(dataStr)
 
         // Find the volume that transforms the DATA column into a relative path. This is
         // the Directory we will use.
@@ -172,18 +174,16 @@ private constructor(private val cursor: Cursor, volumeManager: VolumeManager) :
     private val relativePathIndex =
         cursor.getColumnIndexOrThrow(MediaStore.Audio.AudioColumns.RELATIVE_PATH)
     private val volumes = volumeManager.getVolumes()
+    private val internalVolume = volumeManager.getInternalVolume()
 
     override fun extract(): Path? {
         // Find the StorageVolume whose MediaStore name corresponds to it.
-        val volumeName = cursor.getString(volumeIndex)
+        val volumeName = cursor.getStringOrNull(volumeIndex)
         // Relative path does not include file name, must use DISPLAY_NAME and add it
         // in manually.
-        val relativePath = cursor.getString(relativePathIndex)
-        val displayName = cursor.getString(displayNameIndex)
-        val volume = volumes.find { it.mediaStoreName == volumeName }
-        if (volume == null) {
-            return null
-        }
+        val relativePath = cursor.getStringOrNull(relativePathIndex) ?: ""
+        val displayName = cursor.getStringOrNull(displayNameIndex) ?: ""
+        val volume = volumes.find { it.mediaStoreName == volumeName } ?: internalVolume
         val components = Components.parseUnix(relativePath).child(displayName)
         return Path(volume, components)
     }
@@ -214,8 +214,11 @@ private constructor(private val cursor: Cursor, volumeManager: VolumeManager) :
         ): MediaStorePathInterpreter.Factory.Selector? {
             val args = mutableListOf<String>()
             var template = ""
-            for (i in paths.indices) {
-                val path = paths[i]
+            for (path in paths) {
+                // A path on a volume MediaStore has not named yet cannot be expressed as a
+                // selector, but bailing out of the whole method would silently drop *every* other
+                // filter and hand back the entire library instead of the selected folders.
+                val volumeName = path.volume.mediaStoreName ?: continue
                 template +=
                     if (args.isEmpty()) {
                         "(${MediaStore.Audio.AudioColumns.VOLUME_NAME} LIKE ? " +
@@ -226,7 +229,7 @@ private constructor(private val cursor: Cursor, volumeManager: VolumeManager) :
                     }
                 // MediaStore uses a different naming scheme for it's volume column. Convert this
                 // directory's volume to it.
-                args.add(path.volume.mediaStoreName ?: return null)
+                args.add(volumeName)
                 // "%" signifies to accept any DATA value that begins with the Directory's path,
                 // thus recursively filtering all files in the directory.
                 args.add("${path.components}%")

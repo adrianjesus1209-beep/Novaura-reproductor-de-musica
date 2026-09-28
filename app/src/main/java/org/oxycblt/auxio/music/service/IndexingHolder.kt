@@ -172,6 +172,12 @@ private constructor(
 
     private fun startTracking() {
         stopTracking()
+        // Only observe when the user asked for it. Registering the ContentObserver regardless made
+        // every MediaStore change trigger a full re-index with automatic rescanning switched off.
+        if (!musicSettings.shouldBeObserving) {
+            L.d("Not observing media changes")
+            return
+        }
         val fs =
             when (musicSettings.locationMode) {
                 LocationMode.MEDIA_STORE ->
@@ -199,6 +205,8 @@ private constructor(
 
     override fun onObservingChanged() {
         super.onObservingChanged()
+        // The observer is now gated on this setting, so it has to be (re)registered either way.
+        startTracking()
         // Make sure we don't override the service state with the observing
         // notification if we were actively loading when the automatic rescanning
         // setting changed. In such a case, the state will still be updated when

@@ -223,6 +223,7 @@
     <string name="lng_scanning_music">Searching for music in device…</string>
     <string name="fmt_scan_progress">Scanning audio files… (%1$d/%2$d)</string>
     <string name="lbl_scan_again">Scan again</string>
+    <string name="lng_scan_failed">Music loading failed. Tap to try again.</string>
     <string name="lng_file_picker">Load music from the folders that you select. Slower, but more reliable. Requires the vanilla file manager app to be installed.</string>
     <string name="lng_system_database">Load music that the Android OS automatically detects. Faster, but less reliable. No support for filesystem-dependent features like cover.jpg.</string>
     <string name="lng_grant_storage_anyway">Granting external storage permissions can fix issues on some devices.</string>

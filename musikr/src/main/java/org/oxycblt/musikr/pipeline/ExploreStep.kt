@@ -28,6 +28,7 @@ import org.oxycblt.musikr.Storage
 import org.oxycblt.musikr.cache.CacheResult
 import org.oxycblt.musikr.cache.CachedFile
 import org.oxycblt.musikr.covers.CoverResult
+import org.oxycblt.musikr.fs.ExcludedPaths
 import org.oxycblt.musikr.fs.FS
 import org.oxycblt.musikr.fs.File
 import org.oxycblt.musikr.playlist.m3u.M3U
@@ -56,12 +57,13 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
         val classifiedTask =
             scope.mapParallel(PipelineTuning.parallelism, files, classified, Dispatchers.IO) { file
                 ->
-                val pathStr = file.path.components.unixString.lowercase()
-                if (EXCLUDED_PATH_MARKERS.any { pathStr.contains(it) }) {
+                if (ExcludedPaths.isExcluded(file.path.components)) {
+                    ScanDiagnostics.recordRejected(ScanReject.EXCLUDED_PATH)
                     return@mapParallel Finalized(NotAudio)
                 }
                 val ext = file.path.name?.substringAfterLast('.', "")?.lowercase() ?: ""
                 if (ext.isNotEmpty() && ext in EXCLUDED_EXTENSIONS) {
+                    ScanDiagnostics.recordRejected(ScanReject.EXCLUDED_EXTENSION)
                     return@mapParallel Finalized(NotAudio)
                 }
                 if (
@@ -72,6 +74,7 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
                             file.mimeType != "application/octet-stream" &&
                             ext !in VALID_AUDIO_EXTENSIONS)
                 ) {
+                    ScanDiagnostics.recordRejected(ScanReject.UNSUPPORTED_TYPE)
                     return@mapParallel Finalized(NotAudio)
                 }
                 when (val cacheResult = storage.cache.read(file)) {
@@ -88,11 +91,17 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
                 when (item) {
                     is Finalized -> item
                     is NeedsHydration -> {
-                        val audio = item.cachedFile.audio ?: return@mapParallel Finalized(NotAudio)
-                        if (
-                            audio.tags.durationMs in 1 until 3000L ||
-                                audio.properties.durationMs in 1 until 3000L
-                        ) {
+                        val audio = item.cachedFile.audio
+                        if (audio == null) {
+                            ScanDiagnostics.recordRejected(ScanReject.NO_METADATA)
+                            return@mapParallel Finalized(NotAudio)
+                        }
+                        // Only the parsed tag duration is checked. The same file is also measured
+                        // by
+                        // its raw properties during extraction, and rejecting on either measurement
+                        // made a single TagLib mis-report enough to drop a song forever.
+                        if (audio.tags.durationMs in 1 until MIN_PLAUSIBLE_DURATION_MS) {
+                            ScanDiagnostics.recordRejected(ScanReject.DURATION_TOO_SHORT)
                             return@mapParallel Finalized(NotAudio)
                         }
                         val coverId =
@@ -146,17 +155,11 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
     private data class Finalized(val explored: Explored) : Classified
 
     private companion object {
-        val EXCLUDED_PATH_MARKERS =
-            listOf(
-                "/whatsapp voice notes/",
-                "/.whatsapp/",
-                "/voice notes/",
-                "/voicerecordings/",
-                "/soundrecorder/",
-                "/ringtones/",
-                "/notifications/",
-                "/alarms/",
-            )
+        /**
+         * A non-zero duration below this is treated as "the parser failed" rather than "a very
+         * short clip", and the file is dropped.
+         */
+        const val MIN_PLAUSIBLE_DURATION_MS = 3000L
 
         val EXCLUDED_EXTENSIONS =
             setOf(
@@ -184,13 +187,27 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
                 "flac",
                 "m4a",
                 "ogg",
+                "oga",
                 "opus",
                 "aac",
                 "wma",
                 "alac",
                 "aiff",
+                "aif",
+                "aifc",
+                "ape",
+                "wv",
+                "tta",
+                "mka",
+                "mpc",
+                "dsf",
+                "dff",
                 "3gp",
+                "3gpp",
                 "m4b",
+                "m4p",
+                "mid",
+                "midi",
             )
     }
 }

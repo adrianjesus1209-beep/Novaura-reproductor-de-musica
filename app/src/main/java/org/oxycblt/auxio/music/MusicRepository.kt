@@ -19,7 +19,9 @@
 package org.oxycblt.auxio.music
 
 import android.content.Context
+import android.media.MediaScannerConnection
 import android.os.SystemClock
+import android.os.storage.StorageManager
 import android.provider.DocumentsContract
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
@@ -33,6 +35,7 @@ import org.oxycblt.auxio.image.covers.SettingCovers
 import org.oxycblt.auxio.music.MusicRepository.IndexingWorker
 import org.oxycblt.auxio.music.locations.LocationMode
 import org.oxycblt.auxio.music.shim.WriteOnlyMutableCache
+import org.oxycblt.auxio.util.getSystemServiceCompat
 import org.oxycblt.musikr.Config
 import org.oxycblt.musikr.IndexingProgress
 import org.oxycblt.musikr.Interpretation
@@ -266,6 +269,10 @@ constructor(
 
     /** Rate limiting for indexing progress dispatches, see [emitIndexingProgress]. */
     @Volatile private var lastIndexingProgressEmitUptime = 0L
+
+    /** Guards the one-shot MediaProvider rescan, see [requestMediaRescan]. */
+    @Volatile private var mediaRescanRequested = false
+
     override val indexingState: IndexingState?
         get() = currentIndexingState ?: previousCompletedState
 
@@ -456,12 +463,57 @@ constructor(
         // cleanup finishes.
         L.d("Emitting new library")
         emitLibrary(result.library)
+        // An empty library right after a fresh query almost always means MediaProvider has not
+        // indexed the files yet, so give the platform a chance to catch up and re-read it.
+        if (result.library.songs.isEmpty()) {
+            requestMediaRescan()
+        }
         // Clean up old data that is now impossible for the app to be using.
         L.d("Cleanup")
         result.cleanup()
         // Finish up loading.
         L.d("Indexing complete")
         emitIndexingCompletion(null)
+    }
+
+    /**
+     * Ask the platform media scanner to re-index every mounted volume, once per process.
+     *
+     * The audio rows and their `IS_MUSIC` flag are filled in by the platform scanner, not by this
+     * app, so files that were pushed over MTP/USB or copied while that scanner was idle are simply
+     * absent from the query. Without this the only cure is rebooting the device, and an empty
+     * library is indistinguishable from a bug in the app.
+     *
+     * Only reached when a full query came back with no songs at all, so the cost of walking every
+     * volume is paid at most once and only when something is actually wrong.
+     */
+    private fun requestMediaRescan() {
+        if (mediaRescanRequested) {
+            return
+        }
+        mediaRescanRequested = true
+        val storageManager = context.getSystemServiceCompat(StorageManager::class)
+        val roots =
+            storageManager.storageVolumes.mapNotNull { volume ->
+                try {
+                    volume.directory?.absolutePath
+                } catch (e: Exception) {
+                    L.w("Could not resolve directory of ${volume.uuid}: $e")
+                    null
+                }
+            }
+        if (roots.isEmpty()) {
+            L.w("No mounted volume directory to rescan")
+            return
+        }
+        L.d("Library is empty, asking MediaScannerConnection to rescan $roots")
+        try {
+            MediaScannerConnection.scanFile(context, roots.toTypedArray(), null, null)
+        } catch (e: Exception) {
+            mediaRescanRequested = false
+            L.e("Media rescan request failed")
+            L.e(e.stackTraceToString())
+        }
     }
 
     private suspend fun emitIndexingProgress(progress: IndexingProgress) {

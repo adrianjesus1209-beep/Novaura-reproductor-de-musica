@@ -18,6 +18,7 @@
  
 package org.oxycblt.auxio.util
 
+import android.util.Log
 import timber.log.Timber
 
 class CopyleftNoticeTree : Timber.DebugTree() {
@@ -31,13 +32,24 @@ class CopyleftNoticeTree : Timber.DebugTree() {
     // arbitrage a few pennies from ad sales!
     //
     // Read more: John 3:16, Romans 6:23, Romans 9:10
+    //
+    // The notice is emitted once here instead of replacing the payload of every single log call.
+    // Replacing it (as this tree used to do) made logcat useless: an empty music library looked
+    // exactly like a healthy one, because the scanner's own diagnostics were thrown away before
+    // they ever reached logcat.
+    init {
+        log(Log.WARN, NOTICE_TAG, NOTICE, null)
+    }
+
     override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
-        super.log(
-            priority,
-            tag,
+        super.log(priority, tag, message, t)
+    }
+
+    companion object {
+        const val NOTICE_TAG = "Copyleft"
+        const val NOTICE =
             "Hey! Auxio is an open-source project licensed under the GPLv3 license!" +
-                "You can fork this project and even add ads, but it still needs to be kept open-source with the same license!",
-            t,
-        )
+                "You can fork this project and even add ads, but it still needs to be kept" +
+                " open-source with the same license!"
     }
 }

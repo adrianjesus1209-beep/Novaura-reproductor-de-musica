@@ -181,7 +181,7 @@ class MusicSettingsImpl @Inject constructor(@ApplicationContext private val cont
                     )
                     .toUnopenedLocations()
             val excludeNonMusic =
-                sharedPreferences.getBoolean(getString(R.string.set_key_exclude_non_music), true)
+                sharedPreferences.getBoolean(getString(R.string.set_key_exclude_non_music), false)
             return MediaStore.Query(
                 mode =
                     when (filterMode) {
@@ -216,6 +216,31 @@ class MusicSettingsImpl @Inject constructor(@ApplicationContext private val cont
         sharedPreferences.edit {
             putInt(getString(R.string.set_key_force_reload_workaround), cur + 1)
             apply()
+        }
+    }
+
+    /**
+     * "Exclude non-music" shipped enabled, which meant every query carried `is_music != 0`. That
+     * column is a MediaProvider heuristic, so tracks that arrived over MTP/USB or were copied while
+     * the provider was down were never queried at all and the library came up empty.
+     *
+     * The old value is cleared once so that existing installs pick up the new, safer default. A
+     * deliberate choice made afterwards is left alone.
+     */
+    override fun migrate() {
+        val migrated = getString(R.string.set_key_media_filter_migrated)
+        if (sharedPreferences.getBoolean(migrated, false)) {
+            return
+        }
+        val key = getString(R.string.set_key_exclude_non_music)
+        if (sharedPreferences.getBoolean(key, false)) {
+            L.d("Clearing legacy exclude-non-music setting")
+            sharedPreferences.edit {
+                putBoolean(key, false)
+                putBoolean(migrated, true)
+            }
+        } else {
+            sharedPreferences.edit { putBoolean(migrated, true) }
         }
     }
 

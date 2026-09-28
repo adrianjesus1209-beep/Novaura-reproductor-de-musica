@@ -80,16 +80,28 @@ private class ExtractStepImpl(
                             is MetadataResult.Success -> {
                                 val metadata = result.metadata
                                 if (metadata == null) {
+                                    ScanDiagnostics.recordRejected(ScanReject.NO_METADATA)
                                     Finalized(InvalidSong)
-                                } else if (metadata.properties.durationMs in 1 until 3000L) {
-                                    Finalized(NotAudio)
                                 } else {
+                                    // The duration is deliberately not checked here. It used to be
+                                    // measured twice, against the raw properties and again against
+                                    // the parsed tags, so one TagLib mis-report was enough to drop
+                                    // a song. The parsed tags below are the single source of truth.
                                     NeedsParsing(item, metadata)
                                 }
                             }
-                            MetadataResult.NoMetadata -> Finalized(InvalidSong)
-                            MetadataResult.NotAudio -> Finalized(NotAudio)
-                            MetadataResult.ProviderFailed -> Finalized(InvalidSong)
+                            MetadataResult.NoMetadata -> {
+                                ScanDiagnostics.recordRejected(ScanReject.NO_METADATA)
+                                Finalized(InvalidSong)
+                            }
+                            MetadataResult.NotAudio -> {
+                                ScanDiagnostics.recordRejected(ScanReject.UNSUPPORTED_TYPE)
+                                Finalized(NotAudio)
+                            }
+                            MetadataResult.ProviderFailed -> {
+                                ScanDiagnostics.recordRejected(ScanReject.PROVIDER_FAILED)
+                                Finalized(InvalidSong)
+                            }
                         }
                     }
                     is NotAudio -> Finalized(NotAudio)
@@ -105,7 +117,8 @@ private class ExtractStepImpl(
                     is Finalized -> item
                     is NeedsParsing -> {
                         val tags = tagParser.parse(item.metadata)
-                        if (tags.durationMs in 1 until 3000L) {
+                        if (tags.durationMs in 1 until MIN_PLAUSIBLE_DURATION_MS) {
+                            ScanDiagnostics.recordRejected(ScanReject.DURATION_TOO_SHORT)
                             return@mapParallel Finalized(NotAudio)
                         }
                         val cover =
@@ -180,5 +193,8 @@ private class ExtractStepImpl(
 
     private companion object {
         const val CACHE_BATCH_SIZE = 500
+
+        /** Must match [ExploreStep] so cached and freshly parsed songs are judged the same way. */
+        const val MIN_PLAUSIBLE_DURATION_MS = 3000L
     }
 }
