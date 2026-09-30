@@ -49,6 +49,14 @@ internal object PipelineTuning {
      * embedded cover bitmaps they carry) pile up unboundedly on large libraries.
      */
     val stageBuffer: Int = parallelism * 2
+
+    /**
+     * Single source of truth for the smallest plausible song duration, in milliseconds.
+     *
+     * Used by every stage and by the MediaStore SQL filter, so a TagLib mis-report or a query
+     * heuristic can no longer judge a file by three different rules at three different points.
+     */
+    const val MIN_PLAUSIBLE_DURATION_MS = 3000L
 }
 
 internal sealed interface PipelineItem

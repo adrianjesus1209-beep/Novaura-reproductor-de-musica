@@ -48,14 +48,20 @@ class Auxio : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        @Suppress("KotlinConstantConditions")
-        if (
+        if (BuildConfig.DEBUG) {
+            // DebugTree only logs DEBUG/VERBOSE when the platform's global log level happens to
+            // allow them, which almost never happens on stock Android. Forcing the level here keeps
+            // the scanner's L.d diagnostics visible while developing.
+            Timber.plant(
+                object : Timber.DebugTree() {
+                    override fun isLoggable(tag: String?, priority: Int) = true
+                }
+            )
+        } else if (
             BuildConfig.APPLICATION_ID != "org.oxycblt.auxio" &&
                 BuildConfig.APPLICATION_ID != "org.oxycblt.auxio.debug"
         ) {
             Timber.plant(CopyleftNoticeTree())
-        } else if (BuildConfig.DEBUG) {
-            Timber.plant(Timber.DebugTree())
         }
 
         // Migrate any settings that may have changed in an app update.

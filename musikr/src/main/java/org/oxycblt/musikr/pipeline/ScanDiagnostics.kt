@@ -47,12 +47,26 @@ enum class ScanReject {
 }
 
 /**
+ * Immutable tally of one finished indexing run.
+ *
+ * This is logcat for consumers that cannot read logcat: the app can carry it into [LibraryResult]
+ * and explain an empty library on screen instead of leaving rows that were silently dropped
+ * indistinguishable from a device with no music on it.
+ */
+data class ScanReport(
+    val rows: Int,
+    val rejected: Int,
+    val byReason: Map<ScanReject, Int>,
+    val songs: Int,
+)
+
+/**
  * Counters describing how many candidates the file system handed to the pipeline and why the rest
  * were dropped.
  *
  * Every filter in the pipeline discards files silently, so an empty library is indistinguishable
  * from a device that genuinely has no music on it. These counters make the drop visible in logcat
- * under the `ScanDiagnostics` tag.
+ * under the `ScanDiagnostics` tag and let [snapshot] hand the reason to the UI.
  */
 object ScanDiagnostics {
     private const val TAG = "ScanDiagnostics"
@@ -80,6 +94,22 @@ object ScanDiagnostics {
         rejected.incrementAndGet()
         byReason.incrementAndGet(reason.ordinal)
     }
+
+    /**
+     * Snapshot the tally for the finished run.
+     *
+     * @param songs The amount of songs that survived the whole pipeline.
+     */
+    fun snapshot(songs: Int): ScanReport =
+        ScanReport(
+            rows = rows.get(),
+            rejected = rejected.get(),
+            byReason =
+                ScanReject.values()
+                    .associateWith { byReason.get(it.ordinal) }
+                    .filterValues { it > 0 },
+            songs = songs,
+        )
 
     /**
      * Log the tally for the finished run.

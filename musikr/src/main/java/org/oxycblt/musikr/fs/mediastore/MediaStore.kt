@@ -24,12 +24,12 @@ import android.os.Build
 import android.provider.MediaStore as AOSPMediaStore
 import android.util.Log
 import androidx.core.database.getStringOrNull
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import org.oxycblt.musikr.fs.AddedMs
@@ -43,6 +43,7 @@ import org.oxycblt.musikr.fs.path.VolumeManager
 import org.oxycblt.musikr.fs.saf.contentResolverSafe
 import org.oxycblt.musikr.fs.saf.useQuery
 import org.oxycblt.musikr.fs.track.LocationObserver
+import org.oxycblt.musikr.pipeline.PipelineTuning
 import org.oxycblt.musikr.pipeline.ScanDiagnostics
 import org.oxycblt.musikr.pipeline.ScanReject
 import org.oxycblt.musikr.util.tryAsyncWith
@@ -60,8 +61,8 @@ private constructor(
     private val pathInterpreterFactory = MediaStorePathInterpreter.Factory.from(volumeManager)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    override suspend fun explore(files: Channel<File>): Deferred<Result<Unit>> = coroutineScope {
-        tryAsyncWith(files, Dispatchers.IO) { channel ->
+    override fun explore(scope: CoroutineScope, files: Channel<File>): Deferred<Result<Unit>> {
+        return scope.tryAsyncWith(files, Dispatchers.IO) { channel ->
             val baseProjection = BASE_PROJECTION + pathInterpreterFactory.projection
             val projection =
                 if (
@@ -88,7 +89,7 @@ private constructor(
                 selector +=
                     " AND (${AOSPMediaStore.Audio.AudioColumns.IS_MUSIC} != 0" +
                         " OR ${AOSPMediaStore.Audio.AudioColumns.DURATION} >=" +
-                        " ${MIN_MUSIC_DURATION_MS})"
+                        " ${PipelineTuning.MIN_PLAUSIBLE_DURATION_MS})"
             }
 
             // Handle include/exclude directories
@@ -234,12 +235,6 @@ private constructor(
 
     companion object {
         private const val TAG = "MediaStore"
-
-        /**
-         * A track at least this long is music even when the MediaProvider never got round to
-         * setting IS_MUSIC on it.
-         */
-        private const val MIN_MUSIC_DURATION_MS = 30000
 
         fun from(context: Context, query: Query) =
             MediaStore(

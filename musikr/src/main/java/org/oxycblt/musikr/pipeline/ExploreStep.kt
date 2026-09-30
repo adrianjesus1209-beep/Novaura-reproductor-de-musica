@@ -51,7 +51,7 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
         explored: Channel<Explored>,
     ): Deferred<Result<Unit>> {
         val files = Channel<File>(PipelineTuning.stageBuffer)
-        val filesTask = fs.explore(files)
+        val filesTask = fs.explore(scope, files)
 
         val classified = Channel<Classified>(PipelineTuning.stageBuffer)
         val classifiedTask =
@@ -155,11 +155,8 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
     private data class Finalized(val explored: Explored) : Classified
 
     private companion object {
-        /**
-         * A non-zero duration below this is treated as "the parser failed" rather than "a very
-         * short clip", and the file is dropped.
-         */
-        const val MIN_PLAUSIBLE_DURATION_MS = 3000L
+        /** Derived from [PipelineTuning] so every stage judges a file against the same duration. */
+        val MIN_PLAUSIBLE_DURATION_MS = PipelineTuning.MIN_PLAUSIBLE_DURATION_MS
 
         val EXCLUDED_EXTENSIONS =
             setOf(

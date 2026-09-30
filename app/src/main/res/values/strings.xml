@@ -222,6 +222,9 @@
     <string name="lng_permission_required_settings">Enable the storage permission from the app settings.</string>
     <string name="lng_scanning_music">Searching for music in device…</string>
     <string name="fmt_scan_progress">Scanning audio files… (%1$d/%2$d)</string>
+    <string name="lng_scan_empty_reason_no_rows">The system reported no audio files, so nothing was scanned. Make sure music is stored on the device and the storage permission is granted, then tap to rescan.</string>
+    <string name="lng_scan_empty_reason_rejected">%1$d audio files were found but none were read as music (%2$d were filtered out). Tap to rescan.</string>
+    <string name="lng_scan_empty_reason_opened">%1$d audio files were found but %2$d could not be opened, so nothing was read as music. Tap to rescan.</string>
     <string name="lbl_scan_again">Scan again</string>
     <string name="lng_scan_failed">Music loading failed. Tap to try again.</string>
     <string name="lng_file_picker">Load music from the folders that you select. Slower, but more reliable. Requires the vanilla file manager app to be installed.</string>

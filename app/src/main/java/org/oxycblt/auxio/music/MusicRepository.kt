@@ -49,6 +49,7 @@ import org.oxycblt.musikr.Storage
 import org.oxycblt.musikr.cache.MutableCache
 import org.oxycblt.musikr.fs.mediastore.MediaStore
 import org.oxycblt.musikr.fs.saf.SAF
+import org.oxycblt.musikr.pipeline.ScanReport
 import org.oxycblt.musikr.playlist.db.StoredPlaylists
 import org.oxycblt.musikr.tag.interpret.Naming
 import org.oxycblt.musikr.tag.interpret.Separators
@@ -246,8 +247,11 @@ sealed interface IndexingState {
      *
      * @param error If music loading has failed, the error that occurred will be here. Otherwise, it
      *   will be null.
+     * @param diagnostics The tally of why files were dropped this run, when one was recorded. Null
+     *   when loading aborted before the pipeline finished. When the error is null this still being
+     *   present means the run completed; use it to explain an empty library.
      */
-    data class Completed(val error: Exception?) : IndexingState
+    data class Completed(val error: Exception?, val diagnostics: ScanReport?) : IndexingState
 }
 
 class MusicRepositoryImpl
@@ -473,7 +477,7 @@ constructor(
         result.cleanup()
         // Finish up loading.
         L.d("Indexing complete")
-        emitIndexingCompletion(null)
+        emitIndexingCompletion(null, result.diagnostics)
     }
 
     /**
@@ -575,10 +579,13 @@ constructor(
         }
     }
 
-    private suspend fun emitIndexingCompletion(error: Exception?) {
+    private suspend fun emitIndexingCompletion(
+        error: Exception?,
+        diagnostics: ScanReport? = null,
+    ) {
         yield()
         synchronized(this) {
-            previousCompletedState = IndexingState.Completed(error)
+            previousCompletedState = IndexingState.Completed(error, diagnostics)
             currentIndexingState = null
             L.d("Dispatching completion state [error=$error]")
             for (listener in indexingListeners) {

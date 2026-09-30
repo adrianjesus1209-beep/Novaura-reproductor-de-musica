@@ -29,6 +29,7 @@ import org.oxycblt.musikr.pipeline.ExtractStep
 import org.oxycblt.musikr.pipeline.Extracted
 import org.oxycblt.musikr.pipeline.PipelineTuning
 import org.oxycblt.musikr.pipeline.ScanDiagnostics
+import org.oxycblt.musikr.pipeline.ScanReport
 import org.oxycblt.musikr.util.merge
 import org.oxycblt.musikr.util.tryAsyncWith
 
@@ -79,6 +80,13 @@ interface Musikr {
 /** Simple library handle returned by [Musikr.run]. */
 interface LibraryResult {
     val library: MutableLibrary
+
+    /**
+     * Tally of how many candidates the file system handed to the pipeline and why the rest were
+     * dropped. Use this to explain an empty library: whether nothing was reported at all, or every
+     * reported file was filtered out.
+     */
+    val diagnostics: ScanReport
 
     /**
      * Clean up expired resources. This should be done as soon as possible after music loading to
@@ -166,12 +174,16 @@ private class MusikrImpl(
         // Report the tally before the library is handed out, so an empty result always has a
         // matching explanation in logcat.
         ScanDiagnostics.logSummary(library.songs.size)
-        LibraryResultImpl(config, library)
+        val report = ScanDiagnostics.snapshot(library.songs.size)
+        LibraryResultImpl(config, library, report)
     }
 }
 
-private class LibraryResultImpl(private val config: Config, override val library: MutableLibrary) :
-    LibraryResult {
+private class LibraryResultImpl(
+    private val config: Config,
+    override val library: MutableLibrary,
+    override val diagnostics: ScanReport,
+) : LibraryResult {
     override suspend fun cleanup() {
         config.storage.covers.cleanup(library.songs.mapNotNull { it.cover })
     }

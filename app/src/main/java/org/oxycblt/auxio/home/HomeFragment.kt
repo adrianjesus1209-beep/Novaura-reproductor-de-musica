@@ -76,6 +76,8 @@ import org.oxycblt.auxio.util.showToast
 import org.oxycblt.musikr.IndexingProgress
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Playlist
+import org.oxycblt.musikr.pipeline.ScanReject
+import org.oxycblt.musikr.pipeline.ScanReport
 import org.oxycblt.musikr.playlist.m3u.M3U
 import timber.log.Timber as L
 
@@ -209,15 +211,14 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         super.onResume()
         val granted = hasStoragePermission()
         L.d("[PERMISSIONS_DEBUG] onResume CHECK=${if (granted) "GRANTED" else "DENIED"}")
-        if (granted) {
-            pendingPermissionRescan = false
-        }
         // If the user granted the permission while the app was backgrounded (e.g. from the
         // system settings), scan the library immediately so it shows up without a restart.
         if (pendingPermissionRescan && granted) {
             pendingPermissionRescan = false
             L.d("[PERMISSIONS_DEBUG] RESCAN triggered on resume (grant in background)")
             musicModel.rescan()
+        } else if (granted) {
+            pendingPermissionRescan = false
         }
     }
 
@@ -389,17 +390,30 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                 // The card is GONE, not INVISIBLE, so a hidden card does not keep reserving its
                 // corner of the screen. It still holds the error state in its place, so the retry
                 // affordance is reachable.
-                binding.homeIndexingContainer.isVisible = state.error != null
                 binding.homeIndexingProgress.isVisible = false
-                binding.homeIndexingError.isVisible = state.error != null
-                if (state.error != null) {
-                    binding.homeIndexingLabel.setText(R.string.err_index_failed)
-                    binding.homeIndexingContainer.setOnClickListener {
-                        findNavController()
-                            .navigateSafe(HomeFragmentDirections.reportError(state.error))
+                val report = state.diagnostics
+                when {
+                    state.error != null -> {
+                        binding.homeIndexingContainer.isVisible = true
+                        binding.homeIndexingError.isVisible = true
+                        binding.homeIndexingLabel.setText(R.string.err_index_failed)
+                        binding.homeIndexingContainer.setOnClickListener {
+                            findNavController()
+                                .navigateSafe(HomeFragmentDirections.reportError(state.error))
+                        }
                     }
-                } else {
-                    binding.homeIndexingContainer.setOnClickListener(null)
+                    // Completed without error but nothing to show: spend the card on explaining
+                    // why, instead of leaving an empty screen that looks like a bug.
+                    report != null && report.songs == 0 -> {
+                        binding.homeIndexingContainer.isVisible = true
+                        binding.homeIndexingError.isVisible = true
+                        binding.homeIndexingLabel.text = buildEmptyLibraryMessage(report)
+                        binding.homeIndexingContainer.setOnClickListener { musicModel.rescan() }
+                    }
+                    else -> {
+                        binding.homeIndexingContainer.isVisible = false
+                        binding.homeIndexingContainer.setOnClickListener(null)
+                    }
                 }
             }
             is IndexingState.Indexing -> {
@@ -436,6 +450,32 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
             null -> {
                 binding.homeIndexingContainer.isVisible = false
             }
+        }
+    }
+
+    /**
+     * Turn a finished-but-empty run into a reason the user can act on.
+     *
+     * Distinguishes the two failure modes that look identical: the system reported nothing at all
+     * (no permission yet, or nothing indexed), versus files that were reported but dropped.
+     */
+    private fun buildEmptyLibraryMessage(report: ScanReport): String {
+        val context = requireContext()
+        if (report.rows == 0) {
+            return context.getString(R.string.lng_scan_empty_reason_no_rows)
+        }
+        return if (report.byReason.containsKey(ScanReject.PROVIDER_FAILED)) {
+            context.getString(
+                R.string.lng_scan_empty_reason_opened,
+                report.rows,
+                report.rejected,
+            )
+        } else {
+            context.getString(
+                R.string.lng_scan_empty_reason_rejected,
+                report.rows,
+                report.rejected,
+            )
         }
     }
 

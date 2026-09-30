@@ -19,12 +19,13 @@
 package org.oxycblt.musikr.fs
 
 import android.net.Uri
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 
 interface FS {
-    suspend fun explore(files: Channel<File>): Deferred<Result<Unit>>
+    fun explore(scope: CoroutineScope, files: Channel<File>): Deferred<Result<Unit>>
 
     fun track(): Flow<FSUpdate>
 }

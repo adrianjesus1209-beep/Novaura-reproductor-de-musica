@@ -194,7 +194,9 @@ private class ExtractStepImpl(
     private companion object {
         const val CACHE_BATCH_SIZE = 500
 
-        /** Must match [ExploreStep] so cached and freshly parsed songs are judged the same way. */
-        const val MIN_PLAUSIBLE_DURATION_MS = 3000L
+        /**
+         * Derived from [PipelineTuning] so cached and freshly parsed songs are judged the same way.
+         */
+        val MIN_PLAUSIBLE_DURATION_MS = PipelineTuning.MIN_PLAUSIBLE_DURATION_MS
     }
 }

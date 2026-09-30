@@ -85,9 +85,7 @@ private class EvaluateStepImpl(
         }
 
     private companion object {
-        /**
-         * Must match [ExploreStep] and [ExtractStep] so a song is judged the same at every stage.
-         */
-        const val MIN_PLAUSIBLE_DURATION_MS = 3000L
+        /** Derived from [PipelineTuning] so a song is judged the same at every stage. */
+        val MIN_PLAUSIBLE_DURATION_MS = PipelineTuning.MIN_PLAUSIBLE_DURATION_MS
     }
 }

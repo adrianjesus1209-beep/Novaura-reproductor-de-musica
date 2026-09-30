@@ -279,6 +279,9 @@
     <string name="lng_permission_required_settings">Habilita el permiso de almacenamiento desde los ajustes de la aplicación.</string>
     <string name="lng_scanning_music">Buscando música en el dispositivo…</string>
     <string name="fmt_scan_progress">Escaneando archivos de audio… (%1$d/%2$d)</string>
+    <string name="lng_scan_empty_reason_no_rows">El sistema no informó ningún archivo de audio, así que no se escaneó nada. Asegúrate de que haya música en el dispositivo y de que el permiso de almacenamiento esté concedido, luego toca para volver a escanear.</string>
+    <string name="lng_scan_empty_reason_rejected">Se encontraron %1$d archivos de audio pero ninguno se leyó como música (%2$d fueron descartados). Toca para volver a escanear.</string>
+    <string name="lng_scan_empty_reason_opened">Se encontraron %1$d archivos de audio pero %2$d no pudieron abrirse, así que nada se leyó como música. Toca para volver a escanear.</string>
     <string name="lbl_scan_again">Escanear de nuevo</string>
     <string name="def_album_count">Sin álbumes</string>
     <string name="lbl_demo">Demostración</string>

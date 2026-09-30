@@ -32,7 +32,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import org.oxycblt.musikr.fs.AddedMs
@@ -54,11 +53,11 @@ private constructor(
     private val contentResolver: ContentResolver,
     private val query: Query,
 ) : FS {
-    override suspend fun explore(files: Channel<File>): Deferred<Result<Unit>> = coroutineScope {
-        tryAsyncWith(files, Dispatchers.Main) {
+    override fun explore(scope: CoroutineScope, files: Channel<File>): Deferred<Result<Unit>> {
+        return scope.tryAsyncWith(files, Dispatchers.Main) {
             query.source
                 .map { location ->
-                    exploreDirectoryImpl(
+                    scope.exploreDirectoryImpl(
                         location.uri,
                         DocumentsContract.getTreeDocumentId(location.uri),
                         location.path,
