@@ -67,10 +67,19 @@ fun <T, R> CoroutineScope.map(
     block: suspend (T) -> R?,
 ): Deferred<Result<Unit>> {
     return tryAsync(context) {
-        for (item in input) {
-            block(item)?.let { output.send(it) }
+        try {
+            for (item in input) {
+                block(item)?.let { output.send(it) }
+            }
+            output.close()
+        } catch (e: Throwable) {
+            // The output must be closed even when the transform throws, otherwise the next
+            // pipeline stage waits on this channel forever and the whole index hangs with no
+            // error. The cause travels with the close so downstream stages abort instead of
+            // building a partial result.
+            output.close(e)
+            throw e
         }
-        output.close()
     }
 }
 
@@ -83,17 +92,26 @@ fun <T, R> CoroutineScope.mapParallel(
 ): Deferred<Result<Unit>> {
     return tryAsync(context) {
         val deferreds = ArrayList<Deferred<Result<Unit>>>()
-        for (i in 0 until n) {
-            val deferred =
-                tryAsync(context) {
-                    for (item in input) {
-                        block(item).let { output.send(it) }
+        try {
+            for (i in 0 until n) {
+                val deferred =
+                    tryAsync(context) {
+                        for (item in input) {
+                            block(item).let { output.send(it) }
+                        }
                     }
-                }
-            deferreds.add(deferred)
+                deferreds.add(deferred)
+            }
+            deferreds.tryAwaitAll()
+            output.close()
+        } catch (e: Throwable) {
+            // A single unparseable file used to stop only its own worker, leaving the output
+            // channel open. The next stage then blocked on it indefinitely, so the index never
+            // reached a terminal state and the UI scanned forever. Close with the cause so the
+            // failure is reported instead of hanging.
+            output.close(e)
+            throw e
         }
-        deferreds.tryAwaitAll()
-        output.close()
     }
 }
 
