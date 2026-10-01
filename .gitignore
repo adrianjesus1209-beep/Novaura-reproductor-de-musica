@@ -25,3 +25,10 @@ captures/
 .aider*
 .env
 Reglas-agente.md
+
+# Builds Android
+# Los .apk generados por Gradle ya quedan fuera por build/ arriba. El directorio apk/ se
+# versiona a proposito: es la release publicada que enlaza el README.
+*.aab
+
+
