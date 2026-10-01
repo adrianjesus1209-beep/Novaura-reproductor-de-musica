@@ -94,7 +94,7 @@
         -->
         <service
             android:name=".AuxioService"
-            android:foregroundServiceType="mediaPlayback"
+            android:foregroundServiceType="mediaPlayback|dataSync"
             android:icon="@mipmap/ic_launcher"
             android:exported="true"
             android:roundIcon="@mipmap/ic_launcher"

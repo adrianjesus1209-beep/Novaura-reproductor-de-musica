@@ -103,7 +103,10 @@ private constructor(
     }
 
     fun start() {
-        if (musicRepository.indexingState == null) {
+        val state = musicRepository.indexingState
+        // Retry failed runs too: a poison state from a run that crashed would otherwise leave the
+        // app silently idle on the next launch.
+        if (state == null || (state is IndexingState.Completed && state.error != null)) {
             requestIndex(true)
         }
     }

@@ -18,11 +18,14 @@
  
 package org.oxycblt.musikr.fs.mediastore
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore as AOSPMediaStore
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.core.database.getStringOrNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -63,6 +66,16 @@ private constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun explore(scope: CoroutineScope, files: Channel<File>): Deferred<Result<Unit>> {
         return scope.tryAsyncWith(files, Dispatchers.IO) { channel ->
+            if (!hasStoragePermission(context)) {
+                // The service can start before the user answers the permission prompt, and an
+                // unpermitted MediaStore query throws SecurityException. That aborts the whole
+                // index and poisons the completion state with a spurious failure, so treat a
+                // missing permission as an empty scan instead: the UI already explains an empty
+                // library and offers a rescan for once the permission lands.
+                Log.i(TAG, "Storage permission not granted, skipping MediaStore query")
+                return@tryAsyncWith
+            }
+
             val baseProjection = BASE_PROJECTION + pathInterpreterFactory.projection
             val projection =
                 if (
@@ -235,6 +248,17 @@ private constructor(
 
     companion object {
         private const val TAG = "MediaStore"
+
+        private fun hasStoragePermission(context: Context): Boolean {
+            val permission =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Manifest.permission.READ_MEDIA_AUDIO
+                } else {
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                }
+            return ContextCompat.checkSelfPermission(context, permission) ==
+                PackageManager.PERMISSION_GRANTED
+        }
 
         fun from(context: Context, query: Query) =
             MediaStore(
