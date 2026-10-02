@@ -19,9 +19,9 @@
 package org.oxycblt.musikr.fs.mediastore
 
 import android.Manifest
+import android.content.ContentUris
 import android.content.Context
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore as AOSPMediaStore
 import android.util.Log
@@ -125,9 +125,6 @@ private constructor(
                 }
             }
 
-            // Collect all files and track unique directories
-            val allFiles = mutableListOf<File>()
-
             // Query MediaStore.VOLUME_EXTERNAL on API 29+ to include mounted secondary/MicroSD
             // storage
             val mediaUri =
@@ -188,9 +185,9 @@ private constructor(
                                 } else {
                                     mediaUri
                                 }
-                            Uri.withAppendedPath(baseUri, id.toString())
+                            ContentUris.withAppendedId(baseUri, id)
                         } else {
-                            Uri.withAppendedPath(mediaUri, id.toString())
+                            ContentUris.withAppendedId(mediaUri, id)
                         }
                     val mimeType = cursor.getStringOrNull(mimeTypeIndex) ?: "audio/*"
                     val size = cursor.getLong(sizeIndex)
@@ -210,7 +207,6 @@ private constructor(
                             parent = null,
                         )
 
-                    allFiles.add(deviceFile)
                     channel.send(deviceFile)
                 }
             }

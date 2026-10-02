@@ -164,7 +164,7 @@ private class ExtractStepImpl(
                             }
                         }
                     if (result.extracted is RawSong) {
-                        exclude.add(result.extracted.toCachedFile())
+                        exclude.add(CachedFile(result.extracted.file, null, 0L))
                     }
                     it.send(result.extracted)
                 }

@@ -26,7 +26,6 @@ import kotlinx.coroutines.channels.Channel
 import org.oxycblt.musikr.Config
 import org.oxycblt.musikr.Storage
 import org.oxycblt.musikr.cache.CacheResult
-import org.oxycblt.musikr.cache.CachedFile
 import org.oxycblt.musikr.covers.CoverResult
 import org.oxycblt.musikr.fs.ExcludedPaths
 import org.oxycblt.musikr.fs.FS
@@ -53,18 +52,18 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
         val files = Channel<File>(PipelineTuning.stageBuffer)
         val filesTask = fs.explore(scope, files)
 
-        val classified = Channel<Classified>(PipelineTuning.stageBuffer)
-        val classifiedTask =
-            scope.mapParallel(PipelineTuning.parallelism, files, classified, Dispatchers.IO) { file
+        val finalized = Channel<Explored>(PipelineTuning.stageBuffer)
+        val exploredTask =
+            scope.mapParallel(PipelineTuning.parallelism, files, finalized, Dispatchers.IO) { file
                 ->
                 if (ExcludedPaths.isExcluded(file.path.components)) {
                     ScanDiagnostics.recordRejected(ScanReject.EXCLUDED_PATH)
-                    return@mapParallel Finalized(NotAudio)
+                    return@mapParallel NotAudio
                 }
                 val ext = file.path.name?.substringAfterLast('.', "")?.lowercase() ?: ""
                 if (ext.isNotEmpty() && ext in EXCLUDED_EXTENSIONS) {
                     ScanDiagnostics.recordRejected(ScanReject.EXCLUDED_EXTENSION)
-                    return@mapParallel Finalized(NotAudio)
+                    return@mapParallel NotAudio
                 }
                 if (
                     file.mimeType == M3U.MIME_TYPE ||
@@ -75,34 +74,22 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
                             ext !in VALID_AUDIO_EXTENSIONS)
                 ) {
                     ScanDiagnostics.recordRejected(ScanReject.UNSUPPORTED_TYPE)
-                    return@mapParallel Finalized(NotAudio)
+                    return@mapParallel NotAudio
                 }
                 when (val cacheResult = storage.cache.read(file)) {
-                    is CacheResult.Hit -> NeedsHydration(cacheResult.file)
-                    is CacheResult.Stale -> Finalized(NewSong(cacheResult.file))
-                    is CacheResult.Miss -> Finalized(NewSong(cacheResult.file))
-                }
-            }
-
-        val finalized = Channel<Finalized>(PipelineTuning.stageBuffer)
-        val exploredTask =
-            scope.mapParallel(PipelineTuning.parallelism, classified, finalized, Dispatchers.IO) {
-                item ->
-                when (item) {
-                    is Finalized -> item
-                    is NeedsHydration -> {
-                        val audio = item.cachedFile.audio
+                    is CacheResult.Hit -> {
+                        val audio = cacheResult.file.audio
                         if (audio == null) {
                             ScanDiagnostics.recordRejected(ScanReject.NO_METADATA)
-                            return@mapParallel Finalized(NotAudio)
+                            return@mapParallel NotAudio
                         }
                         // Only the parsed tag duration is checked. The same file is also measured
-                        // by
-                        // its raw properties during extraction, and rejecting on either measurement
+                        // by its raw properties during extraction, and rejecting on either
+                        // measurement
                         // made a single TagLib mis-report enough to drop a song forever.
                         if (audio.tags.durationMs in 1 until MIN_PLAUSIBLE_DURATION_MS) {
                             ScanDiagnostics.recordRejected(ScanReject.DURATION_TOO_SHORT)
-                            return@mapParallel Finalized(NotAudio)
+                            return@mapParallel NotAudio
                         }
                         val coverId =
                             when (
@@ -110,22 +97,23 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
                             ) {
                                 is CoverResult.Hit -> result.cover
                                 is CoverResult.Miss ->
-                                    return@mapParallel Finalized(NewSong(item.cachedFile.file))
+                                    return@mapParallel NewSong(cacheResult.file.file)
                                 null -> null
                             }
 
-                        Finalized(
-                            RawSong(
-                                item.cachedFile.file,
-                                audio.properties,
-                                audio.tags,
-                                coverId,
-                                item.cachedFile.addedMs,
-                            )
+                        RawSong(
+                            cacheResult.file.file,
+                            audio.properties,
+                            audio.tags,
+                            coverId,
+                            cacheResult.file.addedMs,
                         )
                     }
+                    is CacheResult.Stale -> NewSong(cacheResult.file)
+                    is CacheResult.Miss -> NewSong(cacheResult.file)
                 }
             }
+
         val playlists = Channel<Explored>(PipelineTuning.stageBuffer)
         val playlistsTask =
             scope.tryAsyncWith(playlists, Dispatchers.IO) {
@@ -138,21 +126,15 @@ private class ExploreStepImpl(private val fs: FS, private val storage: Storage) 
         val mergeTask =
             scope.tryAsyncWith(explored, Dispatchers.Default) {
                 for (item in finalized) {
-                    it.send(item.explored)
+                    it.send(item)
                 }
                 for (playlist in playlists) {
                     it.send(playlist)
                 }
             }
 
-        return scope.merge(filesTask, classifiedTask, exploredTask, playlistsTask, mergeTask)
+        return scope.merge(filesTask, exploredTask, playlistsTask, mergeTask)
     }
-
-    private sealed interface Classified
-
-    private data class NeedsHydration(val cachedFile: CachedFile) : Classified
-
-    private data class Finalized(val explored: Explored) : Classified
 
     private companion object {
         /** Derived from [PipelineTuning] so every stage judges a file against the same duration. */

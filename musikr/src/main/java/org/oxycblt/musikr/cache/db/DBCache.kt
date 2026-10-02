@@ -37,13 +37,15 @@ import org.oxycblt.musikr.tag.parse.ParsedTags
  * Create an instance with [from].
  */
 class DBCache private constructor(private val readDao: CacheReadDao) : Cache {
-    private var mapping: Map<Uri, CachedFileData>? = null
+    @Volatile private var mapping: Map<Uri, CachedFileData>? = null
     private val mappingLock = Mutex()
 
     override suspend fun read(file: File): CacheResult {
-        val currentMapping = mappingLock.withLock {
-            mapping ?: readDao.selectAllSongs().associateBy { it.uri }.also { mapping = it }
-        }
+        val currentMapping =
+            mapping
+                ?: mappingLock.withLock {
+                    mapping ?: readDao.selectAllSongs().associateBy { it.uri }.also { mapping = it }
+                }
         val dbSong = currentMapping[file.uri] ?: return CacheResult.Miss(file)
         if (dbSong.modifiedMs != file.modifiedMs) {
             return CacheResult.Stale(file, dbSong.addedMs)
