@@ -75,15 +75,17 @@ private constructor(
     private val indexJob = Job()
     private val indexScope = CoroutineScope(indexJob + Dispatchers.IO)
     private var currentIndexJob: Job? = null
-    private val indexingNotification = IndexingNotification(workerContext)
-    private val observingNotification = ObservingNotification(workerContext)
-    private val wakeLock =
+    private val indexingNotification by lazy { IndexingNotification(workerContext) }
+    private val observingNotification by lazy { ObservingNotification(workerContext) }
+    private val wakeLockLazy = lazy {
         workerContext
             .getSystemServiceCompat(PowerManager::class)
             .newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK,
                 BuildConfig.APPLICATION_ID + ":IndexingComponent",
             )
+    }
+    private val wakeLock by wakeLockLazy
     private var trackingJob: Job? = null
 
     fun attach() {
@@ -103,12 +105,8 @@ private constructor(
     }
 
     fun start() {
-        val state = musicRepository.indexingState
-        // Retry failed runs too: a poison state from a run that crashed would otherwise leave the
-        // app silently idle on the next launch.
-        if (state == null || (state is IndexingState.Completed && state.error != null)) {
-            requestIndex(true)
-        }
+        // Scanning is deferred and initiated on-demand or by explicit user action,
+        // rather than executing automatically upon opening the application.
     }
 
     fun createNotification(post: (ForegroundServiceNotification?) -> Unit) {
@@ -148,7 +146,7 @@ private constructor(
         val state = musicRepository.indexingState
         if (state is IndexingState.Indexing) {
             wakeLock.acquireSafe()
-        } else {
+        } else if (wakeLockLazy.isInitialized()) {
             wakeLock.releaseSafe()
         }
     }

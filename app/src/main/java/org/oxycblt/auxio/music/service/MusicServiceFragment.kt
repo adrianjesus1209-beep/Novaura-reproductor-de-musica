@@ -30,7 +30,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.oxycblt.auxio.ForegroundListener
 import org.oxycblt.auxio.ForegroundServiceNotification
-import org.oxycblt.auxio.music.IndexingState
 import org.oxycblt.auxio.music.MusicRepository
 import timber.log.Timber as L
 
@@ -91,13 +90,8 @@ constructor(
     }
 
     fun start() {
-        val state = musicRepository.indexingState
-        // A previous run that failed poisons the idle state: without this check the app would sit
-        // on a spurious error card forever instead of retrying on the next launch.
-        if (state == null || (state is IndexingState.Completed && state.error != null)) {
-            L.d("Requesting index")
-            musicRepository.requestIndex(true)
-        }
+        // Scanning is deferred and initiated on-demand or by explicit user action,
+        // rather than executing automatically upon opening the application.
     }
 
     fun createNotification(post: (ForegroundServiceNotification?) -> Unit) {
