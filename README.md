@@ -3,20 +3,22 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.3/Novaura-v1.3.3.apk">
-    <b>📥 Descargar APK (Novaura v1.3.3)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.4/Novaura-v1.3.4.apk">
+    <b>📥 Descargar APK (Novaura v1.3.4)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.3.3)
+## 🚀 Descargas (Versión 1.3.4)
 
-La versión 1.3.3 corrige el escaneo de la biblioteca: el indexado ya no se queda colgado indefinidamente cuando una pista no se puede leer. Anteriormente, un solo archivo problemático dejaba el canal del pipeline abierto y la app escanificaba para siempre sin llegar a un estado final; ahora el fallo se reporta correctamente.
+La versión 1.3.4 optimiza el rendimiento y refactoriza el ciclo de vida del escáner:
+- **Sin escaneo automático al inicio:** Se elimina el escaneo forzado en segundo plano al arrancar la app, implementando inicialización diferida (*lazy loading*) y vinculando la indexación a acciones explícitas del usuario o condiciones de permiso.
+- **Rendimiento optimizado del escáner:** Se elimina la contención de bloqueos Mutex en lecturas concurrentes de caché de base de datos, se fusionan etapas paralelas del pipeline de exploración y se minimiza la asignación de memoria innecesaria en la lectura de MediaStore.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.3.3 APK** | 8.8 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.3/Novaura-v1.3.3.apk) |
+| **Novaura v1.3.4 APK** | 8.8 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.4/Novaura-v1.3.4.apk) |
 
 ---
 
