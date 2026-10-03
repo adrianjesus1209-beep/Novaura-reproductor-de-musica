@@ -24,14 +24,24 @@ import org.oxycblt.auxio.R
 
 /**
  * Persistence for the in-app equalizer. Band levels are stored as a flat CSV of millibels so that
- * they survive app restarts while adapting to devices with differing band counts.
+ * they survive app restarts while adapting to devices with differing band counts. Also stores
+ * presets and audio effect strengths (BassBoost and Virtualizer).
  */
 object EqualizerSettings {
     private const val PREF_NAME = "equalizer"
     private const val GAIN_SEPARATOR = ','
+    private const val KEY_PRESET = "equalizer_preset"
+    private const val KEY_BASS = "equalizer_bass_strength"
+    private const val KEY_VIRTUALIZER = "equalizer_virtualizer_strength"
 
     /** [State] describing the currently persisted equalizer configuration. */
-    data class State(val enabled: Boolean, val gains: List<Short>)
+    data class State(
+        val enabled: Boolean,
+        val gains: List<Short>,
+        val preset: Short = -1,
+        val bassStrength: Short = 0,
+        val virtualizerStrength: Short = 0,
+    )
 
     /**
      * Persist the given equalizer state.
@@ -39,8 +49,18 @@ object EqualizerSettings {
      * @param context A context to load resources against.
      * @param enabled Whether the equalizer was active.
      * @param gains The band level of every band, in millibels.
+     * @param preset The active preset index, or -1 for custom.
+     * @param bassStrength The bass boost strength from 0 to 1000.
+     * @param virtualizerStrength The virtualizer strength from 0 to 1000.
      */
-    fun save(context: Context, enabled: Boolean, gains: List<Short>) {
+    fun save(
+        context: Context,
+        enabled: Boolean,
+        gains: List<Short>,
+        preset: Short = -1,
+        bassStrength: Short = 0,
+        virtualizerStrength: Short = 0,
+    ) {
         prefs(context)
             .edit()
             .putBoolean(key(context, R.string.set_key_equalizer_enabled), enabled)
@@ -48,6 +68,9 @@ object EqualizerSettings {
                 key(context, R.string.set_key_equalizer_gains),
                 gains.joinToString(GAIN_SEPARATOR.toString()),
             )
+            .putInt(KEY_PRESET, preset.toInt())
+            .putInt(KEY_BASS, bassStrength.toInt())
+            .putInt(KEY_VIRTUALIZER, virtualizerStrength.toInt())
             .apply()
     }
 
@@ -63,7 +86,10 @@ object EqualizerSettings {
         prefs.getString(key(context, R.string.set_key_equalizer_gains), null)?.let { raw ->
             raw.split(GAIN_SEPARATOR).forEach { part -> part.toShortOrNull()?.let(gains::add) }
         }
-        return State(enabled, gains)
+        val preset = prefs.getInt(KEY_PRESET, -1).toShort()
+        val bassStrength = prefs.getInt(KEY_BASS, 0).toShort()
+        val virtualizerStrength = prefs.getInt(KEY_VIRTUALIZER, 0).toShort()
+        return State(enabled, gains, preset, bassStrength, virtualizerStrength)
     }
 
     private fun prefs(context: Context) =

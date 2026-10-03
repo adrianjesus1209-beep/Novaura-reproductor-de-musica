@@ -1,84 +1,175 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/equalizer_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/ui_equalizer_bg"
     android:theme="@style/ThemeOverlay.Auxio.Equalizer"
-    android:paddingStart="24dp"
+    android:paddingStart="20dp"
     android:paddingTop="16dp"
-    android:paddingEnd="24dp"
-    android:paddingBottom="8dp">
+    android:paddingEnd="20dp"
+    android:paddingBottom="12dp">
+
+    <org.oxycblt.auxio.ui.RippleFixMaterialButton
+        android:id="@+id/equalizer_back"
+        style="@style/Widget.Material3Expressive.Button.IconButton"
+        app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Small"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:contentDescription="@string/desc_exit"
+        app:icon="@drawable/ic_back_24"
+        app:iconTint="?attr/colorOnSurface"
+        app:layout_constraintBottom_toBottomOf="@id/equalizer_enable"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/equalizer_enable" />
 
     <TextView
         android:id="@+id/equalizer_title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:minHeight="48dp"
-        android:gravity="center_vertical"
+        android:layout_marginStart="8dp"
         android:text="@string/lbl_equalizer"
-        android:textAppearance="?attr/textAppearanceTitleMedium"
-        android:textColor="?attr/colorOnSurface"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:textAppearance="?attr/textAppearanceTitleLargeEmphasized"
+        android:textColor="?attr/colorPrimary"
+        app:layout_constraintBottom_toBottomOf="@id/equalizer_enable"
+        app:layout_constraintEnd_toStartOf="@id/equalizer_enable"
+        app:layout_constraintStart_toEndOf="@id/equalizer_back"
+        app:layout_constraintTop_toTopOf="@id/equalizer_enable" />
 
     <com.google.android.material.switchmaterial.SwitchMaterial
         android:id="@+id/equalizer_enable"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:minHeight="48dp"
-        android:text="@string/lbl_equalizer_enabled"
-        android:textAppearance="?attr/textAppearanceBodyLarge"
-        android:textColor="?attr/colorOnSurface"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <LinearLayout
+        android:id="@+id/equalizer_preset_container"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/ui_equalizer_preset_bg"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/equalizer_title" />
+        app:layout_constraintTop_toBottomOf="@id/equalizer_enable">
+
+        <TextView
+            android:id="@+id/equalizer_preset_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurface"
+            android:textStyle="bold"
+            tools:text="Custom" />
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/drop_down_24"
+            app:tint="?attr/colorOnSurfaceVariant"
+            tools:ignore="ContentDescription" />
+
+    </LinearLayout>
 
     <TextView
         android:id="@+id/equalizer_no_session"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="8dp"
         android:text="@string/lbl_equalizer_no_session"
         android:textAppearance="?attr/textAppearanceBodyMedium"
         android:textColor="?attr/colorOnSurfaceVariant"
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/equalizer_enable" />
+        app:layout_constraintTop_toBottomOf="@id/equalizer_preset_container" />
 
-    <ScrollView
-        android:id="@+id/equalizer_scroll"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:fillViewport="false"
-        android:scrollbars="none"
-        app:layout_constraintBottom_toTopOf="@id/equalizer_reset"
+    <LinearLayout
+        android:id="@+id/equalizer_columns_container"
+        android:layout_width="match_parent"
+        android:layout_height="190dp"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:orientation="horizontal"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHeight_default="wrap"
-        app:layout_constraintHeight_max="480dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/equalizer_no_session">
 
-        <LinearLayout
-            android:id="@+id/equalizer_bands"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
+        <org.oxycblt.auxio.playback.ui.VerticalEqColumnView
+            android:id="@+id/equalizer_col_0"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
 
-    </ScrollView>
+        <org.oxycblt.auxio.playback.ui.VerticalEqColumnView
+            android:id="@+id/equalizer_col_1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+        <org.oxycblt.auxio.playback.ui.VerticalEqColumnView
+            android:id="@+id/equalizer_col_2"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+        <org.oxycblt.auxio.playback.ui.VerticalEqColumnView
+            android:id="@+id/equalizer_col_3"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+        <org.oxycblt.auxio.playback.ui.VerticalEqColumnView
+            android:id="@+id/equalizer_col_4"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/equalizer_knobs_container"
+        android:layout_width="match_parent"
+        android:layout_height="110dp"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/equalizer_columns_container">
+
+        <org.oxycblt.auxio.playback.ui.RotaryKnobView
+            android:id="@+id/equalizer_knob_bass"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+        <org.oxycblt.auxio.playback.ui.RotaryKnobView
+            android:id="@+id/equalizer_knob_virtualizer"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+    </LinearLayout>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/equalizer_reset"
         style="@style/Widget.Material3.Button.TextButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
         android:text="@string/lbl_equalizer_reset"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/equalizer_scroll"
-        app:layout_constraintVertical_bias="0" />
+        app:layout_constraintTop_toBottomOf="@id/equalizer_knobs_container" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

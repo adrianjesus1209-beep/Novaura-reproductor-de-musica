@@ -19,6 +19,8 @@
 package org.oxycblt.auxio.playback
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -30,12 +32,17 @@ import androidx.dynamicanimation.animation.SpringForce
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.viewpager2.widget.ViewPager2
+import coil3.ImageLoader
+import coil3.request.ImageRequest
+import coil3.request.target
+import coil3.request.transformations
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlin.math.abs
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentPlaybackPanelBinding
 import org.oxycblt.auxio.detail.DetailViewModel
+import org.oxycblt.auxio.image.coil.BlurTransformation
 import org.oxycblt.auxio.list.ListViewModel
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.music.resolveNames
@@ -73,6 +80,7 @@ class PlaybackPanelFragment :
     StyledSeekBar.Listener,
     StepperOverlay.Listener {
     @Inject lateinit var audioLevelProcessor: AudioLevelProcessor
+    @Inject lateinit var imageLoader: ImageLoader
 
     private val audioLevelProvider = { audioLevelProcessor.level }
     private val audioReactivityProvider = { audioLevelProcessor.strength }
@@ -183,20 +191,25 @@ class PlaybackPanelFragment :
                 listModel.openMenu(R.menu.playback_song, it, PlaySong.ByItself)
             }
         }
-        binding.playbackActionAdd?.setOnClickListener {
-            playbackModel.song.value?.let { song ->
-                listModel.openMenu(R.menu.playback_song, song, PlaySong.ByItself)
-            }
+        binding.playbackActionVolume?.setOnClickListener {
+            val audioManager =
+                requireContext().getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+            audioManager?.adjustStreamVolume(
+                AudioManager.STREAM_MUSIC,
+                AudioManager.ADJUST_SAME,
+                AudioManager.FLAG_SHOW_UI,
+            )
         }
-        binding.playbackActionFavorite?.setOnClickListener { button ->
-            button.isSelected = !button.isSelected
-            val iconRes =
-                if (button.isSelected) R.drawable.ic_favorite_24
-                else R.drawable.ic_favorite_border_24
-            (button as? org.oxycblt.auxio.ui.RippleFixMaterialButton)?.setIconResource(iconRes)
+        binding.playbackActionEqualizer?.setOnClickListener {
+            EqualizerDialogFragment().show(parentFragmentManager, "equalizer")
         }
         binding.playbackActionQueue?.setOnClickListener {
             playbackModel.openQueue()
+        }
+        binding.playbackActionMore?.setOnClickListener {
+            playbackModel.song.value?.let { song ->
+                listModel.openMenu(R.menu.playback_song, song, PlaySong.ByItself)
+            }
         }
 
         // --- VIEWMODEL SETUP --
@@ -296,6 +309,19 @@ class PlaybackPanelFragment :
         binding.playbackArtist.text = song.artists.resolveNames(context)
         binding.playbackAlbum?.text = song.album.name.resolve(context)
         binding.playbackSeekBar?.durationDs = song.durationMs.msToDs()
+
+        val cover = song.cover
+        if (cover != null) {
+            val request =
+                ImageRequest.Builder(context)
+                    .data(cover)
+                    .transformations(BlurTransformation.DEFAULT)
+                    .target(binding.playbackBlurBackground)
+                    .build()
+            imageLoader.enqueue(request)
+        } else {
+            binding.playbackBlurBackground.setImageDrawable(null)
+        }
     }
 
     private fun updateParent(parent: MusicParent?) {
