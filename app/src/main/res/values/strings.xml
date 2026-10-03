@@ -524,4 +524,18 @@
         <item quantity="one">%d second</item>
         <item quantity="other">%d seconds</item>
     </plurals>
+
+    <!-- Home Dashboard & Navigation -->
+    <string name="lbl_home">Home</string>
+    <string name="lbl_most_played_tracks">Most Played Tracks</string>
+    <string name="lbl_see_all">See All</string>
+    <string name="lbl_top_artists">Top Artists</string>
+    <string name="lbl_playback_stats">Playback Stats</string>
+    <string name="lbl_last_7_days">Last 7 Days</string>
+    <string name="lbl_life_time">Life Time</string>
+    <string name="lbl_tracks_played">Tracks Played</string>
+    <string name="lbl_listened">Listened</string>
+    <string name="lbl_favorites">Favorites</string>
+    <string name="lbl_search_hint">Search</string>
 </resources>
+

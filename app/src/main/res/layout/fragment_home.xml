@@ -5,7 +5,7 @@
     android:id="@+id/home_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface"
+    android:background="@android:color/transparent"
     android:transitionGroup="true">
 
 
@@ -57,10 +57,17 @@
         android:clipToPadding="false"
         app:layout_behavior="com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior">
 
+        <include
+            android:id="@+id/home_dashboard"
+            layout="@layout/layout_home_dashboard"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
         <androidx.viewpager2.widget.ViewPager2
             android:id="@+id/home_pager"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:visibility="gone"
             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
             app:layout_behavior="com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior"
             tools:layout="@layout/fragment_home_list" />
@@ -115,5 +122,14 @@
 
     </FrameLayout>
 
+    <include
+        android:id="@+id/home_bottom_bar"
+        layout="@layout/layout_home_bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="72dp" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

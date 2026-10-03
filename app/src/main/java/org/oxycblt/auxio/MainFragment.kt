@@ -31,6 +31,10 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.findNavController
+import coil3.ImageLoader
+import coil3.request.ImageRequest
+import coil3.request.target
+import coil3.request.transformations
 import com.google.android.material.R as MR
 import com.google.android.material.bottomsheet.BackportBottomSheetBehavior
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -49,6 +53,7 @@ import org.oxycblt.auxio.detail.DetailViewModel
 import org.oxycblt.auxio.detail.Show
 import org.oxycblt.auxio.home.HomeViewModel
 import org.oxycblt.auxio.home.Outer
+import org.oxycblt.auxio.image.coil.BlurTransformation
 import org.oxycblt.auxio.list.ListViewModel
 import org.oxycblt.auxio.music.IndexingState
 import org.oxycblt.auxio.music.MusicType
@@ -57,6 +62,7 @@ import org.oxycblt.auxio.playback.OpenPanel
 import org.oxycblt.auxio.playback.PlaybackBottomSheetBehavior
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.queue.QueueBottomSheetBehavior
+import org.oxycblt.auxio.playback.stats.PlaybackStatsManager
 import org.oxycblt.auxio.ui.DialogAwareNavigationListener
 import org.oxycblt.auxio.ui.UISettings
 import org.oxycblt.auxio.ui.ViewBindingFragment
@@ -99,6 +105,8 @@ class MainFragment :
     private var maxScaleXDistance = 0f
     private var sheetRising: Boolean? = null
     @Inject lateinit var uiSettings: UISettings
+    @Inject lateinit var imageLoader: ImageLoader
+    @Inject lateinit var statsManager: PlaybackStatsManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -575,10 +583,31 @@ class MainFragment :
     }
 
     private fun updateSong(song: Song?) {
+        val binding = requireBinding()
+        val blurBg = binding.mainBlurBackground
+        val blurScrim = binding.mainBlurScrim
         if (song != null) {
             tryShowSheets()
+            statsManager.recordSongPlayed(song, song.durationMs)
+            val cover = song.cover
+            if (cover != null && blurBg != null && blurScrim != null) {
+                val request =
+                    ImageRequest.Builder(requireContext())
+                        .data(cover)
+                        .transformations(BlurTransformation.DEFAULT)
+                        .target(blurBg)
+                        .build()
+                imageLoader.enqueue(request)
+                blurBg.animate().alpha(1f).setDuration(400).start()
+                blurScrim.animate().alpha(1f).setDuration(400).start()
+            } else {
+                blurBg?.animate()?.alpha(0f)?.setDuration(300)?.start()
+                blurScrim?.animate()?.alpha(0f)?.setDuration(300)?.start()
+            }
         } else {
             tryHideAllSheets()
+            blurBg?.animate()?.alpha(0f)?.setDuration(300)?.start()
+            blurScrim?.animate()?.alpha(0f)?.setDuration(300)?.start()
         }
     }
 

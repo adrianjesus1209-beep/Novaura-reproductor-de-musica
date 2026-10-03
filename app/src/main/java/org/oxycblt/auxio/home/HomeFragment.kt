@@ -44,10 +44,13 @@ import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import com.google.android.material.transition.MaterialSharedAxis
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentHomeBinding
 import org.oxycblt.auxio.detail.DetailViewModel
 import org.oxycblt.auxio.detail.Show
+import org.oxycblt.auxio.home.dashboard.MostPlayedTracksAdapter
+import org.oxycblt.auxio.home.dashboard.TopArtistsAdapter
 import org.oxycblt.auxio.home.list.AlbumListFragment
 import org.oxycblt.auxio.home.list.ArtistListFragment
 import org.oxycblt.auxio.home.list.GenreListFragment
@@ -65,17 +68,22 @@ import org.oxycblt.auxio.music.PlaylistDecision
 import org.oxycblt.auxio.music.PlaylistMessage
 import org.oxycblt.auxio.music.SongDecision
 import org.oxycblt.auxio.music.SongMessage
+import org.oxycblt.auxio.playback.PlaySong
 import org.oxycblt.auxio.playback.PlaybackDecision
 import org.oxycblt.auxio.playback.PlaybackViewModel
+import org.oxycblt.auxio.playback.stats.PlaybackStatsManager
 import org.oxycblt.auxio.ui.FadingToolbarOffsetListener
 import org.oxycblt.auxio.util.collect
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.dampen
+import org.oxycblt.auxio.util.getAttrColorCompat
 import org.oxycblt.auxio.util.navigateSafe
 import org.oxycblt.auxio.util.showToast
+import org.oxycblt.musikr.Artist
 import org.oxycblt.musikr.IndexingProgress
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Playlist
+import org.oxycblt.musikr.Song
 import org.oxycblt.musikr.pipeline.ScanReject
 import org.oxycblt.musikr.pipeline.ScanReport
 import org.oxycblt.musikr.playlist.m3u.M3U
@@ -94,11 +102,23 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
     override val playbackModel: PlaybackViewModel by activityViewModels()
     private val homeModel: HomeViewModel by activityViewModels()
     private val detailModel: DetailViewModel by activityViewModels()
+    @Inject lateinit var statsManager: PlaybackStatsManager
+    private var mostPlayedAdapter: MostPlayedTracksAdapter? = null
+    private var topArtistsAdapter: TopArtistsAdapter? = null
+    private var currentNavTab = NAV_TAB_HOME
     private var storagePermissionLauncher: ActivityResultLauncher<String>? = null
     private var getContentLauncher: ActivityResultLauncher<String>? = null
     private var pendingImportTarget: Playlist? = null
     private var hasRequestedPermission = false
     private var pendingPermissionRescan = false
+
+    companion object {
+        private const val NAV_TAB_HOME = 0
+        private const val NAV_TAB_SONGS = 1
+        private const val NAV_TAB_ALBUMS = 2
+        private const val NAV_TAB_ARTISTS = 3
+        private const val NAV_TAB_PLAYLISTS = 4
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -198,6 +218,16 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         collectImmediately(musicModel.songMessage.flow, ::handleSongMessage)
         collect(playbackModel.playbackDecision.flow, ::handlePlaybackDecision)
 
+        setupDashboard(binding)
+        setupBottomBar(binding)
+
+        collectImmediately(homeModel.songList) { songs ->
+            updateDashboardSongs(binding, songs)
+        }
+        collectImmediately(homeModel.artistList) { artists ->
+            updateDashboardArtists(binding, artists)
+        }
+
         // Check and request storage permission automatically on launch
         if (!hasStoragePermission()) {
             L.d("[PERMISSIONS_DEBUG] REQUESTING permission=${storagePermission()}")
@@ -232,6 +262,8 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
     override fun onDestroyBinding(binding: FragmentHomeBinding) {
         super.onDestroyBinding(binding)
         storagePermissionLauncher = null
+        mostPlayedAdapter = null
+        topArtistsAdapter = null
         binding.homeNormalToolbar.setOnMenuItemClickListener(null)
     }
 
@@ -277,6 +309,162 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                 false
             }
         }
+    }
+
+    private fun setupDashboard(binding: FragmentHomeBinding) {
+        val mostPlayed = MostPlayedTracksAdapter { song ->
+            playbackModel.play(song, PlaySong.ByItself)
+        }
+        mostPlayedAdapter = mostPlayed
+        binding.homeDashboard.rvMostPlayed.adapter = mostPlayed
+
+        val topArtists = TopArtistsAdapter { artist ->
+            detailModel.showArtist(artist)
+        }
+        topArtistsAdapter = topArtists
+        binding.homeDashboard.rvTopArtists.adapter = topArtists
+
+        binding.homeDashboard.dashboardSearchBar.setOnClickListener {
+            findNavController().navigateSafe(HomeFragmentDirections.search())
+        }
+        binding.homeDashboard.btnFavorites.setOnClickListener {
+            switchToTab(MusicType.SONGS)
+        }
+        binding.homeDashboard.btnSeeAllSongs.setOnClickListener {
+            switchToTab(MusicType.SONGS)
+        }
+        binding.homeDashboard.btnRefreshStats.setOnClickListener {
+            updateDashboardStats(binding)
+        }
+
+        updateDashboardStats(binding)
+    }
+
+    private fun setupBottomBar(binding: FragmentHomeBinding) {
+        binding.homeBottomBar.navItemHome.setOnClickListener { selectNavTab(NAV_TAB_HOME) }
+        binding.homeBottomBar.navItemSongs.setOnClickListener { selectNavTab(NAV_TAB_SONGS) }
+        binding.homeBottomBar.navItemAlbums.setOnClickListener { selectNavTab(NAV_TAB_ALBUMS) }
+        binding.homeBottomBar.navItemArtists.setOnClickListener { selectNavTab(NAV_TAB_ARTISTS) }
+        binding.homeBottomBar.navItemPlaylists.setOnClickListener {
+            selectNavTab(NAV_TAB_PLAYLISTS)
+        }
+
+        // Start on Home dashboard
+        selectNavTab(NAV_TAB_HOME)
+    }
+
+    private fun switchToTab(type: MusicType) {
+        val tabIndex =
+            when (type) {
+                MusicType.SONGS -> NAV_TAB_SONGS
+                MusicType.ALBUMS -> NAV_TAB_ALBUMS
+                MusicType.ARTISTS -> NAV_TAB_ARTISTS
+                MusicType.PLAYLISTS -> NAV_TAB_PLAYLISTS
+                else -> NAV_TAB_HOME
+            }
+        selectNavTab(tabIndex)
+    }
+
+    private fun selectNavTab(tabId: Int) {
+        currentNavTab = tabId
+        val binding = requireBinding()
+
+        val isHome = tabId == NAV_TAB_HOME
+        binding.homeDashboard.root.isVisible = isHome
+        binding.homePager.isVisible = !isHome
+        binding.homeTabs.isVisible = !isHome && homeModel.currentTabTypes.size > 1
+
+        val primaryColor =
+            requireContext().getAttrColorCompat(androidx.appcompat.R.attr.colorPrimary).defaultColor
+        val inactiveColor = android.graphics.Color.parseColor("#88FFFFFF")
+
+        fun updateNavItem(
+            itemIcon: android.widget.ImageView,
+            itemText: android.widget.TextView,
+            selected: Boolean,
+        ) {
+            itemIcon.imageTintList =
+                android.content.res.ColorStateList.valueOf(
+                    if (selected) primaryColor else inactiveColor
+                )
+            itemText.isVisible = selected
+        }
+
+        updateNavItem(
+            binding.homeBottomBar.navIconHome,
+            binding.homeBottomBar.navTextHome,
+            tabId == NAV_TAB_HOME,
+        )
+        updateNavItem(
+            binding.homeBottomBar.navIconSongs,
+            binding.homeBottomBar.navTextSongs,
+            tabId == NAV_TAB_SONGS,
+        )
+        updateNavItem(
+            binding.homeBottomBar.navIconAlbums,
+            binding.homeBottomBar.navTextAlbums,
+            tabId == NAV_TAB_ALBUMS,
+        )
+        updateNavItem(
+            binding.homeBottomBar.navIconArtists,
+            binding.homeBottomBar.navTextArtists,
+            tabId == NAV_TAB_ARTISTS,
+        )
+        updateNavItem(
+            binding.homeBottomBar.navIconPlaylists,
+            binding.homeBottomBar.navTextPlaylists,
+            tabId == NAV_TAB_PLAYLISTS,
+        )
+
+        if (!isHome) {
+            val targetType =
+                when (tabId) {
+                    NAV_TAB_SONGS -> MusicType.SONGS
+                    NAV_TAB_ALBUMS -> MusicType.ALBUMS
+                    NAV_TAB_ARTISTS -> MusicType.ARTISTS
+                    NAV_TAB_PLAYLISTS -> MusicType.PLAYLISTS
+                    else -> MusicType.SONGS
+                }
+            val pageIndex = homeModel.currentTabTypes.indexOf(targetType)
+            if (pageIndex >= 0) {
+                binding.homePager.currentItem = pageIndex
+            }
+        }
+    }
+
+    private fun updateDashboardSongs(binding: FragmentHomeBinding, songs: List<Song>) {
+        val topSongs = statsManager.getMostPlayedSongs(songs, 10)
+        mostPlayedAdapter?.submitList(topSongs)
+        updateDashboardStats(binding)
+    }
+
+    private fun updateDashboardArtists(binding: FragmentHomeBinding, artists: List<Artist>) {
+        val topArtists = statsManager.getTopArtists(artists, 10)
+        topArtistsAdapter?.submitList(topArtists)
+    }
+
+    private fun updateDashboardStats(binding: FragmentHomeBinding) {
+        val stats7d = statsManager.getStats7Days()
+        val statsLt = statsManager.getStatsLifetime()
+
+        val (tracks7d, time7d) =
+            if (stats7d.tracksPlayed > 0) {
+                stats7d.tracksPlayed to statsManager.formatDuration(stats7d.listenedDurationMs)
+            } else {
+                0 to "0s"
+            }
+
+        val (tracksLt, timeLt) =
+            if (statsLt.tracksPlayed > 0) {
+                statsLt.tracksPlayed to statsManager.formatDuration(statsLt.listenedDurationMs)
+            } else {
+                0 to "0s"
+            }
+
+        binding.homeDashboard.tvStats7dTracks.text = tracks7d.toString()
+        binding.homeDashboard.tvStats7dTime.text = time7d
+        binding.homeDashboard.tvStatsLifetimeTracks.text = tracksLt.toString()
+        binding.homeDashboard.tvStatsLifetimeTime.text = timeLt
     }
 
     private fun setupPager(binding: FragmentHomeBinding) {
