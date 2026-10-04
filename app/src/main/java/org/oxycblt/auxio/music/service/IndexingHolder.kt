@@ -105,8 +105,12 @@ private constructor(
     }
 
     fun start() {
-        // Scanning is deferred and initiated on-demand or by explicit user action,
-        // rather than executing automatically upon opening the application.
+        val state = musicRepository.indexingState
+        // Retry failed runs too: a poison state from a run that crashed would otherwise leave the
+        // app silently idle on the next launch.
+        if (state == null || (state is IndexingState.Completed && state.error != null)) {
+            requestIndex(true)
+        }
     }
 
     fun createNotification(post: (ForegroundServiceNotification?) -> Unit) {

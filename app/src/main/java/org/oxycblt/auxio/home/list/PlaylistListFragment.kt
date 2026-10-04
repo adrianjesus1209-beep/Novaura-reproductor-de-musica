@@ -208,8 +208,8 @@ class PlaylistListFragment :
         } else {
             binding.homeNoMusicMsg.text = getString(R.string.lng_empty_playlists)
             binding.homeNoMusicAction.isVisible = true
-            binding.homeNoMusicAction.text = getString(R.string.lbl_scan_again)
-            binding.homeNoMusicAction.setOnClickListener { musicModel.refresh() }
+            binding.homeNoMusicAction.text = getString(R.string.lbl_new_playlist)
+            binding.homeNoMusicAction.setOnClickListener { musicModel.createPlaylist() }
         }
     }
 

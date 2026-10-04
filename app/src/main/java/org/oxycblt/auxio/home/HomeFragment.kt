@@ -110,6 +110,7 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
     private var pendingImportTarget: Playlist? = null
     private var hasRequestedPermission = false
     private var pendingPermissionRescan = false
+    private var emptyLibraryCardDismissed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -136,8 +137,10 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                     // The system callback confirmed the grant: update the app state reactively on
                     // the main thread and start scanning right away, without requiring a restart.
                     L.d("[PERMISSIONS_DEBUG] RESULT=GRANTED")
-                    musicModel.rescan()
-                    L.d("[PERMISSIONS_DEBUG] RESCAN triggered from grant callback")
+                    if (homeModel.empty.value) {
+                        musicModel.refresh()
+                    }
+                    L.d("[PERMISSIONS_DEBUG] REFRESH triggered from grant callback")
                 } else {
                     L.w("[PERMISSIONS_DEBUG] RESULT=DENIED")
                 }
@@ -233,11 +236,14 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         val granted = hasStoragePermission()
         L.d("[PERMISSIONS_DEBUG] onResume CHECK=${if (granted) "GRANTED" else "DENIED"}")
         // If the user granted the permission while the app was backgrounded (e.g. from the
-        // system settings), scan the library immediately so it shows up without a restart.
+        // system settings), refresh the library if currently empty so it shows up without a
+        // restart.
         if (pendingPermissionRescan && granted) {
             pendingPermissionRescan = false
-            L.d("[PERMISSIONS_DEBUG] RESCAN triggered on resume (grant in background)")
-            musicModel.rescan()
+            if (homeModel.empty.value) {
+                L.d("[PERMISSIONS_DEBUG] REFRESH triggered on resume (grant in background)")
+                musicModel.refresh()
+            }
         } else if (granted) {
             pendingPermissionRescan = false
         }
@@ -520,10 +526,19 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                     // Completed without error but nothing to show: spend the card on explaining
                     // why, instead of leaving an empty screen that looks like a bug.
                     report != null && report.songs == 0 -> {
-                        binding.homeIndexingContainer.isVisible = true
-                        binding.homeIndexingError.isVisible = true
-                        binding.homeIndexingLabel.text = buildEmptyLibraryMessage(report)
-                        binding.homeIndexingContainer.setOnClickListener { musicModel.rescan() }
+                        if (!emptyLibraryCardDismissed) {
+                            binding.homeIndexingContainer.isVisible = true
+                            binding.homeIndexingError.isVisible = true
+                            binding.homeIndexingLabel.text = buildEmptyLibraryMessage(report)
+                            binding.homeIndexingContainer.setOnClickListener {
+                                emptyLibraryCardDismissed = true
+                                binding.homeIndexingContainer.isVisible = false
+                                binding.homeIndexingContainer.setOnClickListener(null)
+                            }
+                        } else {
+                            binding.homeIndexingContainer.isVisible = false
+                            binding.homeIndexingContainer.setOnClickListener(null)
+                        }
                     }
                     else -> {
                         binding.homeIndexingContainer.isVisible = false
@@ -532,6 +547,7 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                 }
             }
             is IndexingState.Indexing -> {
+                emptyLibraryCardDismissed = false
                 binding.homeIndexingContainer.isVisible = true
                 // Clear any error affordance left over from a previous run, otherwise a stray
                 // click can still open the error dialog for a finished index.
