@@ -13,28 +13,28 @@
             android:fillColor="@android:color/transparent"
             android:pathData="m 13,17 -3,3 -3,-3 3,-3"
             android:strokeWidth="2"
-            android:strokeColor="#004894"
+            android:strokeColor="#FFFFFF"
             android:strokeLineCap="round"
             android:strokeLineJoin="round" />
         <path
             android:fillColor="@android:color/transparent"
             android:pathData="M 13,10.5 V 17"
             android:strokeWidth="2"
-            android:strokeColor="#1a61ae"
+            android:strokeColor="#D4D4D4"
             android:strokeLineCap="round"
             android:strokeLineJoin="round" />
         <path
             android:fillColor="@android:color/transparent"
             android:pathData="m 13,4v 6.5"
             android:strokeWidth="2"
-            android:strokeColor="#357ac9"
+            android:strokeColor="#A0A0A0"
             android:strokeLineCap="round"
             android:strokeLineJoin="round" />
         <path
             android:fillColor="@android:color/transparent"
             android:pathData="m 13,4 4,4"
             android:strokeWidth="2"
-            android:strokeColor="#5093e4"
+            android:strokeColor="#707070"
             android:strokeLineCap="round"
             android:strokeLineJoin="round" />
     </group>

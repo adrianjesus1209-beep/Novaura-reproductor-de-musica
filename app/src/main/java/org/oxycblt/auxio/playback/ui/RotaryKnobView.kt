@@ -46,7 +46,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
-            color = Color.parseColor("#2A2730")
+            color = Color.parseColor("#262626")
         }
 
     private val progressPaint =
@@ -58,14 +58,14 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
     private val knobPaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
-            color = Color.parseColor("#1B191E")
+            color = Color.parseColor("#181818")
         }
 
     private val knobBorderPaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = 2f
-            color = Color.parseColor("#333038")
+            color = Color.parseColor("#363636")
         }
 
     private val indicatorPaint =
@@ -97,7 +97,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
 
     var onValueChangedListener: ((Int, Boolean) -> Unit)? = null
 
-    private var accentColor: Int = Color.parseColor("#FF5252")
+    private var accentColor: Int = Color.WHITE
     private var lastTouchY: Float = 0f
 
     init {

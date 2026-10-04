@@ -783,4 +783,44 @@
         <item name="colorSurfaceContainerHigh">@color/grey_surfaceContainerHigh</item>
         <item name="colorSurfaceContainerHighest">@color/grey_surfaceContainerHighest</item>
     </style>
+
+    <style name="Theme.Auxio.MonoWhite" parent="Theme.Auxio.Grey">
+        <item name="colorPrimary">@color/mono_white_primary</item>
+        <item name="colorOnPrimary">@color/mono_white_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/mono_white_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/mono_white_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/mono_white_secondary</item>
+        <item name="colorOnSecondary">@color/mono_white_onSecondary</item>
+        <item name="colorPrimaryInverse">@color/mono_white_primary</item>
+    </style>
+
+    <style name="Theme.Auxio.MonoSilver" parent="Theme.Auxio.Grey">
+        <item name="colorPrimary">@color/mono_silver_primary</item>
+        <item name="colorOnPrimary">@color/mono_silver_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/mono_silver_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/mono_silver_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/mono_silver_secondary</item>
+        <item name="colorOnSecondary">@color/mono_silver_onSecondary</item>
+        <item name="colorPrimaryInverse">@color/mono_silver_primary</item>
+    </style>
+
+    <style name="Theme.Auxio.MonoGraphite" parent="Theme.Auxio.Grey">
+        <item name="colorPrimary">@color/mono_graphite_primary</item>
+        <item name="colorOnPrimary">@color/mono_graphite_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/mono_graphite_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/mono_graphite_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/mono_graphite_secondary</item>
+        <item name="colorOnSecondary">@color/mono_graphite_onSecondary</item>
+        <item name="colorPrimaryInverse">@color/mono_graphite_primary</item>
+    </style>
+
+    <style name="Theme.Auxio.MonoCharcoal" parent="Theme.Auxio.Grey">
+        <item name="colorPrimary">@color/mono_charcoal_primary</item>
+        <item name="colorOnPrimary">@color/mono_charcoal_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/mono_charcoal_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/mono_charcoal_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/mono_charcoal_secondary</item>
+        <item name="colorOnSecondary">@color/mono_charcoal_onSecondary</item>
+        <item name="colorPrimaryInverse">@color/mono_charcoal_primary</item>
+    </style>
 </resources>

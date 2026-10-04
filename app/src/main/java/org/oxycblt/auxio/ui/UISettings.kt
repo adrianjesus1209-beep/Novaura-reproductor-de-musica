@@ -130,10 +130,16 @@ class UISettingsImpl @Inject constructor(@ApplicationContext context: Context) :
             L.d("Migrating $OLD_KEY_ACCENT3")
 
             sharedPreferences.edit {
-                // Novaura is rebranded, so legacy Auxio installs land on our signature accent
-                // rather than the dynamic color scheme the old app defaulted to.
-                putInt(getString(R.string.set_key_accent), Accent.CYAN)
+                putInt(getString(R.string.set_key_accent), Accent.DEFAULT)
                 remove(OLD_KEY_ACCENT3)
+                apply()
+            }
+        }
+        val currentAccent =
+            sharedPreferences.getInt(getString(R.string.set_key_accent), Accent.DEFAULT)
+        if (currentAccent !in 0 until Accent.MAX) {
+            sharedPreferences.edit {
+                putInt(getString(R.string.set_key_accent), Accent.DEFAULT)
                 apply()
             }
         }

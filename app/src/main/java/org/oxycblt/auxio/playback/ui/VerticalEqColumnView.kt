@@ -46,7 +46,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
     private val trackPaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
-            color = Color.parseColor("#26232A")
+            color = Color.parseColor("#242424")
         }
 
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -78,8 +78,8 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
 
     var onLevelChangeListener: ((Float, Boolean) -> Unit)? = null
 
-    private var accentColor: Int = Color.parseColor("#FF5252")
-    private var accentSecondaryColor: Int = Color.parseColor("#FF4081")
+    private var accentColor: Int = Color.WHITE
+    private var accentSecondaryColor: Int = Color.parseColor("#CCCCCC")
 
     init {
         val primary = context.getAttrColorCompat(androidx.appcompat.R.attr.colorPrimary)

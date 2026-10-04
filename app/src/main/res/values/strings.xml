@@ -466,6 +466,12 @@
     <!-- As in "Dynamic Colors"/Material You theming -->
     <string name="clr_dynamic">Dynamic</string>
 
+    <string name="clr_mono_white">Pure white</string>
+    <string name="clr_mono_silver">Silver</string>
+    <string name="clr_mono_grey">Neutral grey</string>
+    <string name="clr_mono_graphite">Graphite</string>
+    <string name="clr_mono_charcoal">Charcoal</string>
+
     <!-- Format Namespace | Value formatting/plurals -->
     <eat-comment />
 

@@ -18,92 +18,43 @@
  
 package org.oxycblt.auxio.ui.accent
 
-import android.os.Build
 import org.oxycblt.auxio.R
 import timber.log.Timber as L
 
 private val accentNames =
     intArrayOf(
-        R.string.clr_red,
-        R.string.clr_pink,
-        R.string.clr_purple,
-        R.string.clr_deep_purple,
-        R.string.clr_indigo,
-        R.string.clr_blue,
-        R.string.clr_deep_blue,
-        R.string.clr_cyan,
-        R.string.clr_teal,
-        R.string.clr_green,
-        R.string.clr_deep_green,
-        R.string.clr_lime,
-        R.string.clr_yellow,
-        R.string.clr_orange,
-        R.string.clr_brown,
-        R.string.clr_grey,
-        R.string.clr_dynamic,
+        R.string.clr_mono_white,
+        R.string.clr_mono_silver,
+        R.string.clr_mono_grey,
+        R.string.clr_mono_graphite,
+        R.string.clr_mono_charcoal,
     )
 
 private val accentThemes =
     intArrayOf(
-        R.style.Theme_Auxio_Red,
-        R.style.Theme_Auxio_Pink,
-        R.style.Theme_Auxio_Purple,
-        R.style.Theme_Auxio_DeepPurple,
-        R.style.Theme_Auxio_Indigo,
-        R.style.Theme_Auxio_Blue,
-        R.style.Theme_Auxio_DeepBlue,
-        R.style.Theme_Auxio_Cyan,
-        R.style.Theme_Auxio_Teal,
-        R.style.Theme_Auxio_Green,
-        R.style.Theme_Auxio_DeepGreen,
-        R.style.Theme_Auxio_Lime,
-        R.style.Theme_Auxio_Yellow,
-        R.style.Theme_Auxio_Orange,
-        R.style.Theme_Auxio_Brown,
+        R.style.Theme_Auxio_MonoWhite,
+        R.style.Theme_Auxio_MonoSilver,
         R.style.Theme_Auxio_Grey,
-        R.style.Theme_Auxio_App, // Dynamic colors are on the base theme
+        R.style.Theme_Auxio_MonoGraphite,
+        R.style.Theme_Auxio_MonoCharcoal,
     )
 
 private val accentBlackThemes =
     intArrayOf(
-        R.style.Theme_Auxio_Red_Black,
-        R.style.Theme_Auxio_Pink_Black,
-        R.style.Theme_Auxio_Purple_Black,
-        R.style.Theme_Auxio_DeepPurple_Black,
-        R.style.Theme_Auxio_Indigo_Black,
-        R.style.Theme_Auxio_Blue_Black,
-        R.style.Theme_Auxio_DeepBlue_Black,
-        R.style.Theme_Auxio_Cyan_Black,
-        R.style.Theme_Auxio_Teal_Black,
-        R.style.Theme_Auxio_Green_Black,
-        R.style.Theme_Auxio_DeepGreen_Black,
-        R.style.Theme_Auxio_Lime_Black,
-        R.style.Theme_Auxio_Yellow_Black,
-        R.style.Theme_Auxio_Orange_Black,
-        R.style.Theme_Auxio_Brown_Black,
+        R.style.Theme_Auxio_MonoWhite_Black,
+        R.style.Theme_Auxio_MonoSilver_Black,
         R.style.Theme_Auxio_Grey_Black,
-        R.style.Theme_Auxio_Black, // Dynamic colors are on the base theme
+        R.style.Theme_Auxio_MonoGraphite_Black,
+        R.style.Theme_Auxio_MonoCharcoal_Black,
     )
 
 private val accentPrimaryColors =
     intArrayOf(
-        R.color.red_primary,
-        R.color.pink_primary,
-        R.color.purple_primary,
-        R.color.deep_purple_primary,
-        R.color.indigo_primary,
-        R.color.blue_primary,
-        R.color.deep_blue_primary,
-        R.color.cyan_primary,
-        R.color.teal_primary,
-        R.color.green_primary,
-        R.color.deep_green_primary,
-        R.color.lime_primary,
-        R.color.yellow_primary,
-        R.color.orange_primary,
-        R.color.brown_primary,
+        R.color.mono_white_primary,
+        R.color.mono_silver_primary,
         R.color.grey_primary,
-        R.color.dynamic_primary,
+        R.color.mono_graphite_primary,
+        R.color.mono_charcoal_primary,
     )
 
 /**
@@ -153,25 +104,16 @@ class Accent private constructor(val index: Int) {
             return Accent(index)
         }
 
-        /** Novaura's signature accent. Cyan, which lines up with the turquoise/blue branding. */
-        const val CYAN = 7
+        const val MONO_WHITE = 0
+        const val MONO_SILVER = 1
+        const val MONO_GREY = 2
+        const val MONO_GRAPHITE = 3
+        const val MONO_CHARCOAL = 4
 
-        /**
-         * The default accent.
-         *
-         * Deliberately Cyan on every OS version rather than dynamic colors, so that the app keeps
-         * the same identity on Android 12+ and below. Users that explicitly picked an accent have
-         * it persisted and are unaffected by this.
-         */
-        val DEFAULT = CYAN
+        /** The default accent. Pure white high contrast. */
+        val DEFAULT = MONO_WHITE
 
         /** The amount of valid accents. */
-        val MAX =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                accentThemes.size
-            } else {
-                // Disable the option for a dynamic accent on unsupported devices.
-                accentThemes.size - 1
-            }
+        val MAX = accentThemes.size
     }
 }

@@ -25,7 +25,7 @@
             android:id="@+id/main_blur_scrim"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="#D90E0C13"
+            android:background="#D9121212"
             android:alpha="0" />
 
         <androidx.fragment.app.FragmentContainerView
