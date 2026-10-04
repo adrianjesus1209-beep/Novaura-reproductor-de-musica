@@ -42,7 +42,6 @@ import timber.log.Timber as L
  * @author Alexander Capehart (OxygenCobalt)
  *
  * TODO: Add error screens
- * TODO: Custom language support
  * TODO: Use proper material attributes (Not the weird dimen attributes I currently have)
  * TODO: Migrate to material animation system
  * TODO: Unit testing
@@ -57,6 +56,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        uiSettings.applyCurrentLanguage()
         setupTheme()
         // Inflate the views after setting up the theme so that the theme attributes are applied.
         val binding = ActivityMainBinding.inflate(layoutInflater)

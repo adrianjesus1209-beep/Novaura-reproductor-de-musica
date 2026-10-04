@@ -21,6 +21,7 @@ package org.oxycblt.auxio.ui
 import android.content.Context
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
+import androidx.core.os.LocaleListCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import org.oxycblt.auxio.R
@@ -42,10 +43,24 @@ interface UISettings : Settings<UISettings.Listener> {
     var accent: Accent
     /** Whether to round additional UI elements that require album covers to be rounded. */
     val roundMode: Boolean
+    /** The current language setting (0 = System, 1 = Spanish, 2 = English). */
+    val language: Int
+
+    /** Persist and apply a new language. */
+    fun setLanguage(language: Int)
+
+    /** Ensure the configured language is applied. */
+    fun applyCurrentLanguage()
 
     interface Listener {
         /** Called when [roundMode] changes. */
         fun onRoundModeChanged()
+    }
+
+    companion object {
+        const val LANGUAGE_SYSTEM = 0
+        const val LANGUAGE_SPANISH = 1
+        const val LANGUAGE_ENGLISH = 2
     }
 }
 
@@ -77,6 +92,38 @@ class UISettingsImpl @Inject constructor(@ApplicationContext context: Context) :
 
     override val roundMode: Boolean
         get() = sharedPreferences.getBoolean(getString(R.string.set_key_round_mode), true)
+
+    override val language: Int
+        get() =
+            sharedPreferences.getInt(
+                getString(R.string.set_key_language),
+                UISettings.LANGUAGE_SYSTEM,
+            )
+
+    override fun setLanguage(language: Int) {
+        sharedPreferences.edit {
+            putInt(getString(R.string.set_key_language), language)
+            apply()
+        }
+        applyLanguage(language)
+    }
+
+    override fun applyCurrentLanguage() {
+        applyLanguage(language)
+    }
+
+    private fun applyLanguage(language: Int) {
+        val targetLocales =
+            when (language) {
+                UISettings.LANGUAGE_SPANISH -> LocaleListCompat.forLanguageTags("es")
+                UISettings.LANGUAGE_ENGLISH -> LocaleListCompat.forLanguageTags("en")
+                else -> LocaleListCompat.getEmptyLocaleList()
+            }
+        L.d("Applying language: $language (tags=${targetLocales.toLanguageTags()})")
+        if (AppCompatDelegate.getApplicationLocales() != targetLocales) {
+            AppCompatDelegate.setApplicationLocales(targetLocales)
+        }
+    }
 
     override fun migrate() {
         if (sharedPreferences.contains(OLD_KEY_ACCENT3)) {

@@ -3,6 +3,16 @@
     app:title="@string/set_ui">
 
     <org.oxycblt.auxio.settings.ui.IntListPreference
+        app:defaultValue="@integer/language_system"
+        app:entries="@array/entries_language"
+        app:entryValues="@array/values_language"
+        app:icon="@drawable/ic_language_24"
+        app:key="@string/set_key_language"
+        app:summary="@string/set_language_desc"
+        app:title="@string/set_language"
+        app:useSimpleSummaryProvider="true" />
+
+    <org.oxycblt.auxio.settings.ui.IntListPreference
         app:defaultValue="@integer/theme_auto"
         app:entries="@array/entries_theme"
         app:entryIcons="@array/icons_theme"

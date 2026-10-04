@@ -68,6 +68,7 @@ class Auxio : Application() {
         imageSettings.migrate()
         playbackSettings.migrate()
         uiSettings.migrate()
+        uiSettings.applyCurrentLanguage()
         homeSettings.migrate()
         musicSettings.migrate()
         // Adding static shortcuts in a dynamic manner is better than declaring them

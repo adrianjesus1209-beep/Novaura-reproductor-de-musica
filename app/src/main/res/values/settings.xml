@@ -9,6 +9,7 @@
     <string name="set_key_theme" translatable="false">KEY_THEME2</string>
     <string name="set_key_black_theme" translatable="false">KEY_BLACK_THEME</string>
     <string name="set_key_accent" translatable="false">auxio_accent2</string>
+    <string name="set_key_language" translatable="false">auxio_language</string>
 
     <string name="set_key_reindex" translatable="false">auxio_reindex</string>
     <string name="set_key_rescan" translatable="false">auxio_rescan</string>
@@ -87,6 +88,19 @@
         <item>@integer/theme_light</item>
         <item>@integer/theme_dark</item>
     </integer-array>
+
+    <string-array name="entries_language">
+        <item>@string/set_language_system</item>
+        <item>@string/set_language_spanish</item>
+        <item>@string/set_language_english</item>
+    </string-array>
+
+    <integer-array name="values_language">
+        <item>@integer/language_system</item>
+        <item>@integer/language_spanish</item>
+        <item>@integer/language_english</item>
+    </integer-array>
+
 
     <string-array name="entries_cover_mode">
         <item>@string/set_cover_mode_off</item>
@@ -167,6 +181,10 @@
     <integer name="theme_auto">-1</integer>
     <integer name="theme_light">1</integer>
     <integer name="theme_dark">2</integer>
+
+    <integer name="language_system">0</integer>
+    <integer name="language_spanish">1</integer>
+    <integer name="language_english">2</integer>
 
     <integer name="play_song_none">-2147483648</integer>
     <integer name="play_song_from_all">0xA11F</integer>

@@ -166,7 +166,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="@dimen/spacing_mid_large"
-            android:contentDescription="Add Folder"
+            android:contentDescription="@string/desc_add_folder"
             app:icon="@drawable/ic_add_24"
             app:layout_constraintEnd_toEndOf="@+id/locations_include_list_header"
             app:layout_constraintTop_toBottomOf="@+id/locations_include_list_header_divider" />

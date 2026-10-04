@@ -26,9 +26,11 @@ import androidx.preference.PreferenceFragmentCompat
 import com.google.android.material.transition.MaterialFadeThrough
 import com.google.android.material.transition.MaterialSharedAxis
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.settings.ui.WrappedDialogPreference
+import org.oxycblt.auxio.ui.UISettings
 import org.oxycblt.auxio.util.navigateSafe
 import timber.log.Timber as L
 
@@ -40,6 +42,20 @@ import timber.log.Timber as L
 @AndroidEntryPoint
 class RootPreferenceFragment : BasePreferenceFragment(R.xml.preferences_root) {
     private val musicModel: MusicViewModel by activityViewModels()
+    @Inject lateinit var uiSettings: UISettings
+
+    override fun onSetupPreference(preference: Preference) {
+        if (preference.key == getString(R.string.set_key_language)) {
+            preference.onPreferenceChangeListener =
+                Preference.OnPreferenceChangeListener { _, value ->
+                    val intValue = (value as? Int) ?: 0
+                    L.d("Language changed in root settings to $intValue")
+                    uiSettings.setLanguage(intValue)
+                    requireActivity().recreate()
+                    true
+                }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

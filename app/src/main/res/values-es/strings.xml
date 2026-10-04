@@ -366,4 +366,43 @@
     <string name="err_share_failed">Incapaz de compartir esto</string>
     <string name="set_task_exit">Salir siempre al cerrar</string>
     <string name="set_task_exit_desc">Detiene la reproducción cuando se elimina de los recientes, incluso si reproduce</string>
+
+    <!-- General & Acciones -->
+    <string name="lbl_confirm_delete_song">¿Eliminar canción?</string>
+    <string name="lng_song_deleted">Canción eliminada</string>
+    <string name="lng_scan_failed">Error al cargar la música. Toca para reintentar.</string>
+    <string name="err_delete_failed">No se pudo eliminar la canción</string>
+    <string name="desc_volume">Ajustar volumen</string>
+
+    <!-- Ecualizador y Audio -->
+    <string name="lbl_bass">Graves</string>
+    <string name="lbl_virtualizer">Virtualizador</string>
+    <string name="lbl_custom">Personalizado</string>
+    <string name="set_audio_reactivity">Reactividad de audio</string>
+    <string name="set_audio_reactivity_desc">Permite que la onda de progreso y el brillo ambiental sigan la música</string>
+    <string name="set_audio_reactivity_off">Desactivado</string>
+    <string name="set_audio_reactivity_subtle">Sutil</string>
+    <string name="set_audio_reactivity_normal">Normal</string>
+    <string name="set_audio_reactivity_intense">Intenso</string>
+
+    <!-- Dashboard de Inicio y Navegación -->
+    <string name="lbl_home">Inicio</string>
+    <string name="lbl_most_played_tracks">Más reproducidas</string>
+    <string name="lbl_see_all">Ver todo</string>
+    <string name="lbl_top_artists">Artistas principales</string>
+    <string name="lbl_playback_stats">Estadísticas de reproducción</string>
+    <string name="lbl_last_7_days">Últimos 7 días</string>
+    <string name="lbl_life_time">Tiempo total</string>
+    <string name="lbl_tracks_played">Canciones reproducidas</string>
+    <string name="lbl_listened">Tiempo escuchado</string>
+    <string name="lbl_favorites">Favoritos</string>
+    <string name="lbl_search_hint">Buscar canciones, artistas...</string>
+
+    <!-- Configuración de Idioma -->
+    <string name="set_language">Idioma</string>
+    <string name="set_language_desc">Elegir el idioma de la aplicación</string>
+    <string name="set_language_system">Predeterminado del sistema</string>
+    <string name="set_language_spanish">Español</string>
+    <string name="set_language_english">English</string>
 </resources>
+

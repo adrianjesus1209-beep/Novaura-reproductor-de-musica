@@ -48,6 +48,17 @@ class UIPreferenceFragment : BasePreferenceFragment(R.xml.preferences_ui) {
 
     override fun onSetupPreference(preference: Preference) {
         when (preference.key) {
+            getString(R.string.set_key_language) -> {
+                L.d("Configuring language setting")
+                preference.onPreferenceChangeListener =
+                    Preference.OnPreferenceChangeListener { _, value ->
+                        val intValue = (value as? Int) ?: 0
+                        L.d("Language changed in UI settings to $intValue")
+                        uiSettings.setLanguage(intValue)
+                        requireActivity().recreate()
+                        true
+                    }
+            }
             getString(R.string.set_key_theme) -> {
                 L.d("Configuring theme setting")
                 preference.onPreferenceChangeListener =

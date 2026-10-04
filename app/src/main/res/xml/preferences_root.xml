@@ -14,6 +14,16 @@
         app:summary="@string/set_personalize_desc"
         app:title="@string/set_personalize" />
 
+    <org.oxycblt.auxio.settings.ui.IntListPreference
+        app:defaultValue="@integer/language_system"
+        app:entries="@array/entries_language"
+        app:entryValues="@array/values_language"
+        app:icon="@drawable/ic_language_24"
+        app:key="@string/set_key_language"
+        app:summary="@string/set_language_desc"
+        app:title="@string/set_language"
+        app:useSimpleSummaryProvider="true" />
+
     <Preference
         app:icon="@drawable/ic_song_24"
         app:key="@string/set_key_music"

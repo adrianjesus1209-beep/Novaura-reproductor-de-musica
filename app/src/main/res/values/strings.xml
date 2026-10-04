@@ -537,5 +537,12 @@
     <string name="lbl_listened">Listened</string>
     <string name="lbl_favorites">Favorites</string>
     <string name="lbl_search_hint">Search</string>
+    <!-- Language Settings -->
+    <string name="set_language">Language</string>
+    <string name="set_language_desc">Choose the application language</string>
+    <string name="set_language_system">System default</string>
+    <string name="set_language_spanish">Español</string>
+    <string name="set_language_english">English</string>
 </resources>
+
 
