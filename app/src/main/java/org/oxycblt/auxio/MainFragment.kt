@@ -19,15 +19,23 @@
 package org.oxycblt.auxio
 
 import android.annotation.SuppressLint
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.view.WindowInsets
+import android.widget.FrameLayout
+import android.widget.ImageView
 import androidx.activity.BackEventCompat
 import androidx.activity.OnBackPressedCallback
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.ViewCompat
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.findNavController
@@ -72,8 +80,10 @@ import org.oxycblt.auxio.util.context
 import org.oxycblt.auxio.util.coordinatorLayoutBehavior
 import org.oxycblt.auxio.util.getAttrColorCompat
 import org.oxycblt.auxio.util.getDimen
+import org.oxycblt.auxio.util.getDimenPixels
 import org.oxycblt.auxio.util.lazyReflectedMethod
 import org.oxycblt.auxio.util.navigateSafe
+import org.oxycblt.auxio.util.systemBarInsetsCompat
 import org.oxycblt.auxio.util.unlikelyToBeNull
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Song
@@ -151,6 +161,11 @@ class MainFragment :
 
         binding.root.setOnApplyWindowInsetsListener { _, insets ->
             lastInsets = insets
+            val systemBars = insets.systemBarInsetsCompat
+            val bottomMargin = requireContext().getDimenPixels(R.dimen.bottom_nav_bar_margin_bottom)
+            binding.homeBottomBar?.root?.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                this.bottomMargin = bottomMargin + systemBars.bottom
+            }
             insets
         }
 
@@ -227,6 +242,16 @@ class MainFragment :
         collectImmediately(listModel.selected, selectionBackCallback::invalidateEnabled)
         collectImmediately(playbackModel.song, ::updateSong)
         collectImmediately(playbackModel.openPanel.flow, ::handlePanel)
+
+        binding.homeBottomBar?.apply {
+            navItemHome.setOnClickListener { onNavTabClicked(HomeViewModel.NAV_TAB_HOME) }
+            navItemSongs.setOnClickListener { onNavTabClicked(HomeViewModel.NAV_TAB_SONGS) }
+            navItemAlbums.setOnClickListener { onNavTabClicked(HomeViewModel.NAV_TAB_ALBUMS) }
+            navItemArtists.setOnClickListener { onNavTabClicked(HomeViewModel.NAV_TAB_ARTISTS) }
+            navItemPlaylists.setOnClickListener { onNavTabClicked(HomeViewModel.NAV_TAB_PLAYLISTS) }
+        }
+
+        collectImmediately(homeModel.currentNavTab, ::updateBottomBarUI)
     }
 
     override fun onStart() {
@@ -359,10 +384,20 @@ class MainFragment :
                     .setTopRightCornerSize(normalCornerSize * (1 - playbackLastStretchRatio))
                     .build()
         }
-        // Fade out the playback bar as the panel expands.
+        // Fade out the playback bar and bottom bar as the panel expands.
         binding.playbackBarFragment.apply {
             // Prevent interactions when the playback bar fully fades out.
             isInvisible = alpha == 0f
+        }
+        val isAtHome =
+            binding.exploreNavHost.findNavController().currentDestination?.id == R.id.home_fragment
+        binding.homeBottomBar?.root?.let { barRoot ->
+            if (isAtHome) {
+                barRoot.alpha = playbackOutRatio
+                barRoot.isInvisible = barRoot.alpha == 0f
+            } else {
+                barRoot.isVisible = false
+            }
         }
 
         // Prevent interactions when the playback panel fully fades out.
@@ -415,12 +450,80 @@ class MainFragment :
     }
 
     private fun onExploreNavigate() {
+        val binding = requireBinding()
         listModel.dropSelection()
+        val isAtHome =
+            binding.exploreNavHost.findNavController().currentDestination?.id == R.id.home_fragment
+        binding.homeBottomBar?.root?.isVisible = isAtHome
         updateFabVisibility(
-            requireBinding(),
+            binding,
             homeModel.songList.value,
             homeModel.isFastScrolling.value,
             homeModel.currentTabType.value,
+        )
+    }
+
+    private fun onNavTabClicked(tabId: Int) {
+        val binding = requireBinding()
+        val navController = binding.exploreNavHost.findNavController()
+        if (navController.currentDestination?.id != R.id.home_fragment) {
+            navController.popBackStack(R.id.home_fragment, false)
+        }
+        homeModel.selectNavTab(tabId)
+    }
+
+    private fun updateBottomBarUI(selectedTab: Int) {
+        val bar = requireBinding().homeBottomBar ?: return
+        val context = requireContext()
+        val primaryColor =
+            context.getAttrColorCompat(androidx.appcompat.R.attr.colorPrimary).defaultColor
+        val inactiveColor = Color.parseColor("#88FFFFFF")
+        val activeIndicatorColor = ColorUtils.setAlphaComponent(primaryColor, 45)
+
+        fun updateItem(
+            indicator: FrameLayout,
+            icon: ImageView,
+            isSelected: Boolean,
+        ) {
+            if (isSelected) {
+                val shape =
+                    GradientDrawable().apply {
+                        shape = GradientDrawable.RECTANGLE
+                        cornerRadius = context.getDimen(R.dimen.m3_shape_corners_large)
+                        setColor(activeIndicatorColor)
+                    }
+                indicator.background = shape
+                icon.imageTintList = ColorStateList.valueOf(primaryColor)
+            } else {
+                indicator.background = null
+                icon.imageTintList = ColorStateList.valueOf(inactiveColor)
+            }
+        }
+
+        updateItem(
+            bar.navIndicatorHome,
+            bar.navIconHome,
+            selectedTab == HomeViewModel.NAV_TAB_HOME,
+        )
+        updateItem(
+            bar.navIndicatorSongs,
+            bar.navIconSongs,
+            selectedTab == HomeViewModel.NAV_TAB_SONGS,
+        )
+        updateItem(
+            bar.navIndicatorAlbums,
+            bar.navIconAlbums,
+            selectedTab == HomeViewModel.NAV_TAB_ALBUMS,
+        )
+        updateItem(
+            bar.navIndicatorArtists,
+            bar.navIconArtists,
+            selectedTab == HomeViewModel.NAV_TAB_ARTISTS,
+        )
+        updateItem(
+            bar.navIndicatorPlaylists,
+            bar.navIconPlaylists,
+            selectedTab == HomeViewModel.NAV_TAB_PLAYLISTS,
         )
     }
 

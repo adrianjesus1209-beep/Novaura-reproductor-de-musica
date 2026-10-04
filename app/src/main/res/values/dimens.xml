@@ -53,4 +53,8 @@
 
     <dimen name="outline_small">1dp</dimen>
     <dimen name="outline_large">2dp</dimen>
+
+    <dimen name="bottom_nav_bar_height">56dp</dimen>
+    <dimen name="bottom_nav_bar_margin_bottom">12dp</dimen>
+    <dimen name="bottom_nav_bar_total_height">68dp</dimen>
 </resources>

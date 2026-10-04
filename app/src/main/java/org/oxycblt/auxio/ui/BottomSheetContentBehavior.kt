@@ -25,7 +25,9 @@ import android.view.WindowInsets
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import com.google.android.material.bottomsheet.BackportBottomSheetBehavior
 import kotlin.math.abs
+import org.oxycblt.auxio.R
 import org.oxycblt.auxio.util.coordinatorLayoutBehavior
+import org.oxycblt.auxio.util.getDimenPixels
 import org.oxycblt.auxio.util.replaceSystemBarInsetsCompat
 import org.oxycblt.auxio.util.systemBarInsetsCompat
 
@@ -63,16 +65,18 @@ class BottomSheetContentBehavior<V : View>(context: Context, attributeSet: Attri
                 val dep = dep ?: return@setOnApplyWindowInsetsListener insets
                 val behavior = dep.coordinatorLayoutBehavior as BackportBottomSheetBehavior
                 val consumed = behavior.calculateConsumedByBar()
-                if (consumed == Int.MIN_VALUE) {
-                    return@setOnApplyWindowInsetsListener insets
-                }
-
+                val navBarTotalHeight =
+                    child.context.getDimenPixels(R.dimen.bottom_nav_bar_total_height)
                 val bars = insets.systemBarInsetsCompat
+                val minBottom = bars.bottom + navBarTotalHeight
+                val effectiveConsumed =
+                    if (consumed == Int.MIN_VALUE) minBottom else consumed.coerceAtLeast(minBottom)
+
                 insets.replaceSystemBarInsetsCompat(
                     bars.left,
                     bars.top,
                     bars.right,
-                    consumed.coerceAtLeast(bars.bottom),
+                    effectiveConsumed,
                 )
             }
 
@@ -91,12 +95,13 @@ class BottomSheetContentBehavior<V : View>(context: Context, attributeSet: Attri
     ): Boolean {
         val behavior = dependency.coordinatorLayoutBehavior as BackportBottomSheetBehavior
         val consumed = behavior.calculateConsumedByBar()
-        if (consumed == Int.MIN_VALUE) {
-            return false
-        }
+        val navBarTotalHeight = child.context.getDimenPixels(R.dimen.bottom_nav_bar_total_height)
+        val minBottom = (lastInsets?.systemBarInsetsCompat?.bottom ?: 0) + navBarTotalHeight
+        val effectiveConsumed =
+            if (consumed == Int.MIN_VALUE) minBottom else consumed.coerceAtLeast(minBottom)
 
-        if (consumed != lastConsumed) {
-            lastConsumed = consumed
+        if (effectiveConsumed != lastConsumed) {
+            lastConsumed = effectiveConsumed
 
             if (lastInsets != null) {
                 child.dispatchApplyWindowInsets(lastInsets)

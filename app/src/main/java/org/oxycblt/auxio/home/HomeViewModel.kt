@@ -132,6 +132,32 @@ constructor(
     var currentTabTypes = homeGenerator.tabs()
         private set
 
+    companion object {
+        const val NAV_TAB_HOME = 0
+        const val NAV_TAB_SONGS = 1
+        const val NAV_TAB_ALBUMS = 2
+        const val NAV_TAB_ARTISTS = 3
+        const val NAV_TAB_PLAYLISTS = 4
+    }
+
+    private val _currentNavTab = MutableStateFlow(NAV_TAB_HOME)
+    val currentNavTab: StateFlow<Int> = _currentNavTab
+
+    fun selectNavTab(tab: Int) {
+        _currentNavTab.value = tab
+        val tabType =
+            when (tab) {
+                NAV_TAB_SONGS -> MusicType.SONGS
+                NAV_TAB_ALBUMS -> MusicType.ALBUMS
+                NAV_TAB_ARTISTS -> MusicType.ARTISTS
+                NAV_TAB_PLAYLISTS -> MusicType.PLAYLISTS
+                else -> null
+            }
+        if (tabType != null && currentTabTypes.contains(tabType)) {
+            _currentTabType.value = tabType
+        }
+    }
+
     private val _currentTabType = MutableStateFlow(currentTabTypes[0])
     /** The [MusicType] of the currently shown [Tab]. */
     val currentTabType: StateFlow<MusicType> = _currentTabType
@@ -250,8 +276,18 @@ constructor(
      * @param pagerPos The new position of the ViewPager2 instance.
      */
     fun synchronizeTabPosition(pagerPos: Int) {
-        L.d("Updating current tab to ${currentTabTypes[pagerPos]}")
-        _currentTabType.value = currentTabTypes[pagerPos]
+        val tabType = currentTabTypes.getOrNull(pagerPos) ?: return
+        L.d("Updating current tab to $tabType")
+        _currentTabType.value = tabType
+        val navTab =
+            when (tabType) {
+                MusicType.SONGS -> NAV_TAB_SONGS
+                MusicType.ALBUMS -> NAV_TAB_ALBUMS
+                MusicType.ARTISTS -> NAV_TAB_ARTISTS
+                MusicType.PLAYLISTS -> NAV_TAB_PLAYLISTS
+                else -> NAV_TAB_HOME
+            }
+        _currentNavTab.value = navTab
     }
 
     /**

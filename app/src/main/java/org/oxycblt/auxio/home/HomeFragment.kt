@@ -76,7 +76,6 @@ import org.oxycblt.auxio.ui.FadingToolbarOffsetListener
 import org.oxycblt.auxio.util.collect
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.dampen
-import org.oxycblt.auxio.util.getAttrColorCompat
 import org.oxycblt.auxio.util.navigateSafe
 import org.oxycblt.auxio.util.showToast
 import org.oxycblt.musikr.Artist
@@ -105,20 +104,12 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
     @Inject lateinit var statsManager: PlaybackStatsManager
     private var mostPlayedAdapter: MostPlayedTracksAdapter? = null
     private var topArtistsAdapter: TopArtistsAdapter? = null
-    private var currentNavTab = NAV_TAB_HOME
+    private var currentNavTab = HomeViewModel.NAV_TAB_HOME
     private var storagePermissionLauncher: ActivityResultLauncher<String>? = null
     private var getContentLauncher: ActivityResultLauncher<String>? = null
     private var pendingImportTarget: Playlist? = null
     private var hasRequestedPermission = false
     private var pendingPermissionRescan = false
-
-    companion object {
-        private const val NAV_TAB_HOME = 0
-        private const val NAV_TAB_SONGS = 1
-        private const val NAV_TAB_ALBUMS = 2
-        private const val NAV_TAB_ARTISTS = 3
-        private const val NAV_TAB_PLAYLISTS = 4
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -219,7 +210,7 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         collect(playbackModel.playbackDecision.flow, ::handlePlaybackDecision)
 
         setupDashboard(binding)
-        setupBottomBar(binding)
+        collectImmediately(homeModel.currentNavTab, ::updateNavTab)
 
         collectImmediately(homeModel.songList) { songs ->
             updateDashboardSongs(binding, songs)
@@ -328,10 +319,10 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
             findNavController().navigateSafe(HomeFragmentDirections.search())
         }
         binding.homeDashboard.btnFavorites.setOnClickListener {
-            switchToTab(MusicType.SONGS)
+            homeModel.selectNavTab(HomeViewModel.NAV_TAB_SONGS)
         }
         binding.homeDashboard.btnSeeAllSongs.setOnClickListener {
-            switchToTab(MusicType.SONGS)
+            homeModel.selectNavTab(HomeViewModel.NAV_TAB_SONGS)
         }
         binding.homeDashboard.btnRefreshStats.setOnClickListener {
             updateDashboardStats(binding)
@@ -340,93 +331,29 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         updateDashboardStats(binding)
     }
 
-    private fun setupBottomBar(binding: FragmentHomeBinding) {
-        binding.homeBottomBar.navItemHome.setOnClickListener { selectNavTab(NAV_TAB_HOME) }
-        binding.homeBottomBar.navItemSongs.setOnClickListener { selectNavTab(NAV_TAB_SONGS) }
-        binding.homeBottomBar.navItemAlbums.setOnClickListener { selectNavTab(NAV_TAB_ALBUMS) }
-        binding.homeBottomBar.navItemArtists.setOnClickListener { selectNavTab(NAV_TAB_ARTISTS) }
-        binding.homeBottomBar.navItemPlaylists.setOnClickListener {
-            selectNavTab(NAV_TAB_PLAYLISTS)
-        }
-
-        // Start on Home dashboard
-        selectNavTab(NAV_TAB_HOME)
-    }
-
-    private fun switchToTab(type: MusicType) {
-        val tabIndex =
-            when (type) {
-                MusicType.SONGS -> NAV_TAB_SONGS
-                MusicType.ALBUMS -> NAV_TAB_ALBUMS
-                MusicType.ARTISTS -> NAV_TAB_ARTISTS
-                MusicType.PLAYLISTS -> NAV_TAB_PLAYLISTS
-                else -> NAV_TAB_HOME
-            }
-        selectNavTab(tabIndex)
-    }
-
-    private fun selectNavTab(tabId: Int) {
+    private fun updateNavTab(tabId: Int) {
         currentNavTab = tabId
         val binding = requireBinding()
 
-        val isHome = tabId == NAV_TAB_HOME
+        val isHome = tabId == HomeViewModel.NAV_TAB_HOME
         binding.homeDashboard.root.isVisible = isHome
         binding.homePager.isVisible = !isHome
-        binding.homeTabs.isVisible = !isHome && homeModel.currentTabTypes.size > 1
+        binding.homeTabs.isVisible = false
 
-        val primaryColor =
-            requireContext().getAttrColorCompat(androidx.appcompat.R.attr.colorPrimary).defaultColor
-        val inactiveColor = android.graphics.Color.parseColor("#88FFFFFF")
-
-        fun updateNavItem(
-            itemIcon: android.widget.ImageView,
-            itemText: android.widget.TextView,
-            selected: Boolean,
-        ) {
-            itemIcon.imageTintList =
-                android.content.res.ColorStateList.valueOf(
-                    if (selected) primaryColor else inactiveColor
-                )
-            itemText.isVisible = selected
-        }
-
-        updateNavItem(
-            binding.homeBottomBar.navIconHome,
-            binding.homeBottomBar.navTextHome,
-            tabId == NAV_TAB_HOME,
-        )
-        updateNavItem(
-            binding.homeBottomBar.navIconSongs,
-            binding.homeBottomBar.navTextSongs,
-            tabId == NAV_TAB_SONGS,
-        )
-        updateNavItem(
-            binding.homeBottomBar.navIconAlbums,
-            binding.homeBottomBar.navTextAlbums,
-            tabId == NAV_TAB_ALBUMS,
-        )
-        updateNavItem(
-            binding.homeBottomBar.navIconArtists,
-            binding.homeBottomBar.navTextArtists,
-            tabId == NAV_TAB_ARTISTS,
-        )
-        updateNavItem(
-            binding.homeBottomBar.navIconPlaylists,
-            binding.homeBottomBar.navTextPlaylists,
-            tabId == NAV_TAB_PLAYLISTS,
-        )
+        binding.homeNormalToolbar.menu.findItem(R.id.action_search)?.isVisible = !isHome
+        binding.homeNormalToolbar.menu.findItem(R.id.action_sort)?.isVisible = !isHome
 
         if (!isHome) {
             val targetType =
                 when (tabId) {
-                    NAV_TAB_SONGS -> MusicType.SONGS
-                    NAV_TAB_ALBUMS -> MusicType.ALBUMS
-                    NAV_TAB_ARTISTS -> MusicType.ARTISTS
-                    NAV_TAB_PLAYLISTS -> MusicType.PLAYLISTS
+                    HomeViewModel.NAV_TAB_SONGS -> MusicType.SONGS
+                    HomeViewModel.NAV_TAB_ALBUMS -> MusicType.ALBUMS
+                    HomeViewModel.NAV_TAB_ARTISTS -> MusicType.ARTISTS
+                    HomeViewModel.NAV_TAB_PLAYLISTS -> MusicType.PLAYLISTS
                     else -> MusicType.SONGS
                 }
             val pageIndex = homeModel.currentTabTypes.indexOf(targetType)
-            if (pageIndex >= 0) {
+            if (pageIndex >= 0 && binding.homePager.currentItem != pageIndex) {
                 binding.homePager.currentItem = pageIndex
             }
         }
@@ -434,12 +361,14 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
 
     private fun updateDashboardSongs(binding: FragmentHomeBinding, songs: List<Song>) {
         val topSongs = statsManager.getMostPlayedSongs(songs, 10)
+        binding.homeDashboard.sectionMostPlayed.isVisible = topSongs.isNotEmpty()
         mostPlayedAdapter?.submitList(topSongs)
         updateDashboardStats(binding)
     }
 
     private fun updateDashboardArtists(binding: FragmentHomeBinding, artists: List<Artist>) {
         val topArtists = statsManager.getTopArtists(artists, 10)
+        binding.homeDashboard.sectionTopArtists.isVisible = topArtists.isNotEmpty()
         topArtistsAdapter?.submitList(topArtists)
     }
 
@@ -472,15 +401,13 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
             HomePagerAdapter(homeModel.currentTabTypes, childFragmentManager, viewLifecycleOwner)
 
         val toolbarParams = binding.homeToolbar.layoutParams as AppBarLayout.LayoutParams
+        binding.homeTabs.isVisible = false
         if (homeModel.currentTabTypes.size == 1) {
-            // A single tab makes the tab layout redundant, hide it and disable the collapsing
-            // behavior.
-            L.d("Single tab shown, disabling TabLayout")
-            binding.homeTabs.isVisible = false
+            // A single tab makes the collapsing behavior unnecessary
+            L.d("Single tab shown, disabling collapsing")
             binding.homeAppbar.setExpanded(true, false)
             toolbarParams.scrollFlags = 0
         } else {
-            binding.homeTabs.isVisible = true
             toolbarParams.scrollFlags =
                 AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL or
                     AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS
