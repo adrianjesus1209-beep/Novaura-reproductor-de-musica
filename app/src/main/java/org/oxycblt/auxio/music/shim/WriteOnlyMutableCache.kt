@@ -31,6 +31,8 @@ class WriteOnlyMutableCache(private val inner: MutableCache) : MutableCache {
         }
     }
 
+    override suspend fun readAll(): List<CachedFile> = inner.readAll()
+
     override suspend fun write(cachedFile: CachedFile) {
         inner.write(cachedFile)
     }

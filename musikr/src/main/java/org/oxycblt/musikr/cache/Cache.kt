@@ -41,6 +41,9 @@ interface Cache {
      * @return a [CacheResult] representing the result of the operation.
      */
     suspend fun read(file: File): CacheResult
+
+    /** Read all [CachedFile]s currently present in the cache. */
+    suspend fun readAll(): List<CachedFile> = emptyList()
 }
 
 /**

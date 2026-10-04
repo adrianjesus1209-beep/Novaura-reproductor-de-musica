@@ -29,6 +29,7 @@
     <string name="set_key_separators" translatable="false">auxio_separators</string>
     <string name="set_key_auto_sort_names" translatable="false">auxio_auto_sort_names</string>
     <string name="set_key_locations_mode" translatable="false">auxio_locations_mode</string>
+    <string name="set_key_initial_scan_completed" translatable="false">auxio_initial_scan_completed</string>
 
     <string name="set_key_headset_autoplay" translatable="false">auxio_headset_autoplay</string>
     <string name="set_key_replay_gain" translatable="false">auxio_replay_gain</string>

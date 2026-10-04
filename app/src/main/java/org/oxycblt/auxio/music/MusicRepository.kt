@@ -456,12 +456,27 @@ constructor(
         val config = Config(fs, storage, interpretation)
         L.d("Running index...")
         val start = System.currentTimeMillis()
-        val result = Musikr.new(context, config).run(::emitIndexingProgress)
+        val musikrInstance = Musikr.new(context, config)
+        val result =
+            if (withCache && musicSettings.isInitialScanCompleted) {
+                L.d("Fast load directly from local cache database (no storage scan)...")
+                musikrInstance.runFromCache()
+                    ?: run {
+                        L.d("Local cache empty, performing storage scan...")
+                        musikrInstance.run(::emitIndexingProgress)
+                    }
+            } else {
+                L.d("Performing storage scan...")
+                musikrInstance.run(::emitIndexingProgress)
+            }
         L.d("Index finished in ${System.currentTimeMillis() - start}ms")
         // Music loading completed, update the revision right now so we re-use this work
         // later.
         L.d("Revisioning from $currentRevision -> $newRevision")
         musicSettings.revision = newRevision
+        if (result.library.songs.isNotEmpty()) {
+            musicSettings.isInitialScanCompleted = true
+        }
         // Deliver the library to the rest of the app
         // This will more or less block until all required item translation and
         // cleanup finishes.

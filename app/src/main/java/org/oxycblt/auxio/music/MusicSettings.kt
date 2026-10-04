@@ -64,6 +64,9 @@ interface MusicSettings : Settings<MusicSettings.Listener> {
     /** Whether to use the file-system cache for improved loading times. */
     val useFileTreeCache: Boolean
 
+    /** Whether the initial storage scan has already completed. */
+    var isInitialScanCompleted: Boolean
+
     fun forceLocationUpdate()
 
     interface Listener {
@@ -112,6 +115,19 @@ class MusicSettingsImpl @Inject constructor(@ApplicationContext private val cont
 
     override val useFileTreeCache: Boolean
         get() = sharedPreferences.getBoolean(getString(R.string.set_key_fs_cache), false)
+
+    override var isInitialScanCompleted: Boolean
+        get() =
+            sharedPreferences.getBoolean(
+                getString(R.string.set_key_initial_scan_completed),
+                false,
+            )
+        set(value) {
+            sharedPreferences.edit {
+                putBoolean(getString(R.string.set_key_initial_scan_completed), value)
+                apply()
+            }
+        }
 
     override var locationMode: LocationMode
         get() {

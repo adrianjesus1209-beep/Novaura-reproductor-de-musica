@@ -22,12 +22,15 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import org.oxycblt.musikr.covers.CoverResult
 import org.oxycblt.musikr.pipeline.EvaluateStep
 import org.oxycblt.musikr.pipeline.ExploreStep
 import org.oxycblt.musikr.pipeline.Explored
 import org.oxycblt.musikr.pipeline.ExtractStep
 import org.oxycblt.musikr.pipeline.Extracted
 import org.oxycblt.musikr.pipeline.PipelineTuning
+import org.oxycblt.musikr.pipeline.RawSong
 import org.oxycblt.musikr.pipeline.ScanDiagnostics
 import org.oxycblt.musikr.pipeline.ScanReport
 import org.oxycblt.musikr.util.merge
@@ -55,6 +58,12 @@ interface Musikr {
      * @return A handle to the newly created library alongside further cleanup.
      */
     suspend fun run(onProgress: suspend (IndexingProgress) -> Unit = {}): LibraryResult
+
+    /**
+     * Fast-path: Load the library directly from the local database cache without scanning the
+     * filesystem. Returns null if the cache has no songs.
+     */
+    suspend fun runFromCache(): LibraryResult? = null
 
     companion object {
         /**
@@ -176,6 +185,48 @@ private class MusikrImpl(
         ScanDiagnostics.logSummary(library.songs.size)
         val report = ScanDiagnostics.snapshot(library.songs.size)
         LibraryResultImpl(config, library, report)
+    }
+
+    override suspend fun runFromCache(): LibraryResult? = coroutineScope {
+        val cachedFiles = config.storage.cache.readAll()
+        if (cachedFiles.isEmpty()) return@coroutineScope null
+
+        val trackedExtractedChannel = Channel<Extracted>(PipelineTuning.stageBuffer)
+        val feedTask =
+            launch(Dispatchers.Default) {
+                for (cachedFile in cachedFiles) {
+                    val audio = cachedFile.audio ?: continue
+                    if (audio.tags.durationMs in 1 until PipelineTuning.MIN_PLAUSIBLE_DURATION_MS) {
+                        continue
+                    }
+                    val cover =
+                        audio.coverId?.let { id ->
+                            (config.storage.covers.obtain(id) as? CoverResult.Hit)?.cover
+                        }
+                    trackedExtractedChannel.send(
+                        RawSong(
+                            cachedFile.file,
+                            audio.properties,
+                            audio.tags,
+                            cover,
+                            cachedFile.addedMs,
+                        )
+                    )
+                }
+                trackedExtractedChannel.close()
+            }
+        val library = evaluateStep.evaluate(trackedExtractedChannel)
+        feedTask.join()
+        LibraryResultImpl(
+            config,
+            library,
+            ScanReport(
+                rows = cachedFiles.size,
+                rejected = 0,
+                byReason = emptyMap(),
+                songs = cachedFiles.size,
+            ),
+        )
     }
 }
 
