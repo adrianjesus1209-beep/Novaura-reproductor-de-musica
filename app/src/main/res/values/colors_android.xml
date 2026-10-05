@@ -17,6 +17,6 @@
     <color name="dynamic_primary">@color/m3_ref_palette_dynamic_primary40</color>
 
     <!-- Novaura launcher/splash branding -->
-    <color name="launcher_background">#121212</color>
-    <color name="splash_background">#121212</color>
+    <color name="launcher_background">#000000</color>
+    <color name="splash_background">#000000</color>
 </resources>
