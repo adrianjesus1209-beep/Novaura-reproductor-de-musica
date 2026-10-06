@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <org.oxycblt.auxio.playback.ui.PlaybackMaskableFrameLayout
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.ExtraLarge">
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -13,56 +13,45 @@
 
         <org.oxycblt.auxio.image.CoverView
             android:id="@+id/cover"
-            style="@style/Widget.Auxio.Image.Full"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
             app:enablePlaybackIndicator="false"
             app:enableSelectionBadge="false"
-            app:layout_constraintDimensionRatio="1"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"/>
+            app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.ExtraLarge" />
 
         <org.oxycblt.auxio.playback.ui.stepper.StepperOverlay
             android:id="@+id/cover_fast_seek_overlay"
-            style="@style/Widget.Auxio.Image.Full"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintDimensionRatio="1"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
 
         <ImageView
             android:id="@+id/cover_favorite"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_margin="14dp"
-            android:padding="6dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_margin="12dp"
+            android:padding="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/lbl_favorites"
             android:src="@drawable/ic_favorite_border_24"
             app:tint="@android:color/white"
-            app:layout_constraintEnd_toEndOf="@+id/cover"
-            app:layout_constraintTop_toTopOf="@+id/cover" />
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <LinearLayout
             android:id="@+id/cover_badge"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
-            android:layout_marginEnd="20dp"
-            android:layout_marginBottom="14dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="12dp"
             android:background="@drawable/bg_cover_badge"
             android:gravity="center"
             android:orientation="vertical"
             android:paddingHorizontal="14dp"
-            android:paddingVertical="8dp"
-            app:layout_constraintBottom_toBottomOf="@+id/cover"
-            app:layout_constraintEnd_toEndOf="@+id/cover"
-            app:layout_constraintStart_toStartOf="@+id/cover">
+            android:paddingVertical="7dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
 
             <TextView
                 android:id="@+id/cover_song_name"
@@ -73,7 +62,7 @@
                 android:singleLine="true"
                 android:textColor="@android:color/white"
                 android:textSize="14sp"
-                tools:text="Something In The Air - Bonob..." />
+                tools:text="Song Title" />
 
             <TextView
                 android:id="@+id/cover_artist_name"
@@ -83,7 +72,7 @@
                 android:singleLine="true"
                 android:textColor="#CCFFFFFF"
                 android:textSize="12sp"
-                tools:text="Imagine Dragons" />
+                tools:text="Artist Name" />
 
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>

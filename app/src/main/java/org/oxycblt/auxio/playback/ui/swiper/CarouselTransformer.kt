@@ -41,20 +41,20 @@ class CarouselTransformer : ViewPager2.PageTransformer {
         val absPos = abs(position)
         val clampedProgress = (1f - absPos).coerceIn(0f, 1f)
 
-        // Scale down adjacent cards
-        val scale = 0.82f + clampedProgress * 0.18f
+        // Scale down adjacent cards symmetrically
+        val scale = 0.85f + clampedProgress * 0.15f
         page.scaleX = scale
         page.scaleY = scale
 
-        // Shift adjacent cards inwards to create the stacked depth effect
-        val overlap = width * 0.22f
+        // Shift adjacent cards inwards to create the Cover Flow stack
+        val overlap = width * 0.15f
         page.translationX = -position * overlap
 
         // Elevation / 3D ordering: active card is on top
         page.translationZ = clampedProgress * 10f
 
         // Subtle alpha fade for background cards
-        page.alpha = 0.70f + clampedProgress * 0.30f
+        page.alpha = 0.65f + clampedProgress * 0.35f
 
         // Only the active card displays the title badge and favorite button
         val badge = page.findViewById<View?>(R.id.cover_badge)

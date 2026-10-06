@@ -153,7 +153,10 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
 
         styledAttrs.recycle()
 
-        image = ImageView(context, attrs)
+        image =
+            ImageView(context, attrs).apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+            }
 
         // Initialize the playback indicator if enabled.
         playbackIndicator =
@@ -518,12 +521,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
         val bounds = RectF(0f, 0f, size.width.toFloat(), size.height.toFloat())
         val cornerRadius = shapeAppearanceModel.topLeftCornerSize.getCornerSize(bounds)
         val cornersTransformation = RoundedRectTransformation(cornerRadius)
-        val circular = shapeAppearanceModel.topLeftCornerSize is RelativeCornerSize
-        if (circular || imageSettings.forceSquareCovers) {
-            request.transformations(SquareCropTransformation.INSTANCE, cornersTransformation)
-        } else {
-            request.transformations(cornersTransformation)
-        }
+        request.transformations(SquareCropTransformation.INSTANCE, cornersTransformation)
 
         // Dispose of any previous image request and load a new image.
         CoilUtils.dispose(image)
