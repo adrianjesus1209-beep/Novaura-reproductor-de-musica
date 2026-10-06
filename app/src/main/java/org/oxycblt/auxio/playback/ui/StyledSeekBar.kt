@@ -20,122 +20,99 @@ package org.oxycblt.auxio.playback.ui
 
 import android.content.Context
 import android.util.AttributeSet
-import com.google.android.material.slider.Slider
 import kotlin.math.max
 import org.oxycblt.auxio.databinding.ViewSeekBarBinding
 import org.oxycblt.auxio.playback.formatDurationDs
+import org.oxycblt.auxio.playback.ui.waveform.WaveformSeekBarView
 import org.oxycblt.auxio.util.inflater
-import timber.log.Timber as L
 
 /**
- * A wrapper around [Slider] that shows position and duration values and sanitizes input to reduce
- * crashes from invalid values.
- *
- * @author Alexander Capehart (OxygenCobalt)
+ * A seekbar that displays audio waveform progress and formatted timestamps on the sides, replacing
+ * the flat linear slider.
  */
 class StyledSeekBar
 @JvmOverloads
 constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
-    ForcedLTRFrameLayout(context, attrs, defStyleAttr),
-    Slider.OnSliderTouchListener,
-    Slider.OnChangeListener {
+    ForcedLTRFrameLayout(context, attrs, defStyleAttr), WaveformSeekBarView.OnSeekListener {
     private val binding = ViewSeekBarBinding.inflate(context.inflater, this, true)
+    private var internalPositionDs: Long = 0L
+    private var internalDurationDs: Long = 1L
+    private var isSeeking = false
 
     init {
-        binding.seekBarSlider.addOnSliderTouchListener(this)
-        binding.seekBarSlider.addOnChangeListener(this)
+        binding.seekBarWaveform.listener = this
     }
 
     /** Enables/disables wavy active-track rendering to match playback state. */
     fun setWaveEnabled(enabled: Boolean) {
-        binding.seekBarSlider.setWaveEnabled(enabled)
+        // Maintained for compatibility with playback state callers
     }
 
-    /**
-     * Sets the source of the current audio level, in the range 0..1. The slider samples this on
-     * each drawn frame rather than being pushed to.
-     */
+    /** Sets the source of the current audio level, in the range 0..1. */
     fun setAudioLevelProvider(provider: (() -> Float)?) {
-        binding.seekBarSlider.audioLevelProvider = provider
+        binding.seekBarWaveform.audioLevel = provider?.invoke() ?: 0f
     }
 
     /** Sets the source of the current audio reactivity strength, from 0 to 1. */
     fun setAudioReactivityProvider(provider: (() -> Float)?) {
-        binding.seekBarSlider.audioReactivityProvider = provider
+        // Maintained for compatibility
     }
 
     /** The current [Listener] attached to this instance. */
     var listener: Listener? = null
 
-    /**
-     * The current position, in deci-seconds(1/10th of a second). This is the current value of the
-     * SeekBar and is indicated by the start TextView in the layout.
-     */
+    /** The current position, in deci-seconds (1/10th of a second). */
     var positionDs: Long
-        get() = binding.seekBarSlider.value.toLong()
+        get() = internalPositionDs
         set(value) {
-            // Sanity check 1: Ensure that no negative values are sneaking their way into
-            // this component.
             val from = max(value, 0)
-            // Sanity check 2: Ensure that this value is within the duration and will not crash
-            // the app, and that the user is not currently seeking (which would cause the SeekBar
-            // to jump around).
-            if (from <= durationDs && !isActivated) {
-                binding.seekBarSlider.value = from.toFloat()
-                // We would want to keep this in the listener, but the listener only fires when
-                // a value changes completely, and sometimes that does not happen with this view.
+            if (from <= internalDurationDs && !isSeeking) {
+                internalPositionDs = from
+                val progress =
+                    if (internalDurationDs > 0) from.toFloat() / internalDurationDs else 0f
+                binding.seekBarWaveform.progress = progress
                 binding.seekBarPosition.text = from.formatDurationDs(true)
             }
         }
 
-    /**
-     * The current duration, in deci-seconds (1/10th of a second). This is the end value of the
-     * SeekBar and is indicated by the end TextView in the layout.
-     */
+    /** The current duration, in deci-seconds (1/10th of a second). */
     var durationDs: Long
-        get() = binding.seekBarSlider.valueTo.toLong()
+        get() = internalDurationDs
         set(value) {
-            // Sanity check 1: If this is a value so low that it effectively rounds down to
-            // zero, use 1 instead and disable the SeekBar.
             val to = max(value, 1)
+            internalDurationDs = to
             isEnabled = value > 0
-            L.d("Value sanitization finished [to=$to, enabled=$isEnabled]")
-            // Sanity check 2: If the current value exceeds the new duration value, clamp it
-            // down so that we don't crash and instead have an annoying visual flicker.
-            if (positionDs > to) {
-                L.d("Clamping invalid position [current: $positionDs new max: $to]")
-                binding.seekBarSlider.value = to.toFloat()
+            binding.seekBarWaveform.isEnabled = isEnabled
+            if (internalPositionDs > to) {
+                internalPositionDs = to
             }
-            binding.seekBarSlider.valueTo = to.toFloat()
+            val progress = if (to > 0) internalPositionDs.toFloat() / to else 0f
+            binding.seekBarWaveform.progress = progress
             binding.seekBarDuration.text = value.formatDurationDs(false)
         }
 
-    override fun onStartTrackingTouch(slider: Slider) {
-        L.d("Starting seek mode")
-        // User has begun seeking, place the SeekBar into a "Suspended" mode in which no
-        // position updates are sent and is indicated by the position value turning accented.
+    override fun onStartTrackingTouch() {
+        isSeeking = true
         isActivated = true
     }
 
-    override fun onStopTrackingTouch(slider: Slider) {
-        L.d("Confirming seek")
-        // End of seek event, send off new value to listener.
-        isActivated = false
-        listener?.onSeekConfirmed(slider.value.toLong())
+    override fun onProgressChanged(progress: Float, fromUser: Boolean) {
+        if (fromUser) {
+            val currentPos = (progress * internalDurationDs).toLong()
+            binding.seekBarPosition.text = currentPos.formatDurationDs(true)
+        }
     }
 
-    override fun onValueChange(slider: Slider, value: Float, fromUser: Boolean) {
-        binding.seekBarPosition.text = value.toLong().formatDurationDs(true)
+    override fun onStopTrackingTouch(progress: Float) {
+        isSeeking = false
+        isActivated = false
+        val finalPos = (progress * internalDurationDs).toLong()
+        internalPositionDs = finalPos
+        listener?.onSeekConfirmed(finalPos)
     }
 
     /** A listener for SeekBar interactions. */
     interface Listener {
-        /**
-         * Called when the internal [Slider] was scrubbed to a new position, requesting that a seek
-         * be performed.
-         *
-         * @param positionDs The position to seek to, in deci-seconds (1/10th of a second).
-         */
         fun onSeekConfirmed(positionDs: Long)
     }
 }

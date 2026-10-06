@@ -481,26 +481,29 @@
 
     <style name="Widget.Auxio.Button.Playback.More" parent="Widget.Auxio.Button.Icon.Base" />
 
-    <style name="Widget.Auxio.Button.Playback.Toggle" parent="Widget.Material3Expressive.Button.IconButton.Outlined">
+    <style name="Widget.Auxio.Button.Playback.Toggle" parent="Widget.Material3.Button.IconButton">
         <item name="android:checkable">true</item>
         <item name="toggleCheckedStateOnClick">false</item>
-        <item name="iconTint">@color/sel_checkable_icon</item>
-        <item name="strokeColor">@color/sel_checkable_outline</item>
-        <item name="backgroundTint">?attr/colorSurfaceContainerLow</item>
+        <item name="iconTint">@color/sel_player_toggle_icon</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+        <item name="strokeWidth">0dp</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
     </style>
 
-    <style name="Widget.Auxio.Button.Playback.Skip" parent="Widget.Material3Expressive.Button.IconButton.Tonal" />
+    <style name="Widget.Auxio.Button.Playback.Skip" parent="Widget.Material3.Button.IconButton">
+        <item name="iconTint">@android:color/white</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+        <item name="strokeWidth">0dp</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
+    </style>
 
-    <style name="Widget.Auxio.Button.Playback.PlayPause" parent="Widget.Material3Expressive.Button.IconButton.Filled">
+    <style name="Widget.Auxio.Button.Playback.PlayPause" parent="Widget.Material3.Button.OutlinedButton.Icon">
         <item name="android:checkable">true</item>
-        <item name="materialThemeOverlay">@style/ThemeOverlay.Auxio.Button.PrimaryTonal</item>
-    </style>
-    <style name="ThemeOverlay.Auxio.Button.PrimaryTonal" parent="">
-        <item name="colorContainer">?attr/colorOnSurface</item>
-        <item name="colorContainerChecked">?attr/colorOnSurface</item>
-        <item name="colorContainerUnchecked">?attr/colorOnSurface</item>
-        <item name="colorOnContainer">?attr/colorSurface</item>
-        <item name="colorOnContainerChecked">?attr/colorSurface</item>
-        <item name="colorOnContainerUnchecked">?attr/colorSurface</item>
+        <item name="iconTint">@android:color/white</item>
+        <item name="iconPadding">0dp</item>
+        <item name="backgroundTint">#1AFFFFFF</item>
+        <item name="strokeColor">@android:color/white</item>
+        <item name="strokeWidth">2dp</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
     </style>
 </resources>

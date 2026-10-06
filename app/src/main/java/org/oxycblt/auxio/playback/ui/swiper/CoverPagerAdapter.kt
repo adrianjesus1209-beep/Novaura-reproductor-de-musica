@@ -18,11 +18,16 @@
  
 package org.oxycblt.auxio.playback.ui.swiper
 
+import android.content.res.ColorStateList
+import android.graphics.Color
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.ItemCoverBinding
 import org.oxycblt.auxio.list.adapter.FlexibleListAdapter
 import org.oxycblt.auxio.list.adapter.SimpleDiffCallback
+import org.oxycblt.auxio.music.resolve
+import org.oxycblt.auxio.music.resolveNames
 import org.oxycblt.auxio.playback.ui.stepper.StepperOverlay
 import org.oxycblt.auxio.util.inflater
 import org.oxycblt.musikr.Song
@@ -102,6 +107,21 @@ private constructor(
     fun bind(song: Song, listener: StepperOverlay.Listener) {
         binding.cover.bind(song)
         binding.coverFastSeekOverlay.listener = listener
+        val context = binding.root.context
+        binding.coverSongName.text = song.name.resolve(context)
+        binding.coverArtistName.text = song.artists.resolveNames(context)
+        binding.coverFavorite.setOnClickListener {
+            val isFav = it.tag as? Boolean ?: false
+            val newFav = !isFav
+            it.tag = newFav
+            binding.coverFavorite.setImageResource(
+                if (newFav) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
+            )
+            binding.coverFavorite.imageTintList =
+                ColorStateList.valueOf(
+                    if (newFav) context.getColor(R.color.player_accent_gold) else Color.WHITE
+                )
+        }
     }
 
     /**
@@ -140,8 +160,7 @@ private constructor(
         /** A comparator that can be used with DiffUtil. */
         val DIFF_CALLBACK =
             object : SimpleDiffCallback<Song>() {
-                override fun areContentsTheSame(oldItem: Song, newItem: Song) =
-                    oldItem.cover == newItem.cover
+                override fun areContentsTheSame(oldItem: Song, newItem: Song) = oldItem == newItem
             }
     }
 }

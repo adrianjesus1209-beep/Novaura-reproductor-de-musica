@@ -745,8 +745,8 @@ class MainFragment :
         ) {
             // Queue sheet and playback sheet is expanded, close the queue sheet so the
             // playback panel can shown.
-            L.d("Collapsing queue sheet")
-            queueSheetBehavior.state = BackportBottomSheetBehavior.STATE_COLLAPSED
+            L.d("Hiding queue sheet")
+            queueSheetBehavior.state = BackportBottomSheetBehavior.STATE_HIDDEN
         }
     }
 
@@ -760,7 +760,7 @@ class MainFragment :
             val queueSheetBehavior =
                 binding.queueSheet.coordinatorLayoutBehavior as QueueBottomSheetBehavior?
             playbackSheetBehavior.state = BackportBottomSheetBehavior.STATE_COLLAPSED
-            queueSheetBehavior?.state = BackportBottomSheetBehavior.STATE_COLLAPSED
+            queueSheetBehavior?.state = BackportBottomSheetBehavior.STATE_HIDDEN
         }
     }
 
@@ -772,9 +772,10 @@ class MainFragment :
             (binding.queueSheet.coordinatorLayoutBehavior ?: return) as QueueBottomSheetBehavior
         if (
             playbackSheetBehavior.state == BackportBottomSheetBehavior.STATE_EXPANDED &&
-                queueSheetBehavior.targetState == BackportBottomSheetBehavior.STATE_COLLAPSED
+                (queueSheetBehavior.targetState == BackportBottomSheetBehavior.STATE_COLLAPSED ||
+                    queueSheetBehavior.targetState == BackportBottomSheetBehavior.STATE_HIDDEN)
         ) {
-            // Playback sheet is expanded and queue sheet is collapsed, we can expand it.
+            // Playback sheet is expanded and queue sheet is collapsed/hidden, we can expand it.
             queueSheetBehavior.state = BackportBottomSheetBehavior.STATE_EXPANDED
         }
     }

@@ -19,4 +19,7 @@
     <!-- Novaura launcher/splash branding -->
     <color name="launcher_background">#000000</color>
     <color name="splash_background">#000000</color>
+
+    <!-- Player aesthetic accent -->
+    <color name="player_accent_gold">#F5BA42</color>
 </resources>

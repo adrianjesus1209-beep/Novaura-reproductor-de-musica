@@ -19,8 +19,6 @@
 package org.oxycblt.auxio.playback
 
 import android.annotation.SuppressLint
-import android.content.Context
-import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -55,6 +53,7 @@ import org.oxycblt.auxio.playback.ui.stepper.StepperOverlay
 import org.oxycblt.auxio.playback.ui.swiper.CarouselTransformer
 import org.oxycblt.auxio.playback.ui.swiper.CoverPagerAdapter
 import org.oxycblt.auxio.playback.ui.swiper.UserAwarePagerCallback
+import org.oxycblt.auxio.playback.ui.tracklist.PlaybackTrackAdapter
 import org.oxycblt.auxio.ui.ViewBindingFragment
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.dampen
@@ -91,6 +90,7 @@ class PlaybackPanelFragment :
     private val detailModel: DetailViewModel by activityViewModels()
     private val listModel: ListViewModel by activityViewModels()
     private val queueModel: QueueViewModel by viewModels()
+    private val trackAdapter = PlaybackTrackAdapter { index -> queueModel.goto(index) }
     private var userAwarePagerCallback: UserAwarePagerCallback? = null
 
     override fun onCreateBinding(inflater: LayoutInflater) =
@@ -144,7 +144,7 @@ class PlaybackPanelFragment :
             }
             // Make it easier to collapse the bottom sheet
             dampen()
-            offscreenPageLimit = 1
+            offscreenPageLimit = 2
         }
 
         // Set up fast seek overlay
@@ -191,26 +191,7 @@ class PlaybackPanelFragment :
                 listModel.openMenu(R.menu.playback_song, it, PlaySong.ByItself)
             }
         }
-        binding.playbackActionVolume?.setOnClickListener {
-            val audioManager =
-                requireContext().getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-            audioManager?.adjustStreamVolume(
-                AudioManager.STREAM_MUSIC,
-                AudioManager.ADJUST_SAME,
-                AudioManager.FLAG_SHOW_UI,
-            )
-        }
-        binding.playbackActionEqualizer?.setOnClickListener {
-            EqualizerDialogFragment().show(parentFragmentManager, "equalizer")
-        }
-        binding.playbackActionQueue?.setOnClickListener {
-            playbackModel.openQueue()
-        }
-        binding.playbackActionMore?.setOnClickListener {
-            playbackModel.song.value?.let { song ->
-                listModel.openMenu(R.menu.playback_song, song, PlaySong.ByItself)
-            }
-        }
+        binding.playbackTracklist?.adapter = trackAdapter
 
         // --- VIEWMODEL SETUP --
         collectImmediately(playbackModel.song, ::updateSong)
@@ -220,6 +201,15 @@ class PlaybackPanelFragment :
         collectImmediately(playbackModel.isPlaying, ::updatePlaying)
         collectImmediately(playbackModel.isShuffled, ::updateShuffled)
         collectImmediately(playbackModel.pagerQueue, ::updatePager)
+        collectImmediately(queueModel.queue) { songs ->
+            trackAdapter.submitList(songs)
+        }
+        collectImmediately(queueModel.index) { index ->
+            trackAdapter.currentIndex = index
+            if (index >= 0) {
+                binding.playbackTracklist?.smoothScrollToPosition(index)
+            }
+        }
     }
 
     // FIXME: Old code!! Maybe not necessary anymore?
@@ -265,10 +255,15 @@ class PlaybackPanelFragment :
         binding.playbackToolbar.setOnMenuItemClickListener(null)
         userAwarePagerCallback?.release()
         binding.playbackPager.adapter = null
+        binding.playbackTracklist?.adapter = null
     }
 
     override fun onMenuItemClick(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_queue -> {
+                playbackModel.openQueue()
+                true
+            }
             R.id.action_open_equalizer -> {
                 L.d("Opening equalizer")
                 EqualizerDialogFragment().show(parentFragmentManager, "equalizer")
@@ -344,6 +339,7 @@ class PlaybackPanelFragment :
     private fun updatePlaying(isPlaying: Boolean) {
         requireBinding().playbackPlayPause.isChecked = isPlaying
         requireBinding().playbackSeekBar?.setWaveEnabled(isPlaying)
+        trackAdapter.isPlaying = isPlaying
         if (!isPlaying) {
             // Pausing leaves the audio pipeline intact, so the last measured level would otherwise
             // be held and the wave and cover glow would keep pulsing over a stopped track. The

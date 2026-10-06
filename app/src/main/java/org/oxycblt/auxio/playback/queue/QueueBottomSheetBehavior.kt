@@ -46,12 +46,12 @@ class QueueBottomSheetBehavior<V : View>(context: Context, attributeSet: Attribu
     private var barSpacing = context.getDimenPixels(R.dimen.spacing_small)
 
     init {
-        // Not hide-able (and not programmatically hide-able)
-        isHideable = false
+        isHideable = true
+        skipCollapsed = true
+        state = STATE_HIDDEN
     }
 
-    override fun getIdealBarHeight(context: Context) =
-        context.getDimenPixels(R.dimen.size_touchable_large)
+    override fun getIdealBarHeight(context: Context) = 0
 
     override fun onLayoutChild(parent: CoordinatorLayout, child: V, layoutDirection: Int): Boolean {
         // Pre-calculate expandedOffset before the sheet is positioned by super.onLayoutChild().
