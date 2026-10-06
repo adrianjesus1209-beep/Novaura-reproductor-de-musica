@@ -48,6 +48,14 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         // Maintained for compatibility with playback state callers
     }
 
+    /**
+     * Sets a deterministic seed for the waveform profile based on the current song. Call this
+     * whenever the song changes so the waveform pattern reflects the song identity.
+     */
+    fun setSongSeed(seed: Long) {
+        binding.seekBarWaveform.setSongSeed(seed)
+    }
+
     /** Sets the source of the current audio level, in the range 0..1. */
     fun setAudioLevelProvider(provider: (() -> Float)?) {
         binding.seekBarWaveform.audioLevel = provider?.invoke() ?: 0f

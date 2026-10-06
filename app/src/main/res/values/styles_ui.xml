@@ -497,7 +497,7 @@
         <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
     </style>
 
-    <style name="Widget.Auxio.Button.Playback.PlayPause" parent="Widget.Material3.Button.OutlinedButton.Icon">
+    <style name="Widget.Auxio.Button.Playback.PlayPause" parent="Widget.Material3.Button.IconButton">
         <item name="android:checkable">true</item>
         <item name="iconTint">@android:color/white</item>
         <item name="iconPadding">0dp</item>
@@ -507,3 +507,4 @@
         <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
     </style>
 </resources>
+

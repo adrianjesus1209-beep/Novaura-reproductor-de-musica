@@ -3,26 +3,26 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.4/Novaura-v1.3.9.4.apk">
-    <b>📥 Descargar APK (Novaura v1.3.9.4)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.5/Novaura-v1.3.9.5.apk">
+    <b>📥 Descargar APK (Novaura v1.3.9.5)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.3.9.4)
+## 🚀 Descargas (Versión 1.3.9.5)
 
-La versión 1.3.9.4 perfecciona la simetría y el ajuste visual del panel de reproducción:
-- **Ajuste de carátulas sin barras negras:** Las imágenes ahora rellenan el cuadro completo con recorte proporcional centrado (`centerCrop`).
-- **Simetría y proporciones Cover Flow:** Proporción cuadrada de portadas y solapamiento 3D limpio y equilibrado.
-- **Ocultamiento completo de la pestaña de cola inferior:** Eliminada la barra peeking inferior para dejar limpio y visible el tracklist integrado.
-- **Waveform SeekBar y controles estilizados:** Acabado minimalista con forma de onda de audio en acento dorado (`#F5BA42`).
+La versión 1.3.9.5 mejora el waveform y la forma del botón de reproducción:
+- **Waveform determinista por canción:** Cada canción genera su propio perfil de amplitud único usando un generador seedado con la duración y nombre de la pista, produciendo picos y valles naturales similares a una forma de onda real.
+- **Botón PlayPause perfectamente circular:** Corregida la forma del botón principal de reproducción para ser un círculo exacto con borde blanco, consistente con el estilo de la referencia visual.
+- **Mayor densidad de barras:** Barras más finas con más variación visual para aproximarse mejor a la estética de un waveform real.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.3.9.4 APK** | 8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.4/Novaura-v1.3.9.4.apk) |
+| **Novaura v1.3.9.5 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.5/Novaura-v1.3.9.5.apk) |
 
 ---
+
 
 ## Acerca de Novaura
 

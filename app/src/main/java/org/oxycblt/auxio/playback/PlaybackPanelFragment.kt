@@ -305,6 +305,10 @@ class PlaybackPanelFragment :
         binding.playbackAlbum?.text = song.album.name.resolve(context)
         binding.playbackSeekBar?.durationDs = song.durationMs.msToDs()
 
+        // Update waveform profile deterministically for this song
+        val songSeed = song.durationMs xor song.name.hashCode().toLong()
+        binding.playbackSeekBar?.setSongSeed(songSeed)
+
         val cover = song.cover
         if (cover != null) {
             val request =
