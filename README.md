@@ -3,24 +3,24 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.2/Novaura-v1.3.9.2.apk">
-    <b>📥 Descargar APK (Novaura v1.3.9.2)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.3/Novaura-v1.3.9.3.apk">
+    <b>📥 Descargar APK (Novaura v1.3.9.3)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.3.9.2)
+## 🚀 Descargas (Versión 1.3.9.3)
 
-La versión 1.3.9.2 unifica la identidad visual en todos los niveles del sistema:
-- **Ícono y Splash oficiales:** Se actualizan los recursos de splash nativo y launcher (`ic_launcher_background` en negro puro `#000000`, `novaura_splash_icon` con el logo oficial) para que instaladores de cualquier fabricante (Transsion, Xiaomi, Samsung, Google) muestren el logo auténtico sobre fondo negro.
-- **Escaneo único en primer inicio:** La búsqueda de archivos en el almacenamiento se realiza una única vez en la primera apertura de la app, persistiendo todos los registros en la base de datos local SQLite (`DBCache`).
-- **Lectura directa desde base de datos:** En los siguientes inicios, la aplicación omite cualquier escaneo en el sistema de archivos (`MediaStore`/disco) y lee directamente la biblioteca guardada en milisegundos, sin notificaciones ni barras de escaneo.
-- **Reescaneo bajo demanda explícita:** El escaneo completo del almacenamiento solo se vuelve a ejecutar si el usuario pulsa voluntariamente "Volver a escanear" en los Ajustes.
+La versión 1.3.9.3 introduce una renovación visual completa del panel de reproducción principal:
+- **Carrusel Cover Flow 3D:** Nueva animación de portadas en relieve con escalado dinámico, botón de favoritos y cápsula translúcida integrada para título y artista.
+- **Waveform SeekBar:** Barra de progreso interactiva con forma de onda de audio estilizada en color dorado (`#F5BA42`).
+- **Controles minimalistas:** Botón de reproducción circular y botones de navegación limpios sin elementos redundantes.
+- **Tracklist inline integrado:** Lista de pistas directamente accesible bajo los controles con indicador visual de ecualizador para la pista activa.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.3.9.2 APK** | 8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.2/Novaura-v1.3.9.2.apk) |
+| **Novaura v1.3.9.3 APK** | 8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.3/Novaura-v1.3.9.3.apk) |
 
 ---
 
