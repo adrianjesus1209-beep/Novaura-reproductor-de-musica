@@ -174,26 +174,16 @@
         </org.oxycblt.auxio.playback.ui.button.ScaledPlaybackButtonGroup>
     </org.oxycblt.auxio.playback.ui.ForcedLTRFrameLayout>
 
-    <View
-        android:id="@+id/playback_tracklist_divider"
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginStart="@dimen/spacing_medium"
-        android:layout_marginEnd="@dimen/spacing_medium"
-        android:layout_marginTop="6dp"
-        android:background="#15FFFFFF"
-        app:layout_constraintTop_toBottomOf="@+id/playback_controls_container" />
-
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/playback_tracklist"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="10dp"
         android:clipToPadding="true"
         android:overScrollMode="never"
         android:paddingBottom="@dimen/spacing_large"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-        app:layout_constraintTop_toBottomOf="@+id/playback_tracklist_divider"
+        app:layout_constraintTop_toBottomOf="@+id/playback_controls_container"
         app:layout_constraintBottom_toBottomOf="parent"
         tools:listitem="@layout/item_playback_track" />
 
