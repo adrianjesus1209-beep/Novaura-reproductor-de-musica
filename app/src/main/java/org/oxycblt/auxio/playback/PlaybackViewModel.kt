@@ -647,6 +647,9 @@ constructor(
      */
     fun openQueue() = openImpl(OpenPanel.QUEUE)
 
+    /** Open the search view, closing the playback panel and navigating to search. */
+    fun openSearch() = openImpl(OpenPanel.SEARCH)
+
     private fun openImpl(panel: OpenPanel) {
         val existing = openPanel.flow.value
         if (existing != null) {
@@ -680,6 +683,8 @@ enum class OpenPanel {
      * the playback panel already being expanded. Do nothing if these conditions are not met.
      */
     QUEUE,
+    /** Close playback panel and open the search screen. */
+    SEARCH,
 }
 
 /**

@@ -260,17 +260,13 @@ class PlaybackPanelFragment :
 
     override fun onMenuItemClick(item: MenuItem): Boolean {
         return when (item.itemId) {
-            R.id.action_queue -> {
-                playbackModel.openQueue()
-                true
-            }
             R.id.action_open_equalizer -> {
                 L.d("Opening equalizer")
                 EqualizerDialogFragment().show(parentFragmentManager, "equalizer")
                 true
             }
             R.id.action_search -> {
-                playbackModel.openMain()
+                playbackModel.openSearch()
                 true
             }
             R.id.action_song_details -> {

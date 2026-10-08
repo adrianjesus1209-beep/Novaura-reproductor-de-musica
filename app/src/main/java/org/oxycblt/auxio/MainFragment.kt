@@ -721,8 +721,18 @@ class MainFragment :
             OpenPanel.MAIN -> tryClosePlaybackPanel()
             OpenPanel.PLAYBACK -> tryOpenPlaybackPanel()
             OpenPanel.QUEUE -> tryOpenQueuePanel()
+            OpenPanel.SEARCH -> tryOpenSearch()
         }
         playbackModel.openPanel.consume()
+    }
+
+    private fun tryOpenSearch() {
+        tryClosePlaybackPanel()
+        val binding = requireBinding()
+        val navController = binding.exploreNavHost.findNavController()
+        if (navController.currentDestination?.id != R.id.search_fragment) {
+            navController.navigateSafe(org.oxycblt.auxio.home.HomeFragmentDirections.search())
+        }
     }
 
     private fun tryOpenPlaybackPanel() {

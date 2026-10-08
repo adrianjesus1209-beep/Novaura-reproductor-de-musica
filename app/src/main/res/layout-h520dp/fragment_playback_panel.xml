@@ -177,6 +177,7 @@
         android:id="@+id/playback_tracklist"
         android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:layout_marginTop="12dp"
         android:clipToPadding="false"
         android:overScrollMode="never"
         android:paddingBottom="@dimen/spacing_medium"
