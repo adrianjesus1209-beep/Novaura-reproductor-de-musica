@@ -3,23 +3,24 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.6/Novaura-v1.3.9.6.apk">
-    <b>📥 Descargar APK (Novaura v1.3.9.6)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.7/Novaura-v1.3.9.7.apk">
+    <b>📥 Descargar APK (Novaura v1.3.9.7)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.3.9.6)
+## 🚀 Descargas (Versión 1.3.9.7)
 
-La versión 1.3.9.6 pule la interfaz del reproductor y la navegación:
-- **Espaciado y separación del listado de canciones:** Corregido el solapamiento visual para que los nombres de las canciones no queden detrás de los botones de control de reproducción.
-- **Acceso directo a Búsqueda:** Reemplazado el icono inactivo de cola en la barra superior por la lupa del buscador, abriendo la búsqueda de manera inmediata.
-- **Etiqueta Ecualizador:** Renombrada la opción "Sonido" en el menú de opciones a "Ecualizador" para mayor claridad, y retirado el elemento redundante de búsqueda del menú desplegable.
+La versión 1.3.9.7 pule la interfaz del reproductor, el comportamiento de listas y la visualización de audio:
+- **Corrección de solapamiento en lista de canciones:** Resuelto el problema de medición colapsada y recorte de vistas que hacía que las canciones se dibujaran detrás de los controles de reproducción al deslizar la lista. Se añadió un divisor sutil y delimitación estricta para garantizar simetría limpia.
+- **Forma de onda con intervalos de audio realistas:** Rediseñado el algoritmo del visualizador de onda para generar picos, valles y variaciones rítmicas inspiradas en la referencia, adaptándose de forma única a cada canción con semilla dinámica y reactividad en vivo.
+- **Acceso directo a Búsqueda:** Reemplazado el icono de cola por la lupa del buscador en la barra superior del reproductor.
+- **Etiqueta Ecualizador:** Renombrada la opción en el menú contextual a "Ecualizador" y eliminado el elemento redundante de búsqueda del menú desplegable.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.3.9.6 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.6/Novaura-v1.3.9.6.apk) |
+| **Novaura v1.3.9.7 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.7/Novaura-v1.3.9.7.apk) |
 
 ---
 

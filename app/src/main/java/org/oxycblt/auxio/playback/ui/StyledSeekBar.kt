@@ -58,7 +58,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 
     /** Sets the source of the current audio level, in the range 0..1. */
     fun setAudioLevelProvider(provider: (() -> Float)?) {
-        binding.seekBarWaveform.audioLevel = provider?.invoke() ?: 0f
+        binding.seekBarWaveform.audioLevelProvider = provider
     }
 
     /** Sets the source of the current audio reactivity strength, from 0 to 1. */

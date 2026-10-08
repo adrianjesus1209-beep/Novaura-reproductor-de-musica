@@ -3,8 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:clipChildren="false">
+    android:layout_height="match_parent">
 
     <ImageView
         android:id="@+id/playback_blur_background"
@@ -110,10 +109,11 @@
         android:id="@+id/playback_controls_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:minHeight="72dp"
         android:layout_marginStart="@dimen/spacing_medium"
         android:layout_marginEnd="@dimen/spacing_medium"
         android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
+        android:layout_marginBottom="4dp"
         app:layout_constraintTop_toBottomOf="@+id/playback_seek_bar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -121,7 +121,8 @@
 
         <org.oxycblt.auxio.playback.ui.button.ScaledPlaybackButtonGroup
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
             android:spacing="@dimen/spacing_small">
 
             <org.oxycblt.auxio.playback.ui.button.ScaledPlaybackButton
@@ -173,16 +174,26 @@
         </org.oxycblt.auxio.playback.ui.button.ScaledPlaybackButtonGroup>
     </org.oxycblt.auxio.playback.ui.ForcedLTRFrameLayout>
 
+    <View
+        android:id="@+id/playback_tracklist_divider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginStart="@dimen/spacing_medium"
+        android:layout_marginEnd="@dimen/spacing_medium"
+        android:layout_marginTop="6dp"
+        android:background="#15FFFFFF"
+        app:layout_constraintTop_toBottomOf="@+id/playback_controls_container" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/playback_tracklist"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="12dp"
-        android:clipToPadding="false"
+        android:layout_marginTop="4dp"
+        android:clipToPadding="true"
         android:overScrollMode="never"
-        android:paddingBottom="@dimen/spacing_medium"
+        android:paddingBottom="@dimen/spacing_large"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-        app:layout_constraintTop_toBottomOf="@+id/playback_controls_container"
+        app:layout_constraintTop_toBottomOf="@+id/playback_tracklist_divider"
         app:layout_constraintBottom_toBottomOf="parent"
         tools:listitem="@layout/item_playback_track" />
 

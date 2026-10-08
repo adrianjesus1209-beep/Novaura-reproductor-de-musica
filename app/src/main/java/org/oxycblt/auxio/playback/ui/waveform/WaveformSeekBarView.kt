@@ -88,6 +88,8 @@ constructor(
             }
         }
 
+    var audioLevelProvider: (() -> Float)? = null
+
     var listener: OnSeekListener? = null
 
     init {
@@ -126,11 +128,12 @@ constructor(
         val totalBarWidth = barWidthPx + barGapPx
         val barCount = (w / totalBarWidth).toInt().coerceAtLeast(10)
         val centerY = h / 2f
-        val maxAmplitude = (h / 2f) * 0.92f
-        val minAmplitude = (h / 2f) * 0.08f
+        val maxAmplitude = (h / 2f) * 0.94f
+        val minAmplitude = (h / 2f) * 0.10f
 
-        // Subtle audio-level boost on played bars
-        val boost = 1f + (audioLevel * 0.15f)
+        val liveAudio = audioLevelProvider?.invoke()?.coerceIn(0f, 1f) ?: audioLevel
+        // Dynamic audio boost on bars
+        val boost = 1f + (liveAudio * 0.25f)
 
         for (i in 0 until barCount) {
             val barX = i * totalBarWidth + barGapPx / 2f
@@ -156,6 +159,10 @@ constructor(
                 if (isPassed) activePaint else inactivePaint,
             )
         }
+
+        if (audioLevelProvider != null && liveAudio > 0.02f) {
+            postInvalidateOnAnimation()
+        }
     }
 
     /**
@@ -176,57 +183,70 @@ constructor(
         private const val PROFILE_SIZE = 200
 
         /**
-         * Generates a fixed-length amplitude profile using a seeded LCG combined with layered sine
-         * waves to produce natural-looking audio waveform shapes with peaks and quiet sections.
+         * Generates a fixed-length amplitude profile using layered pseudo-random harmonics, beat
+         * pulses, and musical section envelopes to produce realistic audio waveforms with clear
+         * peaks and valleys.
          */
         fun generateAmplitudeProfile(seed: Long, size: Int): FloatArray {
             val profile = FloatArray(size)
-            // Seeded LCG for deterministic noise
             var rng = seed xor 0x5DEECE66DL
             fun nextFloat(): Float {
                 rng = (rng * 0x5DEECE66DL + 0xBL) and 0xFFFFFFFFFFFFL
                 return (rng ushr 17).toFloat() / 0x7FFFFFFF.toFloat()
             }
 
-            // Generate raw random noise
-            val noise = FloatArray(size) { nextFloat() }
+            val rawNoise = FloatArray(size) { nextFloat() }
 
-            // Smooth noise with a simple moving average (window = 5)
-            val smoothed = FloatArray(size)
+            // Narrow smoothing (window 1) to retain musical punch and sharp peaks
+            val smoothedNoise = FloatArray(size)
             for (i in 0 until size) {
-                var sum = 0f
-                var count = 0
-                for (d in -3..3) {
-                    val idx = (i + d).coerceIn(0, size - 1)
-                    sum += noise[idx]
-                    count++
-                }
-                smoothed[i] = sum / count
+                val p0 = rawNoise[(i - 1).coerceAtLeast(0)]
+                val p1 = rawNoise[i]
+                val p2 = rawNoise[(i + 1).coerceAtMost(size - 1)]
+                smoothedNoise[i] = p0 * 0.25f + p1 * 0.5f + p2 * 0.25f
             }
 
-            // Layer with low-frequency envelope for musical structure
-            // (quiet intro → build → chorus → outro shape)
+            // Song structure parameters based on seed
+            val beatFrequency = 14f + (nextFloat() * 10f)
+            val subBeatFrequency = beatFrequency * 2.1f
+            val introEnd = 0.08f + nextFloat() * 0.06f
+            val outroStart = 0.88f - nextFloat() * 0.06f
+
             for (i in 0 until size) {
                 val t = i.toFloat() / size
-                // Low-frequency envelope: rises, peaks, dips slightly in middle, peaks again
-                val envelope =
-                    0.4f +
-                        0.35f * abs(sin(t * Math.PI.toFloat())) +
-                        0.15f * abs(sin(t * Math.PI.toFloat() * 2.3f)) +
-                        0.10f * abs(sin(t * Math.PI.toFloat() * 5.1f))
 
-                // Combine smoothed noise with envelope
-                val raw = smoothed[i] * 0.5f + envelope * 0.5f
-                profile[i] = raw.coerceIn(0.05f, 1f)
+                // Macro musical envelope: quiet intro, dynamic body with choruses, quiet outro
+                val sectionEnvelope =
+                    when {
+                        t < introEnd -> (t / introEnd) * 0.6f + 0.15f
+                        t > outroStart -> ((1f - t) / (1f - outroStart)) * 0.6f + 0.15f
+                        else -> {
+                            val midT = (t - introEnd) / (outroStart - introEnd)
+                            0.45f +
+                                0.35f * abs(sin(midT * Math.PI.toFloat() * 3.5f)) +
+                                0.20f * abs(sin(midT * Math.PI.toFloat() * 1.5f))
+                        }
+                    }
+
+                // Musical beat rhythm: rhythmic pulses and intervals of rise/fall
+                val beatPulse =
+                    0.30f * abs(sin(t * Math.PI.toFloat() * beatFrequency)) +
+                        0.15f * abs(kotlin.math.cos(t * Math.PI.toFloat() * subBeatFrequency))
+
+                // Combine textured audio noise (45%), rhythmic pulse (25%), and section envelope
+                // (30%)
+                val combined =
+                    smoothedNoise[i] * 0.45f + beatPulse * 0.25f + sectionEnvelope * 0.30f
+                profile[i] = combined.coerceIn(0.08f, 1f)
             }
 
-            // Normalize so max = 1.0 and min = 0.05
+            // Normalize so peaks reach 0.98 and valleys 0.12 for distinct peaks and falls
             val maxVal = profile.max()
             val minVal = profile.min()
             val range = maxVal - minVal
             if (range > 0f) {
                 for (i in 0 until size) {
-                    profile[i] = 0.05f + 0.95f * ((profile[i] - minVal) / range)
+                    profile[i] = 0.12f + 0.86f * ((profile[i] - minVal) / range)
                 }
             }
 
