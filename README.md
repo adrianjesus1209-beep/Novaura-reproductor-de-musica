@@ -3,23 +3,23 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.2/Novaura-v1.4.0.2.apk">
-    <b>📥 Descargar APK (Novaura v1.4.0.2)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.3/Novaura-v1.4.0.3.apk">
+    <b>📥 Descargar APK (Novaura v1.4.0.3)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.0.2)
+## 🚀 Descargas (Versión 1.4.0.3)
 
-La versión 1.4.0.2 intensifica el desvanecimiento y la profundidad estética del reproductor:
-- **Fondo oscurecido y elegante (`ui_player_scrim`):** Se ajustó el scrim general del reproductor para oscurecer el fondo con mayor sutileza y profundidad, realzando el arte de portada, los controles dorados y el contraste de los textos.
-- **Efecto de desvanecimiento ampliado (`ui_playback_bottom_fade`):** El degradado inferior se incrementó a 140dp con una curva de opacidad mucho más pronunciada, haciendo que las pistas se difuminen suavemente hacia el negro profundo en la base y dejando los botones de navegación del sistema completamente nítidos y legibles.
-- **Scroll libre:** Margen inferior adaptado para permitir que la última pista pueda desplazarse cómodamente por encima del área sombreada.
+La versión 1.4.0.3 restaura y perfecciona el soporte para los botones de retroceso del dispositivo en toda la aplicación:
+- **Colapso del reproductor con botón Atrás:** Se corrigió la condición de estado en la cola y el panel de reproducción para que el botón de retroceso del sistema (barra de navegación y gestos) colapse el reproductor a la barra inferior de forma instantánea y confiable.
+- **Navegación de pestañas inferior:** Al presionar el botón de retroceso desde cualquier pestaña de la biblioteca (Canciones, Álbumes, Artistas, Playlists), ahora se regresa a la pestaña principal (Inicio) antes de salir de la aplicación, siguiendo las guías estándar de navegación de Android.
+- **Fallback robusto de colapso:** Se garantizó que ante cualquier evento de retroceso del sistema, el reproductor y la cola ejecuten su transición a estado colapsado/oculto sin bloqueos.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.0.2 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.2/Novaura-v1.4.0.2.apk) |
+| **Novaura v1.4.0.3 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.3/Novaura-v1.4.0.3.apk) |
 
 ---
 

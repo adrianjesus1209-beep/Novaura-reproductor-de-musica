@@ -24,6 +24,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.view.WindowInsets
@@ -108,6 +109,7 @@ class MainFragment :
     private var detailBackCallback: DetailBackPressedCallback? = null
     private var selectionBackCallback: SelectionBackPressedCallback? = null
     private var speedDialBackCallback: SpeedDialBackPressedCallback? = null
+    private var navTabBackCallback: NavTabBackPressedCallback? = null
     private var navigationListener: DialogAwareNavigationListener? = null
     private var lastInsets: WindowInsets? = null
     private var elevationNormal = 0f
@@ -138,6 +140,29 @@ class MainFragment :
             binding.queueSheet.coordinatorLayoutBehavior as QueueBottomSheetBehavior?
         queueSheetBehavior?.uiSettings = uiSettings
 
+        playbackSheetBehavior.addBottomSheetCallback(
+            object : BackportBottomSheetBehavior.BottomSheetCallback() {
+                override fun onStateChanged(bottomSheet: View, newState: Int) {
+                    sheetBackCallback?.invalidateEnabled()
+                }
+
+                override fun onSlide(bottomSheet: View, slideOffset: Float) {
+                    sheetBackCallback?.invalidateEnabled()
+                }
+            }
+        )
+        queueSheetBehavior?.addBottomSheetCallback(
+            object : BackportBottomSheetBehavior.BottomSheetCallback() {
+                override fun onStateChanged(bottomSheet: View, newState: Int) {
+                    sheetBackCallback?.invalidateEnabled()
+                }
+
+                override fun onSlide(bottomSheet: View, slideOffset: Float) {
+                    sheetBackCallback?.invalidateEnabled()
+                }
+            }
+        )
+
         elevationNormal = binding.context.getDimen(MR.dimen.m3_sys_elevation_level1)
 
         // Currently all back press callbacks are handled in MainFragment, as it's not guaranteed
@@ -153,6 +178,7 @@ class MainFragment :
         val selectionBackCallback =
             SelectionBackPressedCallback(listModel).also { selectionBackCallback = it }
         speedDialBackCallback = SpeedDialBackPressedCallback()
+        navTabBackCallback = NavTabBackPressedCallback()
 
         navigationListener = DialogAwareNavigationListener(::onExploreNavigate)
 
@@ -251,7 +277,10 @@ class MainFragment :
             navItemPlaylists.setOnClickListener { onNavTabClicked(HomeViewModel.NAV_TAB_PLAYLISTS) }
         }
 
-        collectImmediately(homeModel.currentNavTab, ::updateBottomBarUI)
+        collectImmediately(homeModel.currentNavTab) { tab ->
+            updateBottomBarUI(tab)
+            navTabBackCallback?.invalidateEnabled()
+        }
     }
 
     override fun onStart() {
@@ -272,11 +301,14 @@ class MainFragment :
         // navigation, navigation out of detail views, etc. We have to do this here in
         // onResume or otherwise the FragmentManager will have precedence.
         requireActivity().onBackPressedDispatcher.apply {
+            addCallback(viewLifecycleOwner, requireNotNull(navTabBackCallback))
             addCallback(viewLifecycleOwner, requireNotNull(speedDialBackCallback))
             addCallback(viewLifecycleOwner, requireNotNull(selectionBackCallback))
             addCallback(viewLifecycleOwner, requireNotNull(detailBackCallback))
             addCallback(viewLifecycleOwner, requireNotNull(sheetBackCallback))
         }
+        navTabBackCallback?.invalidateEnabled()
+        sheetBackCallback?.invalidateEnabled()
     }
 
     override fun onStop() {
@@ -293,6 +325,7 @@ class MainFragment :
         sheetBackCallback = null
         detailBackCallback = null
         selectionBackCallback = null
+        navTabBackCallback = null
         navigationListener = null
         binding.homeNewPlaylistFab.setChangeListener(null)
         binding.homeNewPlaylistFab.setOnActionSelectedListener(null)
@@ -461,6 +494,7 @@ class MainFragment :
             homeModel.isFastScrolling.value,
             homeModel.currentTabType.value,
         )
+        navTabBackCallback?.invalidateEnabled()
     }
 
     private fun onNavTabClicked(tabId: Int) {
@@ -470,6 +504,7 @@ class MainFragment :
             navController.popBackStack(R.id.home_fragment, false)
         }
         homeModel.selectNavTab(tabId)
+        navTabBackCallback?.invalidateEnabled()
     }
 
     private fun updateBottomBarUI(selectedTab: Int) {
@@ -764,13 +799,17 @@ class MainFragment :
         val binding = requireBinding()
         val playbackSheetBehavior =
             binding.playbackSheet.coordinatorLayoutBehavior as PlaybackBottomSheetBehavior
-        if (playbackSheetBehavior.targetState == BackportBottomSheetBehavior.STATE_EXPANDED) {
+        if (
+            playbackSheetBehavior.targetState != BackportBottomSheetBehavior.STATE_COLLAPSED &&
+                playbackSheetBehavior.targetState != BackportBottomSheetBehavior.STATE_HIDDEN
+        ) {
             // Playback sheet (and possibly queue) needs to be collapsed.
             L.d("Collapsing playback and queue sheets")
             val queueSheetBehavior =
                 binding.queueSheet.coordinatorLayoutBehavior as QueueBottomSheetBehavior?
             playbackSheetBehavior.state = BackportBottomSheetBehavior.STATE_COLLAPSED
             queueSheetBehavior?.state = BackportBottomSheetBehavior.STATE_HIDDEN
+            sheetBackCallback?.invalidateEnabled()
         }
     }
 
@@ -831,13 +870,14 @@ class MainFragment :
         }
     }
 
-    private class SheetBackPressedCallback(
+    private inner class SheetBackPressedCallback(
         private val playbackSheetBehavior: PlaybackBottomSheetBehavior<*>,
         private val queueSheetBehavior: QueueBottomSheetBehavior<*>?,
     ) : OnBackPressedCallback(false) {
         override fun handleOnBackStarted(backEvent: BackEventCompat) {
             if (queueSheetShown()) {
                 unlikelyToBeNull(queueSheetBehavior).startBackProgress(backEvent)
+                return
             }
 
             if (playbackSheetShown()) {
@@ -860,12 +900,31 @@ class MainFragment :
 
         override fun handleOnBackPressed() {
             if (queueSheetShown()) {
-                unlikelyToBeNull(queueSheetBehavior).handleBackInvoked()
+                val queue = queueSheetBehavior
+                if (queue != null) {
+                    queue.handleBackInvoked()
+                    if (queue.targetState != BackportBottomSheetBehavior.STATE_HIDDEN) {
+                        queue.state = BackportBottomSheetBehavior.STATE_HIDDEN
+                    }
+                }
+                invalidateEnabled()
                 return
             }
 
             if (playbackSheetShown()) {
                 playbackSheetBehavior.handleBackInvoked()
+                if (
+                    playbackSheetBehavior.targetState != BackportBottomSheetBehavior.STATE_COLLAPSED
+                ) {
+                    playbackSheetBehavior.state = BackportBottomSheetBehavior.STATE_COLLAPSED
+                }
+                val queue = queueSheetBehavior
+                if (
+                    queue != null && queue.targetState != BackportBottomSheetBehavior.STATE_HIDDEN
+                ) {
+                    queue.state = BackportBottomSheetBehavior.STATE_HIDDEN
+                }
+                invalidateEnabled()
                 return
             }
         }
@@ -893,7 +952,7 @@ class MainFragment :
         private fun queueSheetShown() =
             queueSheetBehavior != null &&
                 playbackSheetBehavior.state == BackportBottomSheetBehavior.STATE_EXPANDED &&
-                queueSheetBehavior.targetState != BackportBottomSheetBehavior.STATE_COLLAPSED
+                queueSheetBehavior.targetState == BackportBottomSheetBehavior.STATE_EXPANDED
     }
 
     private class DetailBackPressedCallback(private val detailModel: DetailViewModel) :
@@ -932,6 +991,34 @@ class MainFragment :
 
         fun invalidateEnabled(open: Boolean) {
             isEnabled = open
+        }
+    }
+
+    private inner class NavTabBackPressedCallback : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            val binding = binding ?: return
+            val isAtHome =
+                try {
+                    binding.exploreNavHost.findNavController().currentDestination?.id ==
+                        R.id.home_fragment
+                } catch (e: Exception) {
+                    false
+                }
+            if (isAtHome) {
+                onNavTabClicked(HomeViewModel.NAV_TAB_HOME)
+            }
+        }
+
+        fun invalidateEnabled() {
+            val binding = binding ?: return
+            val isAtHome =
+                try {
+                    binding.exploreNavHost.findNavController().currentDestination?.id ==
+                        R.id.home_fragment
+                } catch (e: Exception) {
+                    false
+                }
+            isEnabled = homeModel.currentNavTab.value != HomeViewModel.NAV_TAB_HOME && isAtHome
         }
     }
 
