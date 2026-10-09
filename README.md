@@ -3,22 +3,22 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.0/Novaura-v1.4.0.0.apk">
-    <b>📥 Descargar APK (Novaura v1.4.0.0)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.1/Novaura-v1.4.0.1.apk">
+    <b>📥 Descargar APK (Novaura v1.4.0.1)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.0.0)
+## 🚀 Descargas (Versión 1.4.0.1)
 
-La versión 1.4.0.0 resuelve de raíz el espacio vacío en la parte inferior del reproductor:
-- **Área completa de pistas:** Se eliminó el padding acumulado en la raíz de la vista que dejaba un espacio vacío oscuro artificial de más de 140dp. Ahora el listado de canciones llena toda la parte inferior del reproductor hasta el borde de la pantalla de forma fluida y natural.
-- **Manejo inteligente de insets:** El padding de la barra de navegación del sistema se aplica de manera exclusiva al desplazamiento interno de la lista (`clipToPadding="false"`), permitiendo ver todas las canciones sin zonas tapadas ni recortes.
+La versión 1.4.0.1 incorpora un efecto de desvanecimiento estético y mejora la visibilidad de los controles del sistema:
+- **Difuminado inferior degradado (`ui_playback_bottom_fade`):** Se implementó un degradado suave que desvanece de manera elegante las canciones hacia el fondo oscuro en la parte inferior, mejorando el contraste y la visibilidad de los botones de navegación del sistema Android (retroceso, inicio, recientes) y aportando un acabado visual premium para todos los dispositivos.
+- **Scroll con holgura para la última pista:** Se ajustó el margen de desplazamiento para que la última canción de la lista pueda subir limpiamente por encima de la zona difuminada.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.0.0 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.0/Novaura-v1.4.0.0.apk) |
+| **Novaura v1.4.0.1 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.1/Novaura-v1.4.0.1.apk) |
 
 ---
 

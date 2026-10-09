@@ -110,7 +110,10 @@ class PlaybackPanelFragment :
             if (tracklist != null) {
                 view.updatePadding(bottom = 0)
                 tracklist.updatePadding(
-                    bottom = bars.bottom + view.context.getDimenPixels(R.dimen.spacing_medium)
+                    bottom =
+                        bars.bottom +
+                            view.context.getDimenPixels(R.dimen.spacing_large) +
+                            view.context.getDimenPixels(R.dimen.spacing_large)
                 )
             } else {
                 view.updatePadding(bottom = bars.bottom)
