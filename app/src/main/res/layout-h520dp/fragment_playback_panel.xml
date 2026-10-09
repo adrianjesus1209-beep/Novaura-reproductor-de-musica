@@ -191,7 +191,7 @@
     <View
         android:id="@+id/playback_bottom_fade"
         android:layout_width="match_parent"
-        android:layout_height="90dp"
+        android:layout_height="140dp"
         android:background="@drawable/ui_playback_bottom_fade"
         android:clickable="false"
         android:focusable="false"

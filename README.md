@@ -3,22 +3,23 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.1/Novaura-v1.4.0.1.apk">
-    <b>📥 Descargar APK (Novaura v1.4.0.1)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.2/Novaura-v1.4.0.2.apk">
+    <b>📥 Descargar APK (Novaura v1.4.0.2)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.0.1)
+## 🚀 Descargas (Versión 1.4.0.2)
 
-La versión 1.4.0.1 incorpora un efecto de desvanecimiento estético y mejora la visibilidad de los controles del sistema:
-- **Difuminado inferior degradado (`ui_playback_bottom_fade`):** Se implementó un degradado suave que desvanece de manera elegante las canciones hacia el fondo oscuro en la parte inferior, mejorando el contraste y la visibilidad de los botones de navegación del sistema Android (retroceso, inicio, recientes) y aportando un acabado visual premium para todos los dispositivos.
-- **Scroll con holgura para la última pista:** Se ajustó el margen de desplazamiento para que la última canción de la lista pueda subir limpiamente por encima de la zona difuminada.
+La versión 1.4.0.2 intensifica el desvanecimiento y la profundidad estética del reproductor:
+- **Fondo oscurecido y elegante (`ui_player_scrim`):** Se ajustó el scrim general del reproductor para oscurecer el fondo con mayor sutileza y profundidad, realzando el arte de portada, los controles dorados y el contraste de los textos.
+- **Efecto de desvanecimiento ampliado (`ui_playback_bottom_fade`):** El degradado inferior se incrementó a 140dp con una curva de opacidad mucho más pronunciada, haciendo que las pistas se difuminen suavemente hacia el negro profundo en la base y dejando los botones de navegación del sistema completamente nítidos y legibles.
+- **Scroll libre:** Margen inferior adaptado para permitir que la última pista pueda desplazarse cómodamente por encima del área sombreada.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.0.1 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.1/Novaura-v1.4.0.1.apk) |
+| **Novaura v1.4.0.2 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.2/Novaura-v1.4.0.2.apk) |
 
 ---
 
