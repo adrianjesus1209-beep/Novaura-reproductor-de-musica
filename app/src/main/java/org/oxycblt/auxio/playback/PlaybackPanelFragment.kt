@@ -207,7 +207,16 @@ class PlaybackPanelFragment :
         collectImmediately(queueModel.index) { index ->
             trackAdapter.currentIndex = index
             if (index >= 0) {
-                binding.playbackTracklist?.smoothScrollToPosition(index)
+                val tracklist = binding.playbackTracklist
+                if (tracklist != null) {
+                    val lm =
+                        tracklist.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager
+                    if (lm != null) {
+                        lm.scrollToPositionWithOffset(index, 0)
+                    } else {
+                        tracklist.smoothScrollToPosition(index)
+                    }
+                }
             }
         }
     }

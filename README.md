@@ -3,22 +3,22 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.8/Novaura-v1.3.9.8.apk">
-    <b>📥 Descargar APK (Novaura v1.3.9.8)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.9/Novaura-v1.3.9.9.apk">
+    <b>📥 Descargar APK (Novaura v1.3.9.9)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.3.9.8)
+## 🚀 Descargas (Versión 1.3.9.9)
 
-La versión 1.3.9.8 pule el aspecto visual del reproductor:
-- **Línea de separación eliminada:** Se removió la línea divisoria visible entre los controles de reproducción y la lista de canciones, logrando una estética limpia y continua sin marcas divisorias artificiales.
-- **Lista y controles simétricos:** Espaciado superior ajustado para que el listado fluya de forma fluida y natural debajo de los controles sin superposiciones ni cortes abruptos.
+La versión 1.3.9.9 soluciona la visibilidad completa de las canciones en la parte inferior del reproductor:
+- **Espacio inferior amplio y sin cortes (`paddingBottom="96dp"`):** Se amplió el padding inferior y se habilitó el desplazamiento desahogado (`clipToPadding="false"`), permitiendo que todas las pistas inferiores puedan deslizarse hacia arriba y verse completas sin quedar tapadas por la barra de navegación del sistema ni por el borde de la pantalla.
+- **Alineación suave de pista activa:** La canción seleccionada ahora se alinea con offset limpio y espaciado superior para que el texto nunca quede recortado por la mitad al cambiar de canción.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.3.9.8 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.8/Novaura-v1.3.9.8.apk) |
+| **Novaura v1.3.9.9 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.3.9.9/Novaura-v1.3.9.9.apk) |
 
 ---
 
