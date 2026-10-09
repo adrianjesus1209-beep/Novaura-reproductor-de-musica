@@ -57,6 +57,7 @@ import org.oxycblt.auxio.playback.ui.tracklist.PlaybackTrackAdapter
 import org.oxycblt.auxio.ui.ViewBindingFragment
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.dampen
+import org.oxycblt.auxio.util.getDimenPixels
 import org.oxycblt.auxio.util.recycler
 import org.oxycblt.auxio.util.smoothScrollByPageTo
 import org.oxycblt.auxio.util.systemBarInsetsCompat
@@ -105,7 +106,15 @@ class PlaybackPanelFragment :
         // --- UI SETUP ---
         binding.root.setOnApplyWindowInsetsListener { view, insets ->
             val bars = insets.systemBarInsetsCompat
-            view.updatePadding(bottom = bars.bottom)
+            val tracklist = binding.playbackTracklist
+            if (tracklist != null) {
+                view.updatePadding(bottom = 0)
+                tracklist.updatePadding(
+                    bottom = bars.bottom + view.context.getDimenPixels(R.dimen.spacing_medium)
+                )
+            } else {
+                view.updatePadding(bottom = bars.bottom)
+            }
             insets
         }
 
