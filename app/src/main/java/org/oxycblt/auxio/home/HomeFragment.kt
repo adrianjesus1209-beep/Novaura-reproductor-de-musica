@@ -61,6 +61,7 @@ import org.oxycblt.auxio.home.tabs.Tab
 import org.oxycblt.auxio.list.ListViewModel
 import org.oxycblt.auxio.list.SelectionFragment
 import org.oxycblt.auxio.list.menu.Menu
+import org.oxycblt.auxio.music.FavoritesManager
 import org.oxycblt.auxio.music.IndexingState
 import org.oxycblt.auxio.music.MusicType
 import org.oxycblt.auxio.music.MusicViewModel
@@ -71,11 +72,13 @@ import org.oxycblt.auxio.music.SongMessage
 import org.oxycblt.auxio.playback.PlaySong
 import org.oxycblt.auxio.playback.PlaybackDecision
 import org.oxycblt.auxio.playback.PlaybackViewModel
+import org.oxycblt.auxio.playback.formatDurationMs
 import org.oxycblt.auxio.playback.stats.PlaybackStatsManager
 import org.oxycblt.auxio.ui.FadingToolbarOffsetListener
 import org.oxycblt.auxio.util.collect
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.dampen
+import org.oxycblt.auxio.util.getPlural
 import org.oxycblt.auxio.util.navigateSafe
 import org.oxycblt.auxio.util.showToast
 import org.oxycblt.musikr.Artist
@@ -102,6 +105,7 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
     private val homeModel: HomeViewModel by activityViewModels()
     private val detailModel: DetailViewModel by activityViewModels()
     @Inject lateinit var statsManager: PlaybackStatsManager
+    @Inject lateinit var favoritesManager: FavoritesManager
     private var mostPlayedAdapter: MostPlayedTracksAdapter? = null
     private var topArtistsAdapter: TopArtistsAdapter? = null
     private var currentNavTab = HomeViewModel.NAV_TAB_HOME
@@ -221,6 +225,9 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         collectImmediately(homeModel.artistList) { artists ->
             updateDashboardArtists(binding, artists)
         }
+        collectImmediately(favoritesManager.favoriteUids) {
+            updateDashboardFavorites(binding)
+        }
 
         // Check and request storage permission automatically on launch
         if (!hasStoragePermission()) {
@@ -247,6 +254,7 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         } else if (granted) {
             pendingPermissionRescan = false
         }
+        updateDashboardFavorites(requireBinding())
     }
 
     override fun onPause() {
@@ -325,7 +333,25 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
             findNavController().navigateSafe(HomeFragmentDirections.search())
         }
         binding.homeDashboard.btnFavorites.setOnClickListener {
-            homeModel.selectNavTab(HomeViewModel.NAV_TAB_SONGS)
+            findNavController().navigateSafe(HomeFragmentDirections.showFavorites())
+        }
+        binding.homeDashboard.cardFavoritesAlbum.setOnClickListener {
+            findNavController().navigateSafe(HomeFragmentDirections.showFavorites())
+        }
+        binding.homeDashboard.btnSeeFavorites.setOnClickListener {
+            findNavController().navigateSafe(HomeFragmentDirections.showFavorites())
+        }
+        binding.homeDashboard.btnPlayFavorites.setOnClickListener {
+            val songs = favoritesManager.getFavoriteSongs()
+            if (songs.isNotEmpty()) {
+                playbackModel.play(songs)
+            }
+        }
+        binding.homeDashboard.btnShuffleFavorites.setOnClickListener {
+            val songs = favoritesManager.getFavoriteSongs()
+            if (songs.isNotEmpty()) {
+                playbackModel.shuffle(songs)
+            }
         }
         binding.homeDashboard.btnSeeAllSongs.setOnClickListener {
             homeModel.selectNavTab(HomeViewModel.NAV_TAB_SONGS)
@@ -334,7 +360,43 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
             updateDashboardStats(binding)
         }
 
+        updateDashboardFavorites(binding)
         updateDashboardStats(binding)
+    }
+
+    private fun updateDashboardFavorites(binding: FragmentHomeBinding) {
+        val songs = favoritesManager.getFavoriteSongs()
+        val context = requireContext()
+
+        val totalDurationMs = songs.sumOf { it.durationMs }
+        val durationFormatted = totalDurationMs.formatDurationMs(true)
+        val songCountStr = context.getPlural(R.plurals.fmt_song_count, songs.size)
+        binding.homeDashboard.favoritesAlbumInfo.text = "$songCountStr • $durationFormatted"
+
+        if (songs.isNotEmpty()) {
+            binding.homeDashboard.favoritesAlbumTitle.text =
+                getString(R.string.lbl_favorites_album_title)
+            binding.homeDashboard.favoritesAlbumSubhead.text =
+                getString(R.string.lbl_favorites_album_subhead)
+            binding.homeDashboard.favoritesAlbumCover.bind(
+                songs,
+                getString(R.string.lbl_favorites),
+                R.drawable.ic_favorite_24,
+            )
+            binding.homeDashboard.favoritesAlbumActions.isVisible = true
+        } else {
+            binding.homeDashboard.favoritesAlbumTitle.text = getString(R.string.lbl_favorites)
+            binding.homeDashboard.favoritesAlbumSubhead.text =
+                getString(R.string.lbl_favorites_empty_desc)
+            binding.homeDashboard.favoritesAlbumInfo.text =
+                "0 " + getString(R.string.lbl_songs).lowercase()
+            binding.homeDashboard.favoritesAlbumCover.bind(
+                emptyList(),
+                getString(R.string.lbl_favorites),
+                R.drawable.ic_favorite_24,
+            )
+            binding.homeDashboard.favoritesAlbumActions.isVisible = false
+        }
     }
 
     private fun updateNavTab(tabId: Int) {

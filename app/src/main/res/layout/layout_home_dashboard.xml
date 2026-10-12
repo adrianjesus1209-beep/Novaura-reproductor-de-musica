@@ -99,6 +99,191 @@
 
         </LinearLayout>
 
+        <!-- Dedicated Favorites Album Section ("Apartado de Favoritos como un álbum") -->
+        <LinearLayout
+            android:id="@+id/section_favorites_album"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:orientation="vertical">
+
+            <!-- Section Title Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_marginEnd="8dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_favorite_24"
+                    app:tint="@color/player_accent_gold" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="sans-serif-bold"
+                    android:text="@string/lbl_favorites_album_section"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/btn_see_favorites"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:fontFamily="sans-serif-medium"
+                    android:padding="4dp"
+                    android:text="@string/lbl_see_all"
+                    android:textColor="?attr/colorPrimary"
+                    android:textSize="13sp" />
+
+            </LinearLayout>
+
+            <!-- Album Showcase Card -->
+            <LinearLayout
+                android:id="@+id/card_favorites_album"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/ui_home_favorites_card_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="14dp">
+
+                <!-- Cover of Favorites Album (Stacked Cover) -->
+                <org.oxycblt.auxio.image.CoverView
+                    android:id="@+id/favorites_album_cover"
+                    android:layout_width="92dp"
+                    android:layout_height="92dp"
+                    android:layout_marginEnd="14dp"
+                    app:enablePlaybackIndicator="false"
+                    app:enableSelectionBadge="false" />
+
+                <!-- Album Details and Playback controls -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <!-- Album Badge -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-bold"
+                        android:letterSpacing="0.08"
+                        android:text="@string/lbl_album"
+                        android:textAllCaps="true"
+                        android:textColor="@color/player_accent_gold"
+                        android:textSize="10sp" />
+
+                    <!-- Album Title -->
+                    <TextView
+                        android:id="@+id/favorites_album_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:ellipsize="end"
+                        android:fontFamily="sans-serif-black"
+                        android:maxLines="1"
+                        android:text="@string/lbl_favorites_album_title"
+                        android:textColor="@android:color/white"
+                        android:textSize="17sp" />
+
+                    <!-- Subtitle / Status -->
+                    <TextView
+                        android:id="@+id/favorites_album_subhead"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:ellipsize="end"
+                        android:fontFamily="sans-serif"
+                        android:maxLines="1"
+                        android:text="@string/lbl_favorites_album_subhead"
+                        android:textColor="#B0B0B0"
+                        android:textSize="12sp" />
+
+                    <!-- Info: Tracks count & duration -->
+                    <TextView
+                        android:id="@+id/favorites_album_info"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:fontFamily="sans-serif-medium"
+                        android:textColor="#888888"
+                        android:textSize="11sp" />
+
+                    <!-- Action Buttons: Play and Shuffle -->
+                    <LinearLayout
+                        android:id="@+id/favorites_album_actions"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <!-- Play Pill -->
+                        <LinearLayout
+                            android:id="@+id/btn_play_favorites"
+                            android:layout_width="wrap_content"
+                            android:layout_height="30dp"
+                            android:background="@drawable/ui_home_fav_play_bg"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center"
+                            android:orientation="horizontal"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp">
+
+                            <ImageView
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
+                                android:layout_marginEnd="4dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_play_24"
+                                app:tint="@android:color/black" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-bold"
+                                android:text="@string/lbl_play"
+                                android:textColor="@android:color/black"
+                                android:textSize="11sp" />
+
+                        </LinearLayout>
+
+                        <!-- Shuffle Button -->
+                        <ImageView
+                            android:id="@+id/btn_shuffle_favorites"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/ui_home_pill_btn_bg"
+                            android:clickable="true"
+                            android:contentDescription="@string/lbl_shuffle"
+                            android:focusable="true"
+                            android:padding="6dp"
+                            android:src="@drawable/ic_shuffle_off_24"
+                            app:tint="@android:color/white" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
         <!-- Most Played Tracks Section -->
         <LinearLayout
             android:id="@+id/section_most_played"

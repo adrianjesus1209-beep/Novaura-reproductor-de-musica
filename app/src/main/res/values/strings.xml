@@ -542,6 +542,14 @@
     <string name="lbl_tracks_played">Tracks Played</string>
     <string name="lbl_listened">Listened</string>
     <string name="lbl_favorites">Favorites</string>
+    <string name="lbl_favorites_album_section">Favorites Album</string>
+    <string name="lbl_favorites_album_title">Favorite Tracks</string>
+    <string name="lbl_favorites_album_subhead">Personal collection</string>
+    <string name="lbl_favorites_empty_desc">Tap the heart on any song to add it to this album</string>
+    <string name="lbl_favorite_add">Add to favorites</string>
+    <string name="lbl_favorite_remove">Remove from favorites</string>
+    <string name="lng_favorite_added">Added to favorites</string>
+    <string name="lng_favorite_removed">Removed from favorites</string>
     <string name="lbl_search_hint">Search</string>
     <!-- Language Settings -->
     <string name="set_language">Language</string>

@@ -23,10 +23,12 @@ import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.navArgs
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.DialogMenuBinding
 import org.oxycblt.auxio.detail.DetailViewModel
 import org.oxycblt.auxio.list.ListViewModel
+import org.oxycblt.auxio.music.FavoritesManager
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.music.resolveNames
@@ -52,6 +54,7 @@ class SongMenuDialogFragment : MenuDialogFragment<Menu.ForSong>() {
     private val detailModel: DetailViewModel by activityViewModels()
     private val musicModel: MusicViewModel by activityViewModels()
     private val playbackModel: PlaybackViewModel by activityViewModels()
+    @Inject lateinit var favoritesManager: FavoritesManager
     private val args: SongMenuDialogFragmentArgs by navArgs()
 
     override val parcel
@@ -81,6 +84,13 @@ class SongMenuDialogFragment : MenuDialogFragment<Menu.ForSong>() {
                 requireContext().showToast(R.string.lng_queue_added)
             }
             R.id.action_playlist_add -> musicModel.addToPlaylist(menu.song)
+            R.id.action_favorite -> {
+                val isNowFav = favoritesManager.toggleFavorite(menu.song)
+                requireContext()
+                    .showToast(
+                        if (isNowFav) R.string.lng_favorite_added else R.string.lng_favorite_removed
+                    )
+            }
             R.id.action_artist_details -> detailModel.showArtist(menu.song)
             R.id.action_album_details -> detailModel.showAlbum(menu.song.album)
             R.id.action_share -> requireContext().share(menu.song)

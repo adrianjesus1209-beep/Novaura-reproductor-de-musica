@@ -3,22 +3,23 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.4/Novaura-v1.4.0.4.apk">
-    <b>📥 Descargar APK (Novaura v1.4.0.4)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.5/Novaura-v1.4.0.5.apk">
+    <b>📥 Descargar APK (Novaura v1.4.0.5)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.0.4)
+## 🚀 Descargas (Versión 1.4.0.5)
 
-La versión 1.4.0.4 corrige la visibilidad inmediata del reproductor inferior y el menú de navegación al interactuar con el buscador y pantallas secundarias:
-- **Visibilidad inmediata del mini reproductor al navegar:** Se sincronizó el ciclo de dibujo y estado (`onPreDraw`, `onExploreNavigate` y callbacks de `BottomSheetBehavior`) para que la barra inferior de reproducción aparezca de inmediato al entrar al buscador o abrir un resultado, sin necesidad de realizar scroll en la pantalla.
-- **Ajuste dinámico de altura inferior (`peekHeight` e insets):** La barra de reproducción y el contenido ahora adaptan automáticamente su posición según si el menú de navegación inferior está presente (en Inicio) o ausente (en Búsqueda y Detalle de artista/álbum), eliminando espacios vacíos y asegurando una alineación limpia.
+La versión 1.4.0.5 implementa el apartado de Favoritos como un álbum dedicado e independiente:
+- **Apartado de Favoritos tipo álbum en Inicio:** Se añadió una sección destacada en el Dashboard principal que presenta las canciones favoritas con la estética y comportamiento de un álbum (portada en pila con las carátulas de tus canciones favoritas, título, número de temas, duración total y accesos directos a reproducción normal y aleatoria).
+- **Pantalla de detalle de álbum de Favoritos:** Se creó una vista completa de álbum (`FavoritesDetailFragment`) con cabecera colapsable interactiva, controles en la barra de herramientas, acciones por pista, gestión de cola continua y sincronización reactiva en tiempo real.
+- **Persistencia y gestión centralizada:** Se integró un gestor reactivo (`FavoritesManager`) con almacenamiento persistente local, permitiendo añadir o remover canciones desde el reproductor a pantalla completa, menús contextuales y la vista de detalle de forma instantánea.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.0.4 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.4/Novaura-v1.4.0.4.apk) |
+| **Novaura v1.4.0.5 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.5/Novaura-v1.4.0.5.apk) |
 
 ---
 

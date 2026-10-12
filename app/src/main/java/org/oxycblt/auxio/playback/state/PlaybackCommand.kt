@@ -61,6 +61,8 @@ interface PlaybackCommand {
 
         fun songFromPlaylist(song: Song, playlist: Playlist, shuffle: ShuffleMode): PlaybackCommand?
 
+        fun songFromList(song: Song, songs: List<Song>, shuffle: ShuffleMode): PlaybackCommand?
+
         fun all(shuffle: ShuffleMode): PlaybackCommand?
 
         fun songs(songs: List<Song>, shuffle: ShuffleMode): PlaybackCommand?
@@ -116,6 +118,17 @@ constructor(
 
     override fun songFromPlaylist(song: Song, playlist: Playlist, shuffle: ShuffleMode) =
         newCommand(song, playlist, playlist.songs, shuffle)
+
+    override fun songFromList(
+        song: Song,
+        songs: List<Song>,
+        shuffle: ShuffleMode,
+    ): PlaybackCommand? {
+        if (songs.isEmpty() || song !in songs) {
+            return null
+        }
+        return PlaybackCommandImpl(song, null, songs, isShuffled(shuffle))
+    }
 
     override fun all(shuffle: ShuffleMode) = newCommand(null, shuffle)
 

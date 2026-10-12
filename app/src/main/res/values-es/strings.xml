@@ -401,6 +401,14 @@
     <string name="lbl_tracks_played">Canciones reproducidas</string>
     <string name="lbl_listened">Tiempo escuchado</string>
     <string name="lbl_favorites">Favoritos</string>
+    <string name="lbl_favorites_album_section">Álbum de Favoritos</string>
+    <string name="lbl_favorites_album_title">Canciones Favoritas</string>
+    <string name="lbl_favorites_album_subhead">Colección personal</string>
+    <string name="lbl_favorites_empty_desc">Toca el corazón en cualquier canción para añadirla a este álbum</string>
+    <string name="lbl_favorite_add">Añadir a favoritos</string>
+    <string name="lbl_favorite_remove">Eliminar de favoritos</string>
+    <string name="lng_favorite_added">Añadido a favoritos</string>
+    <string name="lng_favorite_removed">Eliminado de favoritos</string>
     <string name="lbl_search_hint">Buscar canciones, artistas...</string>
 
     <!-- Configuración de Idioma -->

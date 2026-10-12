@@ -81,12 +81,14 @@ class PlaybackPanelFragment :
     StepperOverlay.Listener {
     @Inject lateinit var audioLevelProcessor: AudioLevelProcessor
     @Inject lateinit var imageLoader: ImageLoader
+    @Inject lateinit var favoritesManager: org.oxycblt.auxio.music.FavoritesManager
 
     private val audioLevelProvider = { audioLevelProcessor.level }
     private val audioReactivityProvider = { audioLevelProcessor.strength }
 
-    private val coverPagerAdapter =
-        CoverPagerAdapter(this, audioLevelProvider, audioReactivityProvider)
+    private val coverPagerAdapter by lazy {
+        CoverPagerAdapter(this, audioLevelProvider, audioReactivityProvider, favoritesManager)
+    }
     private val playbackModel: PlaybackViewModel by activityViewModels()
     private val detailModel: DetailViewModel by activityViewModels()
     private val listModel: ListViewModel by activityViewModels()

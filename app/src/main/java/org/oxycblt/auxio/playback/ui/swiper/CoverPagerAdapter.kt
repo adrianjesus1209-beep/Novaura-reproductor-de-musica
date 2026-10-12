@@ -26,6 +26,7 @@ import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.ItemCoverBinding
 import org.oxycblt.auxio.list.adapter.FlexibleListAdapter
 import org.oxycblt.auxio.list.adapter.SimpleDiffCallback
+import org.oxycblt.auxio.music.FavoritesManager
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.music.resolveNames
 import org.oxycblt.auxio.playback.ui.stepper.StepperOverlay
@@ -39,12 +40,14 @@ import org.oxycblt.musikr.Song
  * @param listener The [StepperOverlay.Listener] that step gesture events will be forwarded to
  * @param audioLevelProvider Supplies the current audio level in 0..1, for the cover glow
  * @param audioReactivityProvider Supplies how strongly to react, from 0 to 1
+ * @param favoritesManager Provides persistent state for favorite tracks
  * @author Alexander Capehart (OxygenCobalt)
  */
 class CoverPagerAdapter(
     private val listener: StepperOverlay.Listener,
     private val audioLevelProvider: () -> Float,
     private val audioReactivityProvider: () -> Float,
+    private val favoritesManager: FavoritesManager,
 ) : FlexibleListAdapter<Song, CoverViewHolder>(CoverViewHolder.DIFF_CALLBACK) {
 
     private var recyclerView: RecyclerView? = null
@@ -82,7 +85,7 @@ class CoverPagerAdapter(
         CoverViewHolder.from(parent, audioLevelProvider, audioReactivityProvider)
 
     override fun onBindViewHolder(viewHolder: CoverViewHolder, pos: Int) {
-        viewHolder.bind(currentList[pos], listener)
+        viewHolder.bind(currentList[pos], listener, favoritesManager)
         viewHolder.setGlowEnabled(pos == selectedPosition)
     }
 }
@@ -103,17 +106,30 @@ private constructor(
      *
      * @param song The new [Song] to bind.
      * @param listener An [StepperOverlay.Listener] to bind fast seek interactions to.
+     * @param favoritesManager The [FavoritesManager] to manage persistent favorites.
      */
-    fun bind(song: Song, listener: StepperOverlay.Listener) {
+    fun bind(
+        song: Song,
+        listener: StepperOverlay.Listener,
+        favoritesManager: FavoritesManager,
+    ) {
         binding.cover.bind(song)
         binding.coverFastSeekOverlay.listener = listener
         val context = binding.root.context
         binding.coverSongName.text = song.name.resolve(context)
         binding.coverArtistName.text = song.artists.resolveNames(context)
+
+        val isFav = favoritesManager.isFavorite(song)
+        binding.coverFavorite.setImageResource(
+            if (isFav) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
+        )
+        binding.coverFavorite.imageTintList =
+            ColorStateList.valueOf(
+                if (isFav) context.getColor(R.color.player_accent_gold) else Color.WHITE
+            )
+
         binding.coverFavorite.setOnClickListener {
-            val isFav = it.tag as? Boolean ?: false
-            val newFav = !isFav
-            it.tag = newFav
+            val newFav = favoritesManager.toggleFavorite(song)
             binding.coverFavorite.setImageResource(
                 if (newFav) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
             )

@@ -422,6 +422,17 @@ constructor(
         playImpl(commandFactory.songs(songs, ShuffleMode.ON))
     }
 
+    /**
+     * Play a list of [Song]s starting at a particular [Song].
+     *
+     * @param song The [Song] to start playback with.
+     * @param songs The [Song]s queue to play from.
+     */
+    fun playFromSongList(song: Song, songs: List<Song>) {
+        L.d("Playing $song from list of ${songs.size} songs")
+        playImpl(commandFactory.songFromList(song, songs, ShuffleMode.OFF))
+    }
+
     private fun playImpl(command: PlaybackCommand?) {
         playbackManager.play(requireNotNull(command) { "Invalid playback parameters" })
     }
