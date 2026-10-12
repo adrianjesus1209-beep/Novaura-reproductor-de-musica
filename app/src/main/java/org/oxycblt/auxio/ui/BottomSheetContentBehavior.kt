@@ -54,6 +54,16 @@ class BottomSheetContentBehavior<V : View>(context: Context, attributeSet: Attri
         return false
     }
 
+    private fun getNavBarOffset(parent: CoordinatorLayout, child: View): Int {
+        val bottomBar = parent.findViewById<View>(R.id.home_bottom_bar)
+        val isBottomBarVisible = bottomBar != null && bottomBar.visibility == View.VISIBLE
+        return if (isBottomBarVisible) {
+            child.context.getDimenPixels(R.dimen.bottom_nav_bar_total_height)
+        } else {
+            0
+        }
+    }
+
     override fun onLayoutChild(parent: CoordinatorLayout, child: V, layoutDirection: Int): Boolean {
         super.onLayoutChild(parent, child, layoutDirection)
         layoutContent(child)
@@ -65,8 +75,7 @@ class BottomSheetContentBehavior<V : View>(context: Context, attributeSet: Attri
                 val dep = dep ?: return@setOnApplyWindowInsetsListener insets
                 val behavior = dep.coordinatorLayoutBehavior as BackportBottomSheetBehavior
                 val consumed = behavior.calculateConsumedByBar()
-                val navBarTotalHeight =
-                    child.context.getDimenPixels(R.dimen.bottom_nav_bar_total_height)
+                val navBarTotalHeight = getNavBarOffset(parent, child)
                 val bars = insets.systemBarInsetsCompat
                 val minBottom = bars.bottom + navBarTotalHeight
                 val effectiveConsumed =
@@ -95,7 +104,7 @@ class BottomSheetContentBehavior<V : View>(context: Context, attributeSet: Attri
     ): Boolean {
         val behavior = dependency.coordinatorLayoutBehavior as BackportBottomSheetBehavior
         val consumed = behavior.calculateConsumedByBar()
-        val navBarTotalHeight = child.context.getDimenPixels(R.dimen.bottom_nav_bar_total_height)
+        val navBarTotalHeight = getNavBarOffset(parent, child)
         val minBottom = (lastInsets?.systemBarInsetsCompat?.bottom ?: 0) + navBarTotalHeight
         val effectiveConsumed =
             if (consumed == Int.MIN_VALUE) minBottom else consumed.coerceAtLeast(minBottom)

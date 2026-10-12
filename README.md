@@ -3,23 +3,22 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.3/Novaura-v1.4.0.3.apk">
-    <b>📥 Descargar APK (Novaura v1.4.0.3)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.4/Novaura-v1.4.0.4.apk">
+    <b>📥 Descargar APK (Novaura v1.4.0.4)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.0.3)
+## 🚀 Descargas (Versión 1.4.0.4)
 
-La versión 1.4.0.3 restaura y perfecciona el soporte para los botones de retroceso del dispositivo en toda la aplicación:
-- **Colapso del reproductor con botón Atrás:** Se corrigió la condición de estado en la cola y el panel de reproducción para que el botón de retroceso del sistema (barra de navegación y gestos) colapse el reproductor a la barra inferior de forma instantánea y confiable.
-- **Navegación de pestañas inferior:** Al presionar el botón de retroceso desde cualquier pestaña de la biblioteca (Canciones, Álbumes, Artistas, Playlists), ahora se regresa a la pestaña principal (Inicio) antes de salir de la aplicación, siguiendo las guías estándar de navegación de Android.
-- **Fallback robusto de colapso:** Se garantizó que ante cualquier evento de retroceso del sistema, el reproductor y la cola ejecuten su transición a estado colapsado/oculto sin bloqueos.
+La versión 1.4.0.4 corrige la visibilidad inmediata del reproductor inferior y el menú de navegación al interactuar con el buscador y pantallas secundarias:
+- **Visibilidad inmediata del mini reproductor al navegar:** Se sincronizó el ciclo de dibujo y estado (`onPreDraw`, `onExploreNavigate` y callbacks de `BottomSheetBehavior`) para que la barra inferior de reproducción aparezca de inmediato al entrar al buscador o abrir un resultado, sin necesidad de realizar scroll en la pantalla.
+- **Ajuste dinámico de altura inferior (`peekHeight` e insets):** La barra de reproducción y el contenido ahora adaptan automáticamente su posición según si el menú de navegación inferior está presente (en Inicio) o ausente (en Búsqueda y Detalle de artista/álbum), eliminando espacios vacíos y asegurando una alineación limpia.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.0.3 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.3/Novaura-v1.4.0.3.apk) |
+| **Novaura v1.4.0.4 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.4/Novaura-v1.4.0.4.apk) |
 
 ---
 

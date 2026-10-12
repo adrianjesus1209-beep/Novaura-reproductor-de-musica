@@ -92,16 +92,47 @@ class PlaybackBottomSheetBehavior<V : View>(context: Context, attributeSet: Attr
             )
         )
 
+    private var boundChild: View? = null
+    private var lastBarsBottom = 0
+    private var lastGesturesBottom = 0
+
+    var showWithNavBar: Boolean = true
+        set(value) {
+            if (field != value) {
+                field = value
+                updatePeek(boundChild)
+            }
+        }
+
+    fun updatePeek(child: View?) {
+        val target = child ?: boundChild ?: return
+        val navBarTotalHeight =
+            if (showWithNavBar) target.context.getDimenPixels(R.dimen.bottom_nav_bar_total_height)
+            else 0
+        val bar = (target as? ViewGroup)?.getChildAt(0)
+        val barHeight =
+            if (bar != null && bar.measuredHeight > 0) bar.measuredHeight
+            else getIdealBarHeight(target.context)
+        val newPeek =
+            barHeight + lastBarsBottom.coerceAtLeast(lastGesturesBottom) + navBarTotalHeight
+        if (peekHeight != newPeek) {
+            setPeekHeight(newPeek, false)
+        }
+    }
+
+    override fun onLayoutChild(parent: CoordinatorLayout, child: V, layoutDirection: Int): Boolean {
+        boundChild = child
+        return super.onLayoutChild(parent, child, layoutDirection)
+    }
+
     override fun applyWindowInsets(child: View, insets: WindowInsets): WindowInsets {
+        boundChild = child
         super.applyWindowInsets(child, insets)
         val bars = insets.systemBarInsetsCompat
         val gestures = insets.systemGestureInsetsCompat
-        val navBarTotalHeight = child.context.getDimenPixels(R.dimen.bottom_nav_bar_total_height)
-        val bar = (child as ViewGroup).getChildAt(0)
-        peekHeight =
-            (if (bar.measuredHeight > 0) bar.measuredHeight else getIdealBarHeight(child.context)) +
-                bars.bottom.coerceAtLeast(gestures.bottom) +
-                navBarTotalHeight
+        lastBarsBottom = bars.bottom
+        lastGesturesBottom = gestures.bottom
+        updatePeek(child)
 
         // Offset our expanded panel by the size of the playback bar, as that is shown when
         // we slide up the panel.

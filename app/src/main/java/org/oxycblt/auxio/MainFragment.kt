@@ -144,10 +144,18 @@ class MainFragment :
             object : BackportBottomSheetBehavior.BottomSheetCallback() {
                 override fun onStateChanged(bottomSheet: View, newState: Int) {
                     sheetBackCallback?.invalidateEnabled()
+                    if (newState == BackportBottomSheetBehavior.STATE_COLLAPSED) {
+                        if (playbackModel.song.value != null) {
+                            binding.playbackBarFragment.alpha = 1f
+                            binding.playbackBarFragment.isInvisible = false
+                        }
+                    }
+                    binding.playbackSheet.invalidate()
                 }
 
                 override fun onSlide(bottomSheet: View, slideOffset: Float) {
                     sheetBackCallback?.invalidateEnabled()
+                    binding.playbackSheet.invalidate()
                 }
             }
         )
@@ -344,8 +352,17 @@ class MainFragment :
             binding.playbackSheet.coordinatorLayoutBehavior as PlaybackBottomSheetBehavior
         val queueSheetBehavior =
             binding.queueSheet.coordinatorLayoutBehavior as QueueBottomSheetBehavior?
+        val isAtHome =
+            binding.exploreNavHost.findNavController().currentDestination?.id == R.id.home_fragment
+        playbackSheetBehavior.showWithNavBar = isAtHome
 
-        val playbackRatio = max(playbackSheetBehavior.calculateSlideOffset(), 0f)
+        val rawOffset = playbackSheetBehavior.calculateSlideOffset()
+        val playbackRatio =
+            if (playbackSheetBehavior.state == BackportBottomSheetBehavior.STATE_COLLAPSED) {
+                0f
+            } else {
+                max(rawOffset, 0f)
+            }
         // If there is no active song, the mini bar must be hidden regardless of sheet state.
         val playbackBarAlphaMultiplier = if (playbackModel.song.value != null) 1f else 0f
         // Stupid hack to prevent you from sliding the sheet up without closing the speed
@@ -422,8 +439,6 @@ class MainFragment :
             // Prevent interactions when the playback bar fully fades out.
             isInvisible = alpha == 0f
         }
-        val isAtHome =
-            binding.exploreNavHost.findNavController().currentDestination?.id == R.id.home_fragment
         binding.homeBottomBar?.root?.let { barRoot ->
             if (isAtHome) {
                 barRoot.alpha = playbackOutRatio
@@ -488,6 +503,22 @@ class MainFragment :
         val isAtHome =
             binding.exploreNavHost.findNavController().currentDestination?.id == R.id.home_fragment
         binding.homeBottomBar?.root?.isVisible = isAtHome
+        val playbackSheetBehavior =
+            binding.playbackSheet.coordinatorLayoutBehavior as PlaybackBottomSheetBehavior
+        playbackSheetBehavior.showWithNavBar = isAtHome
+
+        if (
+            playbackModel.song.value != null &&
+                playbackSheetBehavior.state == BackportBottomSheetBehavior.STATE_COLLAPSED
+        ) {
+            binding.playbackBarFragment.alpha = 1f
+            binding.playbackBarFragment.isInvisible = false
+        }
+
+        binding.playbackSheet.requestLayout()
+        binding.playbackSheet.invalidate()
+        binding.exploreNavHost.requestApplyInsets()
+
         updateFabVisibility(
             binding,
             homeModel.songList.value,
@@ -768,6 +799,18 @@ class MainFragment :
         if (navController.currentDestination?.id != R.id.search_fragment) {
             navController.navigateSafe(org.oxycblt.auxio.home.HomeFragmentDirections.search())
         }
+        val playbackSheetBehavior =
+            binding.playbackSheet.coordinatorLayoutBehavior as PlaybackBottomSheetBehavior
+        playbackSheetBehavior.showWithNavBar = false
+        if (
+            playbackModel.song.value != null &&
+                playbackSheetBehavior.state == BackportBottomSheetBehavior.STATE_COLLAPSED
+        ) {
+            binding.playbackBarFragment.alpha = 1f
+            binding.playbackBarFragment.isInvisible = false
+        }
+        binding.playbackSheet.requestLayout()
+        binding.playbackSheet.invalidate()
     }
 
     private fun tryOpenPlaybackPanel() {
@@ -844,6 +887,10 @@ class MainFragment :
                 isDraggable = true
                 state = BackportBottomSheetBehavior.STATE_COLLAPSED
             }
+            binding.playbackBarFragment.alpha = 1f
+            binding.playbackBarFragment.isInvisible = false
+            binding.playbackSheet.requestLayout()
+            binding.playbackSheet.invalidate()
         }
     }
 
