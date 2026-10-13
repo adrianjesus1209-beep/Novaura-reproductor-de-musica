@@ -298,6 +298,10 @@ class PlaybackPanelFragment :
                 }
                 true
             }
+            R.id.action_close_playback -> {
+                playbackModel.closePlayback()
+                true
+            }
             else -> false
         }
     }

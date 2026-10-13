@@ -3,23 +3,23 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.7/Novaura-v1.4.0.7.apk">
-    <b>📥 Descargar APK (Novaura v1.4.0.7)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.8/Novaura-v1.4.0.8.apk">
+    <b>📥 Descargar APK (Novaura v1.4.0.8)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.0.7)
+## 🚀 Descargas (Versión 1.4.0.8)
 
-La versión 1.4.0.7 mejora significativamente la intuitividad del sistema y simplifica las vistas de la biblioteca:
-- **Barra de navegación inferior con etiquetas descriptivas:** Se incorporaron etiquetas de texto claras debajo de cada icono en la barra inferior (Inicio, Canciones, Álbumes, Artistas, Listas), permitiendo identificar de un vistazo cada apartado sin depender únicamente de iconos.
-- **Identificación clara de sección en cabecera:** La barra superior ahora refleja el título del apartado activo ('Canciones', 'Álbumes', 'Artistas', 'Listas de reproducción') al cambiar de pestaña, manteniendo 'Novaura' en el inicio.
-- **Listas fluidas y desahogadas:** Se configuró desplazamiento desahogado (`clipToPadding=false` y padding inferior amplio) para que todas las pistas, álbumes y artistas se deslicen limpiamente por encima de la barra inferior flotante y el mini reproductor sin cortes.
+La versión 1.4.0.8 añade la acción de cierre directo en la notificación del reproductor y en el panel:
+- **Botón 'X' para cerrar el reproductor en la barra de notificaciones:** Se añadió la acción de cierre ('X') en los controles multimedia del sistema (Android 13+, cortina de notificaciones y pantalla de bloqueo), permitiendo detener la reproducción y cerrar la sección multimedia inmediatamente con un solo toque.
+- **Acción de cerrar reproducción en el panel:** Se incorporó la opción de cerrar la sesión de reproducción en el menú de la pantalla de reproducción completa.
+- **Desactivación limpia de la sesión multimedia:** Al cerrar el reproductor, la sesión multimedia se desactiva y libera correctamente, ocultando la tarjeta multimedia del sistema sin dejar residuos en la cortina.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.0.7 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.7/Novaura-v1.4.0.7.apk) |
+| **Novaura v1.4.0.8 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.8/Novaura-v1.4.0.8.apk) |
 
 ---
 

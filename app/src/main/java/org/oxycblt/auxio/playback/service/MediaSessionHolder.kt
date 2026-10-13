@@ -164,9 +164,19 @@ private constructor(
         index: Int,
         isShuffled: Boolean,
     ) {
+        mediaSession.isActive = true
         updateMediaMetadata(playbackManager.currentSong, parent)
         updateQueue(queue)
         invalidateSessionState()
+    }
+
+    override fun onSessionEnded() {
+        L.d("Session ended, resetting media session")
+        mediaSession.setMetadata(emptyMetadata)
+        mediaSession.setPlaybackState(
+            PlaybackStateCompat.Builder().setState(PlaybackStateCompat.STATE_NONE, 0, 0f).build()
+        )
+        mediaSession.isActive = false
     }
 
     override fun onProgressionChanged(progression: Progression) {
@@ -336,18 +346,7 @@ private constructor(
                 .setActiveQueueItemId(playbackManager.index.toLong())
 
         // Android 13+ relies on custom actions in the notification.
-
-        // Add repeat action
-        val repeatAction =
-            PlaybackStateCompat.CustomAction.Builder(
-                    PlaybackActions.ACTION_INC_REPEAT_MODE,
-                    context.getString(R.string.desc_change_repeat),
-                    playbackManager.repeatMode.icon,
-                )
-                .build()
-        state.addCustomAction(repeatAction)
-
-        // Add shuffle action
+        // Action 1 (far left): Shuffle toggle
         val shuffleAction =
             PlaybackStateCompat.CustomAction.Builder(
                     PlaybackActions.ACTION_INVERT_SHUFFLE,
@@ -360,6 +359,26 @@ private constructor(
                 )
                 .build()
         state.addCustomAction(shuffleAction)
+
+        // Action 2 (far right): Close playback ("X")
+        val closeAction =
+            PlaybackStateCompat.CustomAction.Builder(
+                    PlaybackActions.ACTION_EXIT,
+                    context.getString(R.string.desc_exit),
+                    R.drawable.ic_close_24,
+                )
+                .build()
+        state.addCustomAction(closeAction)
+
+        // Action 3 (overflow / fallback): Repeat toggle
+        val repeatAction =
+            PlaybackStateCompat.CustomAction.Builder(
+                    PlaybackActions.ACTION_INC_REPEAT_MODE,
+                    context.getString(R.string.desc_change_repeat),
+                    playbackManager.repeatMode.icon,
+                )
+                .build()
+        state.addCustomAction(repeatAction)
 
         mediaSession.setPlaybackState(state.build())
     }

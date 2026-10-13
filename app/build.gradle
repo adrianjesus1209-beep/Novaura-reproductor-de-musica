@@ -31,8 +31,8 @@ android {
 
     defaultConfig {
         applicationId "com.novaura.music"
-        versionName "1.4.0.7"
-        versionCode 32
+        versionName "1.4.0.8"
+        versionCode 33
 
         minSdk min_sdk
         // randomly flickers between deprecated and required depending on what mood my gradle is in

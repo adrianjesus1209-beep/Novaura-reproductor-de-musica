@@ -21,4 +21,9 @@
         android:icon="@drawable/ic_more_24"
         android:title="@string/lbl_selection"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/action_close_playback"
+        android:icon="@drawable/ic_close_24"
+        android:title="@string/desc_exit"
+        app:showAsAction="never" />
 </menu>
