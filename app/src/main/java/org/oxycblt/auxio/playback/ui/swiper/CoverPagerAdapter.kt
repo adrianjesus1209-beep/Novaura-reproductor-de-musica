@@ -123,20 +123,14 @@ private constructor(
         binding.coverFavorite.setImageResource(
             if (isFav) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
         )
-        binding.coverFavorite.imageTintList =
-            ColorStateList.valueOf(
-                if (isFav) context.getColor(R.color.player_accent_gold) else Color.WHITE
-            )
+        binding.coverFavorite.imageTintList = ColorStateList.valueOf(Color.WHITE)
 
         binding.coverFavorite.setOnClickListener {
             val newFav = favoritesManager.toggleFavorite(song)
             binding.coverFavorite.setImageResource(
                 if (newFav) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
             )
-            binding.coverFavorite.imageTintList =
-                ColorStateList.valueOf(
-                    if (newFav) context.getColor(R.color.player_accent_gold) else Color.WHITE
-                )
+            binding.coverFavorite.imageTintList = ColorStateList.valueOf(Color.WHITE)
         }
     }
 

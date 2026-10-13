@@ -36,7 +36,7 @@
             android:contentDescription="@null"
             android:src="@drawable/ic_playing_indicator_24"
             android:visibility="gone"
-            app:tint="@color/player_accent_gold" />
+            app:tint="@android:color/white" />
 
     </FrameLayout>
 

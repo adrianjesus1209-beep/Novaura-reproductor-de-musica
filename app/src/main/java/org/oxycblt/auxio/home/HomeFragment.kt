@@ -332,9 +332,6 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         binding.homeDashboard.dashboardSearchBar.setOnClickListener {
             findNavController().navigateSafe(HomeFragmentDirections.search())
         }
-        binding.homeDashboard.btnFavorites.setOnClickListener {
-            findNavController().navigateSafe(HomeFragmentDirections.showFavorites())
-        }
         binding.homeDashboard.cardFavoritesAlbum.setOnClickListener {
             findNavController().navigateSafe(HomeFragmentDirections.showFavorites())
         }

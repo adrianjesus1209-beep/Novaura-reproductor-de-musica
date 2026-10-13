@@ -20,6 +20,6 @@
     <color name="launcher_background">#000000</color>
     <color name="splash_background">#000000</color>
 
-    <!-- Player aesthetic accent -->
-    <color name="player_accent_gold">#F5BA42</color>
+    <!-- Player aesthetic accent (monochrome) -->
+    <color name="player_accent_gold">#FFFFFF</color>
 </resources>

@@ -17,56 +17,15 @@
         android:paddingTop="12dp"
         android:paddingEnd="16dp">
 
-        <!-- Header: Title and Favorites pill button -->
-        <LinearLayout
+        <!-- Header: Title -->
+        <TextView
+            android:id="@+id/dashboard_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/dashboard_title"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="sans-serif-black"
-                android:text="@string/lbl_home"
-                android:textColor="@android:color/white"
-                android:textSize="28sp" />
-
-            <LinearLayout
-                android:id="@+id/btn_favorites"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/ui_home_pill_btn_bg"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="12dp"
-                android:paddingTop="6dp"
-                android:paddingEnd="12dp"
-                android:paddingBottom="6dp">
-
-                <ImageView
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:layout_marginEnd="6dp"
-                    android:contentDescription="@null"
-                    android:src="@drawable/ic_favorite_24"
-                    app:tint="@android:color/white" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:text="@string/lbl_favorites"
-                    android:textColor="@android:color/white"
-                    android:textSize="13sp" />
-
-            </LinearLayout>
-
-        </LinearLayout>
+            android:fontFamily="sans-serif-black"
+            android:text="@string/lbl_home"
+            android:textColor="@android:color/white"
+            android:textSize="28sp" />
 
         <!-- Search Bar Pill -->
         <LinearLayout
@@ -120,7 +79,7 @@
                     android:layout_marginEnd="8dp"
                     android:contentDescription="@null"
                     android:src="@drawable/ic_favorite_24"
-                    app:tint="@color/player_accent_gold" />
+                    app:tint="@android:color/white" />
 
                 <TextView
                     android:layout_width="0dp"
@@ -183,7 +142,7 @@
                         android:letterSpacing="0.08"
                         android:text="@string/lbl_album"
                         android:textAllCaps="true"
-                        android:textColor="@color/player_accent_gold"
+                        android:textColor="#A0FFFFFF"
                         android:textSize="10sp" />
 
                     <!-- Album Title -->
