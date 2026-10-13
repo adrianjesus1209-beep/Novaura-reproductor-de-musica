@@ -30,6 +30,7 @@ import android.view.ViewTreeObserver
 import android.view.WindowInsets
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.TextView
 import androidx.activity.BackEventCompat
 import androidx.activity.OnBackPressedCallback
 import androidx.core.graphics.ColorUtils
@@ -549,6 +550,7 @@ class MainFragment :
         fun updateItem(
             indicator: FrameLayout,
             icon: ImageView,
+            label: TextView,
             isSelected: Boolean,
         ) {
             if (isSelected) {
@@ -560,35 +562,42 @@ class MainFragment :
                     }
                 indicator.background = shape
                 icon.imageTintList = ColorStateList.valueOf(primaryColor)
+                label.setTextColor(primaryColor)
             } else {
                 indicator.background = null
                 icon.imageTintList = ColorStateList.valueOf(inactiveColor)
+                label.setTextColor(inactiveColor)
             }
         }
 
         updateItem(
             bar.navIndicatorHome,
             bar.navIconHome,
+            bar.navLabelHome,
             selectedTab == HomeViewModel.NAV_TAB_HOME,
         )
         updateItem(
             bar.navIndicatorSongs,
             bar.navIconSongs,
+            bar.navLabelSongs,
             selectedTab == HomeViewModel.NAV_TAB_SONGS,
         )
         updateItem(
             bar.navIndicatorAlbums,
             bar.navIconAlbums,
+            bar.navLabelAlbums,
             selectedTab == HomeViewModel.NAV_TAB_ALBUMS,
         )
         updateItem(
             bar.navIndicatorArtists,
             bar.navIconArtists,
+            bar.navLabelArtists,
             selectedTab == HomeViewModel.NAV_TAB_ARTISTS,
         )
         updateItem(
             bar.navIndicatorPlaylists,
             bar.navIconPlaylists,
+            bar.navLabelPlaylists,
             selectedTab == HomeViewModel.NAV_TAB_PLAYLISTS,
         )
     }

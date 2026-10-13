@@ -408,6 +408,16 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         binding.homeNormalToolbar.menu.findItem(R.id.action_search)?.isVisible = !isHome
         binding.homeNormalToolbar.menu.findItem(R.id.action_sort)?.isVisible = !isHome
 
+        binding.homeNormalToolbar.title =
+            when (tabId) {
+                HomeViewModel.NAV_TAB_HOME -> getString(R.string.info_app_name)
+                HomeViewModel.NAV_TAB_SONGS -> getString(R.string.lbl_songs)
+                HomeViewModel.NAV_TAB_ALBUMS -> getString(R.string.lbl_albums)
+                HomeViewModel.NAV_TAB_ARTISTS -> getString(R.string.lbl_artists)
+                HomeViewModel.NAV_TAB_PLAYLISTS -> getString(R.string.lbl_playlists)
+                else -> getString(R.string.info_app_name)
+            }
+
         if (!isHome) {
             val targetType =
                 when (tabId) {

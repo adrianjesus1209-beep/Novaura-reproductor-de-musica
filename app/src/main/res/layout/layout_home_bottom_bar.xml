@@ -8,29 +8,31 @@
     android:elevation="8dp"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingStart="8dp"
-    android:paddingEnd="8dp">
+    android:paddingStart="6dp"
+    android:paddingEnd="6dp">
 
     <!-- Tab 1: Home -->
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/nav_item_home"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:clickable="true"
-        android:focusable="true">
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical">
 
         <FrameLayout
             android:id="@+id/nav_indicator_home"
-            android:layout_width="48dp"
-            android:layout_height="32dp"
+            android:layout_width="40dp"
+            android:layout_height="24dp"
             android:layout_gravity="center">
 
             <ImageView
                 android:id="@+id/nav_icon_home"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:layout_gravity="center"
                 android:contentDescription="@string/lbl_home"
                 android:src="@drawable/ic_home_24"
@@ -38,28 +40,42 @@
 
         </FrameLayout>
 
-    </FrameLayout>
+        <TextView
+            android:id="@+id/nav_label_home"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:text="@string/lbl_home"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="10sp" />
+
+    </LinearLayout>
 
     <!-- Tab 2: Songs -->
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/nav_item_songs"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:clickable="true"
-        android:focusable="true">
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical">
 
         <FrameLayout
             android:id="@+id/nav_indicator_songs"
-            android:layout_width="48dp"
-            android:layout_height="32dp"
+            android:layout_width="40dp"
+            android:layout_height="24dp"
             android:layout_gravity="center">
 
             <ImageView
                 android:id="@+id/nav_icon_songs"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:layout_gravity="center"
                 android:contentDescription="@string/lbl_songs"
                 android:src="@drawable/ic_song_24"
@@ -67,28 +83,42 @@
 
         </FrameLayout>
 
-    </FrameLayout>
+        <TextView
+            android:id="@+id/nav_label_songs"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:text="@string/lbl_songs"
+            android:textColor="#88FFFFFF"
+            android:textSize="10sp" />
+
+    </LinearLayout>
 
     <!-- Tab 3: Albums -->
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/nav_item_albums"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:clickable="true"
-        android:focusable="true">
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical">
 
         <FrameLayout
             android:id="@+id/nav_indicator_albums"
-            android:layout_width="48dp"
-            android:layout_height="32dp"
+            android:layout_width="40dp"
+            android:layout_height="24dp"
             android:layout_gravity="center">
 
             <ImageView
                 android:id="@+id/nav_icon_albums"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:layout_gravity="center"
                 android:contentDescription="@string/lbl_albums"
                 android:src="@drawable/ic_album_24"
@@ -96,28 +126,42 @@
 
         </FrameLayout>
 
-    </FrameLayout>
+        <TextView
+            android:id="@+id/nav_label_albums"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:text="@string/lbl_albums"
+            android:textColor="#88FFFFFF"
+            android:textSize="10sp" />
+
+    </LinearLayout>
 
     <!-- Tab 4: Artists -->
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/nav_item_artists"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:clickable="true"
-        android:focusable="true">
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical">
 
         <FrameLayout
             android:id="@+id/nav_indicator_artists"
-            android:layout_width="48dp"
-            android:layout_height="32dp"
+            android:layout_width="40dp"
+            android:layout_height="24dp"
             android:layout_gravity="center">
 
             <ImageView
                 android:id="@+id/nav_icon_artists"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:layout_gravity="center"
                 android:contentDescription="@string/lbl_artists"
                 android:src="@drawable/ic_artist_24"
@@ -125,28 +169,42 @@
 
         </FrameLayout>
 
-    </FrameLayout>
+        <TextView
+            android:id="@+id/nav_label_artists"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:text="@string/lbl_artists"
+            android:textColor="#88FFFFFF"
+            android:textSize="10sp" />
+
+    </LinearLayout>
 
     <!-- Tab 5: Playlists -->
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/nav_item_playlists"
         android:layout_width="0dp"
         android:layout_height="match_parent"
         android:layout_weight="1"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:clickable="true"
-        android:focusable="true">
+        android:focusable="true"
+        android:gravity="center"
+        android:orientation="vertical">
 
         <FrameLayout
             android:id="@+id/nav_indicator_playlists"
-            android:layout_width="48dp"
-            android:layout_height="32dp"
+            android:layout_width="40dp"
+            android:layout_height="24dp"
             android:layout_gravity="center">
 
             <ImageView
                 android:id="@+id/nav_icon_playlists"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
                 android:layout_gravity="center"
                 android:contentDescription="@string/lbl_playlists"
                 android:src="@drawable/ic_playlist_24"
@@ -154,6 +212,18 @@
 
         </FrameLayout>
 
-    </FrameLayout>
+        <TextView
+            android:id="@+id/nav_label_playlists"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:text="@string/lbl_tab_playlists"
+            android:textColor="#88FFFFFF"
+            android:textSize="10sp" />
+
+    </LinearLayout>
 
 </LinearLayout>
