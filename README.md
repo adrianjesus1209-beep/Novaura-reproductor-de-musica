@@ -3,23 +3,23 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.8/Novaura-v1.4.0.8.apk">
-    <b>📥 Descargar APK (Novaura v1.4.0.8)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.9/Novaura-v1.4.0.9.apk">
+    <b>📥 Descargar APK (Novaura v1.4.0.9)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.0.8)
+## 🚀 Descargas (Versión 1.4.0.9)
 
-La versión 1.4.0.8 añade la acción de cierre directo en la notificación del reproductor y en el panel:
-- **Botón 'X' para cerrar el reproductor en la barra de notificaciones:** Se añadió la acción de cierre ('X') en los controles multimedia del sistema (Android 13+, cortina de notificaciones y pantalla de bloqueo), permitiendo detener la reproducción y cerrar la sección multimedia inmediatamente con un solo toque.
-- **Acción de cerrar reproducción en el panel:** Se incorporó la opción de cerrar la sesión de reproducción en el menú de la pantalla de reproducción completa.
-- **Desactivación limpia de la sesión multimedia:** Al cerrar el reproductor, la sesión multimedia se desactiva y libera correctamente, ocultando la tarjeta multimedia del sistema sin dejar residuos en la cortina.
+La versión 1.4.0.9 mejora la experiencia visual y sincronización reactiva de Favoritos:
+- **Corazón rojo en la carátula de reproducción:** Al marcar una canción como favorita, el icono del corazón en la portada del reproductor se muestra en color rojo vibrante para una clara confirmación visual, manteniendo el diseño monocromático en el inicio.
+- **Sincronización reactiva y persistencia inmediata de favoritos:** Se solucionó el problema en el que al cerrar y reabrir la aplicación el álbum de favoritos aparecía en 0 canciones hasta entrar en él. Ahora la lista de favoritos se sincroniza en tiempo real en cuanto la biblioteca de música carga al iniciar la app.
+- **Guardado atómico y consistente en disco:** El estado de favoritos se escribe de forma persistente en almacenamiento de inmediato.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.0.8 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.8/Novaura-v1.4.0.8.apk) |
+| **Novaura v1.4.0.9 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.9/Novaura-v1.4.0.9.apk) |
 
 ---
 

@@ -120,18 +120,20 @@ private constructor(
         binding.coverArtistName.text = song.artists.resolveNames(context)
 
         val isFav = favoritesManager.isFavorite(song)
-        binding.coverFavorite.setImageResource(
-            if (isFav) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
-        )
-        binding.coverFavorite.imageTintList = ColorStateList.valueOf(Color.WHITE)
+        updateFavoriteUI(isFav)
 
         binding.coverFavorite.setOnClickListener {
             val newFav = favoritesManager.toggleFavorite(song)
-            binding.coverFavorite.setImageResource(
-                if (newFav) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
-            )
-            binding.coverFavorite.imageTintList = ColorStateList.valueOf(Color.WHITE)
+            updateFavoriteUI(newFav)
         }
+    }
+
+    private fun updateFavoriteUI(isFavorite: Boolean) {
+        binding.coverFavorite.setImageResource(
+            if (isFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
+        )
+        binding.coverFavorite.imageTintList =
+            ColorStateList.valueOf(if (isFavorite) COLOR_FAVORITE_RED else Color.WHITE)
     }
 
     /**
@@ -172,5 +174,7 @@ private constructor(
             object : SimpleDiffCallback<Song>() {
                 override fun areContentsTheSame(oldItem: Song, newItem: Song) = oldItem == newItem
             }
+
+        private val COLOR_FAVORITE_RED = Color.parseColor("#FF3B30")
     }
 }

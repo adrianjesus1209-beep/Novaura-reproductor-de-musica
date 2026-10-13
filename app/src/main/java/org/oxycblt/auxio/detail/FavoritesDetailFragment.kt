@@ -112,6 +112,9 @@ class FavoritesDetailFragment :
 
         spacingSmall = requireContext().getDimenPixels(R.dimen.spacing_small)
 
+        collectImmediately(favoritesManager.favoriteSongs) {
+            updateFavorites(binding)
+        }
         collectImmediately(favoritesManager.favoriteUids) {
             updateFavorites(binding)
         }

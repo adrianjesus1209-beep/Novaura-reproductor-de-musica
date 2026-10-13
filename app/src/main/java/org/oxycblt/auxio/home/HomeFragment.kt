@@ -221,9 +221,13 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
 
         collectImmediately(homeModel.songList) { songs ->
             updateDashboardSongs(binding, songs)
+            updateDashboardFavorites(binding)
         }
         collectImmediately(homeModel.artistList) { artists ->
             updateDashboardArtists(binding, artists)
+        }
+        collectImmediately(favoritesManager.favoriteSongs) {
+            updateDashboardFavorites(binding)
         }
         collectImmediately(favoritesManager.favoriteUids) {
             updateDashboardFavorites(binding)

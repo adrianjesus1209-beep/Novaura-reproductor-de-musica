@@ -41,12 +41,43 @@ class FavoritesManager
 constructor(
     @ApplicationContext private val context: Context,
     private val musicRepository: MusicRepository,
-) {
+) : MusicRepository.UpdateListener {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private val _favoriteUids = MutableStateFlow<List<String>>(loadFavorites())
     val favoriteUids: StateFlow<List<String>> = _favoriteUids.asStateFlow()
+
+    private val _favoriteSongs = MutableStateFlow<List<Song>>(emptyList())
+    val favoriteSongs: StateFlow<List<Song>> = _favoriteSongs.asStateFlow()
+
+    init {
+        musicRepository.addUpdateListener(this)
+        refreshFavorites()
+    }
+
+    override fun onMusicChanges(changes: MusicRepository.Changes) {
+        refreshFavorites()
+    }
+
+    private fun refreshFavorites() {
+        val resolved = resolveFavoriteSongs()
+        _favoriteSongs.value = resolved
+    }
+
+    private fun resolveFavoriteSongs(): List<Song> {
+        val library = musicRepository.library ?: return emptyList()
+        val uids = _favoriteUids.value
+        val result = ArrayList<Song>(uids.size)
+        for (uidStr in uids) {
+            val uid = Music.UID.fromString(uidStr) ?: continue
+            val song = library.findSong(uid)
+            if (song != null) {
+                result.add(song)
+            }
+        }
+        return result
+    }
 
     private fun loadFavorites(): List<String> {
         val raw = prefs.getString(KEY_FAVORITES_JSON, null) ?: return emptyList()
@@ -68,8 +99,9 @@ constructor(
         for (item in list) {
             array.put(item)
         }
-        prefs.edit().putString(KEY_FAVORITES_JSON, array.toString()).apply()
+        prefs.edit().putString(KEY_FAVORITES_JSON, array.toString()).commit()
         _favoriteUids.value = list
+        refreshFavorites()
     }
 
     /** Returns whether the given song is in favorites. */
@@ -129,17 +161,11 @@ constructor(
      * the order they were favorited.
      */
     fun getFavoriteSongs(): List<Song> {
-        val library = musicRepository.library ?: return emptyList()
-        val uids = _favoriteUids.value
-        val result = ArrayList<Song>(uids.size)
-        for (uidStr in uids) {
-            val uid = Music.UID.fromString(uidStr) ?: continue
-            val song = library.findSong(uid)
-            if (song != null) {
-                result.add(song)
-            }
+        val cached = _favoriteSongs.value
+        if (cached.isNotEmpty()) {
+            return cached
         }
-        return result
+        return resolveFavoriteSongs()
     }
 
     companion object {

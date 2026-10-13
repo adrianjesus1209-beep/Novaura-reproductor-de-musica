@@ -229,6 +229,11 @@ class PlaybackPanelFragment :
                 }
             }
         }
+        collectImmediately(favoritesManager.favoriteUids) {
+            binding.root.post {
+                coverPagerAdapter.notifyDataSetChanged()
+            }
+        }
     }
 
     // FIXME: Old code!! Maybe not necessary anymore?
