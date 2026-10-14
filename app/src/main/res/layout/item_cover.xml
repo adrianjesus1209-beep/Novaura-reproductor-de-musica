@@ -30,10 +30,9 @@
             android:layout_height="40dp"
             android:layout_margin="12dp"
             android:padding="8dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:background="@drawable/bg_cover_favorite"
             android:contentDescription="@string/lbl_favorites"
             android:src="@drawable/ic_favorite_border_24"
-            app:tint="@android:color/white"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 

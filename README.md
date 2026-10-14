@@ -3,23 +3,23 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.9/Novaura-v1.4.0.9.apk">
-    <b>📥 Descargar APK (Novaura v1.4.0.9)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.0/Novaura-v1.4.1.0.apk">
+    <b>📥 Descargar APK (Novaura v1.4.1.0)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.0.9)
+## 🚀 Descargas (Versión 1.4.1.0)
 
-La versión 1.4.0.9 mejora la experiencia visual y sincronización reactiva de Favoritos:
-- **Corazón rojo en la carátula de reproducción:** Al marcar una canción como favorita, el icono del corazón en la portada del reproductor se muestra en color rojo vibrante para una clara confirmación visual, manteniendo el diseño monocromático en el inicio.
-- **Sincronización reactiva y persistencia inmediata de favoritos:** Se solucionó el problema en el que al cerrar y reabrir la aplicación el álbum de favoritos aparecía en 0 canciones hasta entrar en él. Ahora la lista de favoritos se sincroniza en tiempo real en cuanto la biblioteca de música carga al iniciar la app.
-- **Guardado atómico y consistente en disco:** El estado de favoritos se escribe de forma persistente en almacenamiento de inmediato.
+La versión 1.4.1.0 introduce mejoras esenciales en la gestión y control de la cola de reproducción y favoritos:
+- **Reordenamiento interactivo en todas las colas de reproducción (Drag & Drop):** Ahora puedes cambiar el orden de las canciones arrastrándolas mediante su manija táctil tanto en la minilista del panel de reproducción como en la vista de cola completa. El orden fijado se mantiene sincronizado de forma permanente durante la sesión de reproducción hasta que decidas moverlo o quitarlo.
+- **Menú contextual por pulsación prolongada en la cola:** Al mantener presionada cualquier canción en la cola de reproducción, se abre el menú contextual completo de opciones (reproducir, siguiente, añadir a playlist, favoritos, detalles del artista/álbum, eliminar, etc.).
+- **Corrección de visibilidad del botón de favoritos en la portada:** Se solucionó el problema donde el botón de corazón desaparecía al desmarcar y volver a marcar. Se añadió además un fondo circular translúcido con alto contraste que garantiza visibilidad y nitidez en cualquier portada (clara u oscura).
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.0.9 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.0.9/Novaura-v1.4.0.9.apk) |
+| **Novaura v1.4.1.0 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.0/Novaura-v1.4.1.0.apk) |
 
 ---
 

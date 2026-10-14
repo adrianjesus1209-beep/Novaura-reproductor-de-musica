@@ -40,15 +40,18 @@ import org.oxycblt.auxio.list.ListFragment
 import org.oxycblt.auxio.list.ListViewModel
 import org.oxycblt.auxio.list.SelectableListListener
 import org.oxycblt.auxio.list.adapter.SelectionIndicatorAdapter
+import org.oxycblt.auxio.list.menu.Menu
 import org.oxycblt.auxio.list.recycler.SongViewHolder
 import org.oxycblt.auxio.music.FavoritesManager
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.playback.PlaySong
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.formatDurationMs
+import org.oxycblt.auxio.util.collect
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.getDimenPixels
 import org.oxycblt.auxio.util.getPlural
+import org.oxycblt.auxio.util.navigateSafe
 import org.oxycblt.auxio.util.systemBarInsetsCompat
 import org.oxycblt.musikr.Song
 
@@ -129,6 +132,8 @@ class FavoritesDetailFragment :
         collectImmediately(listModel.selected) { selection ->
             songAdapter.setSelected(selection.filterIsInstanceTo(mutableSetOf()))
         }
+
+        collect(listModel.menu.flow, ::handleMenu)
     }
 
     override fun onDestroyBinding(binding: FragmentDetailBinding) {
@@ -260,6 +265,18 @@ class FavoritesDetailFragment :
         }
         view.alpha = ratio
         view.translationY = spacingSmall * (1 - ratio)
+    }
+
+    private fun handleMenu(menu: Menu?) {
+        if (menu == null) return
+        val directions =
+            when (menu) {
+                is Menu.ForSong -> FavoritesDetailFragmentDirections.openSongMenu(menu.parcel)
+                is Menu.ForSelection ->
+                    FavoritesDetailFragmentDirections.openSelectionMenu(menu.parcel)
+                else -> return
+            }
+        findNavController().navigateSafe(directions)
     }
 
     private class SongAdapter(private val listener: SelectableListListener<Song>) :

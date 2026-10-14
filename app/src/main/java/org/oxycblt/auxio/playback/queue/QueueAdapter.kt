@@ -46,8 +46,10 @@ import timber.log.Timber as L
  * @param listener A [EditClickListListener] to bind interactions to.
  * @author Alexander Capehart (OxygenCobalt)
  */
-class QueueAdapter(private val listener: EditClickListListener<Song>) :
-    FlexibleListAdapter<Song, QueueSongViewHolder>(QueueSongViewHolder.DIFF_CALLBACK) {
+class QueueAdapter(
+    private val listener: EditClickListListener<Song>,
+    private val onTrackLongClick: ((Song) -> Unit)? = null,
+) : FlexibleListAdapter<Song, QueueSongViewHolder>(QueueSongViewHolder.DIFF_CALLBACK) {
     // Since PlayingIndicator adapter relies on an item value, we cannot use it for this
     // adapter, as one item can appear at several points in the UI. Use a similar implementation
     // with an index value instead.
@@ -66,7 +68,7 @@ class QueueAdapter(private val listener: EditClickListListener<Song>) :
         payload: List<Any>,
     ) {
         if (payload.isEmpty()) {
-            viewHolder.bind(getItem(position), listener)
+            viewHolder.bind(getItem(position), listener, onTrackLongClick)
         }
 
         viewHolder.isFuture = position > currentIndex
@@ -151,8 +153,20 @@ class QueueSongViewHolder private constructor(private val binding: ItemEditableS
      * @param listener A [EditClickListListener] to bind interactions to.
      */
     @SuppressLint("ClickableViewAccessibility")
-    fun bind(song: Song, listener: EditClickListListener<Song>) {
+    fun bind(
+        song: Song,
+        listener: EditClickListListener<Song>,
+        onLongClick: ((Song) -> Unit)? = null,
+    ) {
         listener.bind(song, this, body, binding.songDragHandle)
+        body.setOnLongClickListener {
+            if (onLongClick != null) {
+                onLongClick(song)
+                true
+            } else {
+                false
+            }
+        }
         binding.songAlbumCover.bind(song)
         binding.songName.text = song.name.resolve(binding.context)
         binding.songInfo.text = song.artists.resolveNames(binding.context)

@@ -29,6 +29,8 @@ import androidx.core.view.updatePadding
 import androidx.dynamicanimation.animation.SpringForce
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import coil3.ImageLoader
 import coil3.request.ImageRequest
@@ -93,7 +95,17 @@ class PlaybackPanelFragment :
     private val detailModel: DetailViewModel by activityViewModels()
     private val listModel: ListViewModel by activityViewModels()
     private val queueModel: QueueViewModel by viewModels()
-    private val trackAdapter = PlaybackTrackAdapter { index -> queueModel.goto(index) }
+    private var trackTouchHelper: ItemTouchHelper? = null
+    private val trackAdapter =
+        PlaybackTrackAdapter(
+            onTrackClick = { index -> queueModel.goto(index) },
+            onTrackLongClick = { song ->
+                listModel.openMenu(R.menu.song, song, PlaySong.ByItself)
+            },
+            onStartDrag = { holder ->
+                trackTouchHelper?.startDrag(holder)
+            },
+        )
     private var userAwarePagerCallback: UserAwarePagerCallback? = null
 
     override fun onCreateBinding(inflater: LayoutInflater) =
@@ -201,7 +213,72 @@ class PlaybackPanelFragment :
                 listModel.openMenu(R.menu.playback_song, it, PlaySong.ByItself)
             }
         }
-        binding.playbackTracklist?.adapter = trackAdapter
+        binding.playbackTracklist?.apply {
+            adapter = trackAdapter
+            val dragCallback =
+                object :
+                    ItemTouchHelper.SimpleCallback(
+                        ItemTouchHelper.UP or ItemTouchHelper.DOWN,
+                        0,
+                    ) {
+                    override fun onMove(
+                        recyclerView: RecyclerView,
+                        viewHolder: RecyclerView.ViewHolder,
+                        target: RecyclerView.ViewHolder,
+                    ): Boolean {
+                        val from = viewHolder.bindingAdapterPosition
+                        val to = target.bindingAdapterPosition
+                        if (
+                            from == RecyclerView.NO_POSITION ||
+                                to == RecyclerView.NO_POSITION ||
+                                from == to
+                        ) {
+                            return false
+                        }
+                        trackAdapter.moveItem(from, to)
+                        queueModel.moveQueueDataItems(from, to)
+                        return true
+                    }
+
+                    override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
+
+                    override fun isLongPressDragEnabled(): Boolean = false
+
+                    override fun onSelectedChanged(
+                        viewHolder: RecyclerView.ViewHolder?,
+                        actionState: Int,
+                    ) {
+                        super.onSelectedChanged(viewHolder, actionState)
+                        if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+                            viewHolder
+                                ?.itemView
+                                ?.animate()
+                                ?.scaleX(1.02f)
+                                ?.scaleY(1.02f)
+                                ?.alpha(0.85f)
+                                ?.setDuration(120)
+                                ?.start()
+                        }
+                    }
+
+                    override fun clearView(
+                        recyclerView: RecyclerView,
+                        viewHolder: RecyclerView.ViewHolder,
+                    ) {
+                        super.clearView(recyclerView, viewHolder)
+                        viewHolder.itemView
+                            .animate()
+                            .scaleX(1.0f)
+                            .scaleY(1.0f)
+                            .alpha(1.0f)
+                            .setDuration(120)
+                            .start()
+                    }
+                }
+            val helper = ItemTouchHelper(dragCallback)
+            trackTouchHelper = helper
+            helper.attachToRecyclerView(this)
+        }
 
         // --- VIEWMODEL SETUP --
         collectImmediately(playbackModel.song, ::updateSong)
@@ -229,10 +306,16 @@ class PlaybackPanelFragment :
                 }
             }
         }
-        collectImmediately(favoritesManager.favoriteUids) {
-            binding.root.post {
-                coverPagerAdapter.notifyDataSetChanged()
-            }
+        collectImmediately(favoritesManager.favoriteUids) { uids ->
+            val song = playbackModel.song.value ?: return@collectImmediately
+            val isFav = uids.contains(song.uid.toString())
+            val recycler =
+                binding.playbackPager.getChildAt(0) as? RecyclerView ?: return@collectImmediately
+            val pos = binding.playbackPager.currentItem
+            val holder =
+                recycler.findViewHolderForAdapterPosition(pos)
+                    as? org.oxycblt.auxio.playback.ui.swiper.CoverViewHolder
+            holder?.updateFavoriteUI(isFav)
         }
     }
 

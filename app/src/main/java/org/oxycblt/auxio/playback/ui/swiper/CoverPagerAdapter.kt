@@ -128,7 +128,8 @@ private constructor(
         }
     }
 
-    private fun updateFavoriteUI(isFavorite: Boolean) {
+    fun updateFavoriteUI(isFavorite: Boolean) {
+        binding.coverFavorite.alpha = 1f
         binding.coverFavorite.setImageResource(
             if (isFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
         )

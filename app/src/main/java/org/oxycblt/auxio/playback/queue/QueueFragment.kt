@@ -28,8 +28,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import dagger.hilt.android.AndroidEntryPoint
 import kotlin.math.min
+import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentQueueBinding
 import org.oxycblt.auxio.list.EditClickListListener
+import org.oxycblt.auxio.list.ListViewModel
+import org.oxycblt.auxio.playback.PlaySong
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.ui.ViewBindingFragment
 import org.oxycblt.auxio.util.collectImmediately
@@ -45,7 +48,11 @@ import timber.log.Timber as L
 class QueueFragment : ViewBindingFragment<FragmentQueueBinding>(), EditClickListListener<Song> {
     private val queueModel: QueueViewModel by viewModels()
     private val playbackModel: PlaybackViewModel by activityViewModels()
-    private val queueAdapter = QueueAdapter(this)
+    private val listModel: ListViewModel by activityViewModels()
+    private val queueAdapter =
+        QueueAdapter(this) { song ->
+            listModel.openMenu(R.menu.song, song, PlaySong.ByItself)
+        }
     private var touchHelper: ItemTouchHelper? = null
 
     override fun onCreateBinding(inflater: LayoutInflater) = FragmentQueueBinding.inflate(inflater)
