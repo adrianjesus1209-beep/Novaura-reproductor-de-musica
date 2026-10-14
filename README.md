@@ -3,23 +3,23 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.0/Novaura-v1.4.1.0.apk">
-    <b>📥 Descargar APK (Novaura v1.4.1.0)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.1/Novaura-v1.4.1.1.apk">
+    <b>📥 Descargar APK (Novaura v1.4.1.1)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.1.0)
+## 🚀 Descargas (Versión 1.4.1.1)
 
-La versión 1.4.1.0 introduce mejoras esenciales en la gestión y control de la cola de reproducción y favoritos:
-- **Reordenamiento interactivo en todas las colas de reproducción (Drag & Drop):** Ahora puedes cambiar el orden de las canciones arrastrándolas mediante su manija táctil tanto en la minilista del panel de reproducción como en la vista de cola completa. El orden fijado se mantiene sincronizado de forma permanente durante la sesión de reproducción hasta que decidas moverlo o quitarlo.
-- **Menú contextual por pulsación prolongada en la cola:** Al mantener presionada cualquier canción en la cola de reproducción, se abre el menú contextual completo de opciones (reproducir, siguiente, añadir a playlist, favoritos, detalles del artista/álbum, eliminar, etc.).
-- **Corrección de visibilidad del botón de favoritos en la portada:** Se solucionó el problema donde el botón de corazón desaparecía al desmarcar y volver a marcar. Se añadió además un fondo circular translúcido con alto contraste que garantiza visibilidad y nitidez en cualquier portada (clara u oscura).
+La versión 1.4.1.1 amplía y perfecciona las opciones disponibles en el reproductor de música:
+- **Menú completo de opciones en el reproductor (3 puntos):** Al presionar el botón de tres puntos en la parte superior derecha de la pantalla de reproducción, ahora se despliega el menú modal completo con todas las opciones disponibles de la canción actual (Reproducir, Modo aleatorio, Reproducir siguiente, Añadir a la cola, Añadir a lista de reproducción, Favoritos, Ir al artista, Ir al álbum, Ver propiedades, Ecualizador, Compartir y Eliminar), tal como en la sección de Todas las canciones.
+- **Acceso directo al Ecualizador:** Se integró la opción de Ecualizador directamente en el menú de opciones de la canción para un ajuste de sonido rápido y accesible.
+- **Botón dedicado para cerrar el reproductor:** Se mantiene un botón directo "X" en la barra superior para detener la reproducción de inmediato.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.1.0 APK** | ~8.9 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.0/Novaura-v1.4.1.0.apk) |
+| **Novaura v1.4.1.1 APK** | ~9.3 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.1/Novaura-v1.4.1.1.apk) |
 
 ---
 

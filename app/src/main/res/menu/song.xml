@@ -37,6 +37,10 @@
         android:icon="@drawable/ic_details_24"
         android:title="@string/lbl_song_detail" />
     <item
+        android:id="@+id/action_open_equalizer"
+        android:icon="@drawable/ic_config_24"
+        android:title="@string/lbl_equalizer" />
+    <item
         android:id="@+id/action_share"
         android:icon="@drawable/ic_share_24"
         android:title="@string/lbl_share" />

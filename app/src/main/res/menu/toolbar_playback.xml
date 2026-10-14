@@ -7,23 +7,13 @@
         android:title="@string/lbl_search"
         app:showAsAction="always" />
     <item
-        android:id="@+id/action_open_equalizer"
-        android:icon="@drawable/ic_config_24"
-        android:title="@string/lbl_equalizer"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_song_details"
-        android:icon="@drawable/ic_song_24"
-        android:title="@string/lbl_about"
-        app:showAsAction="never" />
-    <item
-        android:id="@+id/action_playback_more"
-        android:icon="@drawable/ic_more_24"
-        android:title="@string/lbl_selection"
-        app:showAsAction="never" />
-    <item
         android:id="@+id/action_close_playback"
         android:icon="@drawable/ic_close_24"
         android:title="@string/desc_exit"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_playback_more"
+        android:icon="@drawable/ic_more_24"
+        android:title="@string/lbl_more"
         app:showAsAction="never" />
 </menu>

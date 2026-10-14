@@ -32,6 +32,7 @@ import org.oxycblt.auxio.music.FavoritesManager
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.music.resolveNames
+import org.oxycblt.auxio.playback.EqualizerDialogFragment
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.formatDurationMs
 import org.oxycblt.auxio.util.getPlural
@@ -95,6 +96,9 @@ class SongMenuDialogFragment : MenuDialogFragment<Menu.ForSong>() {
             R.id.action_album_details -> detailModel.showAlbum(menu.song.album)
             R.id.action_share -> requireContext().share(menu.song)
             R.id.action_detail -> detailModel.showSong(menu.song)
+            R.id.action_open_equalizer -> {
+                EqualizerDialogFragment().show(parentFragmentManager, "equalizer")
+            }
             R.id.action_delete -> musicModel.deleteSong(menu.song)
             else -> error("Unexpected menu item selected $item")
         }

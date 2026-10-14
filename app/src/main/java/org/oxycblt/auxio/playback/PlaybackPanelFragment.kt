@@ -134,6 +134,11 @@ class PlaybackPanelFragment :
         binding.playbackToolbar.apply {
             setNavigationOnClickListener { playbackModel.openMain() }
             setOnMenuItemClickListener(this@PlaybackPanelFragment)
+            setOnOverflowMenuClick {
+                playbackModel.song.value?.let { currentSong ->
+                    listModel.openMenu(R.menu.song, currentSong, PlaySong.ByItself)
+                }
+            }
         }
 
         binding.playbackPager.apply {
@@ -210,7 +215,7 @@ class PlaybackPanelFragment :
         binding.playbackShuffle.setOnClickListener { playbackModel.toggleShuffled() }
         binding.playbackMore?.setOnClickListener {
             playbackModel.song.value?.let {
-                listModel.openMenu(R.menu.playback_song, it, PlaySong.ByItself)
+                listModel.openMenu(R.menu.song, it, PlaySong.ByItself)
             }
         }
         binding.playbackTracklist?.apply {
@@ -367,22 +372,13 @@ class PlaybackPanelFragment :
 
     override fun onMenuItemClick(item: MenuItem): Boolean {
         return when (item.itemId) {
-            R.id.action_open_equalizer -> {
-                L.d("Opening equalizer")
-                EqualizerDialogFragment().show(parentFragmentManager, "equalizer")
-                true
-            }
             R.id.action_search -> {
                 playbackModel.openSearch()
                 true
             }
-            R.id.action_song_details -> {
-                navigateToCurrentSong()
-                true
-            }
             R.id.action_playback_more -> {
                 playbackModel.song.value?.let {
-                    listModel.openMenu(R.menu.playback_song, it, PlaySong.ByItself)
+                    listModel.openMenu(R.menu.song, it, PlaySong.ByItself)
                 }
                 true
             }
