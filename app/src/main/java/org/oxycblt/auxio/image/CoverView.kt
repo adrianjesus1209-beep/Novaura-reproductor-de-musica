@@ -20,7 +20,9 @@ package org.oxycblt.auxio.image
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.ColorStateList
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.Matrix
 import android.graphics.PixelFormat
@@ -166,7 +168,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
                         scaleType = ImageView.ScaleType.MATRIX
                         ImageViewCompat.setImageTintList(
                             this,
-                            context.getColorCompat(R.color.sel_on_cover_bg),
+                            ColorStateList.valueOf(Color.WHITE),
                         )
                     },
                     context.getDrawableCompat(R.drawable.ic_playing_indicator_24)
@@ -203,6 +205,19 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
 
         for (child in children) {
             if (child == selectionBadge) {
+                continue
+            }
+            if (child == playbackIndicator?.view) {
+                child.apply {
+                    clipToOutline = true
+                    background =
+                        MaterialShapeDrawable().apply {
+                            fillColor = ColorStateList.valueOf(Color.argb(140, 0, 0, 0))
+                            strokeWidth = 1f
+                            strokeColor = ColorStateList.valueOf(Color.argb(45, 255, 255, 255))
+                            shapeAppearanceModel = squareishShapeAppearance
+                        }
+                }
                 continue
             }
             // configure child views to share the same exact background in all cases
@@ -314,18 +329,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
     }
 
     private fun invalidatePlaybackIndicatorAlpha(playbackIndicator: PlaybackIndicator) {
-        // Occasionally content can bleed through the rounded corners and result in a seam
-        // on the playing indicator, prevent that from occurring by disabling the visibility of
-        // all views below the playback indicator.
-        for (child in children) {
-            child.alpha =
-                when (child) {
-                    // Selection badge is above the playback indicator, do nothing
-                    selectionBadge -> child.alpha
-                    playbackIndicator.view -> if (isSelected) 1f else 0f
-                    else -> if (isSelected) 0f else 1f
-                }
-        }
+        playbackIndicator.view.alpha = if (isSelected) 1f else 0f
     }
 
     private fun invalidateSelectionIndicatorAlpha(selectionBadge: ImageView) {
@@ -571,6 +575,16 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
         }
         for (child in children) {
             if (child == selectionBadge) {
+                continue
+            }
+            if (child == playbackIndicator?.view) {
+                child.background =
+                    MaterialShapeDrawable().apply {
+                        fillColor = ColorStateList.valueOf(Color.argb(140, 0, 0, 0))
+                        strokeWidth = 1f
+                        strokeColor = ColorStateList.valueOf(Color.argb(45, 255, 255, 255))
+                        shapeAppearanceModel = to
+                    }
                 continue
             }
             child.background =

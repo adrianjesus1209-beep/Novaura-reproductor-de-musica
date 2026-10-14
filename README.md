@@ -3,23 +3,22 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.1/Novaura-v1.4.1.1.apk">
-    <b>📥 Descargar APK (Novaura v1.4.1.1)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.2/Novaura-v1.4.1.2.apk">
+    <b>📥 Descargar APK (Novaura v1.4.1.2)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.1.1)
+## 🚀 Descargas (Versión 1.4.1.2)
 
-La versión 1.4.1.1 amplía y perfecciona las opciones disponibles en el reproductor de música:
-- **Menú completo de opciones en el reproductor (3 puntos):** Al presionar el botón de tres puntos en la parte superior derecha de la pantalla de reproducción, ahora se despliega el menú modal completo con todas las opciones disponibles de la canción actual (Reproducir, Modo aleatorio, Reproducir siguiente, Añadir a la cola, Añadir a lista de reproducción, Favoritos, Ir al artista, Ir al álbum, Ver propiedades, Ecualizador, Compartir y Eliminar), tal como en la sección de Todas las canciones.
-- **Acceso directo al Ecualizador:** Se integró la opción de Ecualizador directamente en el menú de opciones de la canción para un ajuste de sonido rápido y accesible.
-- **Botón dedicado para cerrar el reproductor:** Se mantiene un botón directo "X" en la barra superior para detener la reproducción de inmediato.
+La versión 1.4.1.2 renueva por completo el indicador visual de reproducción en listas:
+- **Carátulas y miniaturas siempre visibles:** Se eliminó el recuadro gris opaco que ocultaba por completo la imagen o miniatura de la canción/video al reproducirse. Ahora la portada permanece 100% visible en todo momento.
+- **Elegante capa traslúcida con barras animadas en blanco:** Al reproducirse una pista, se sobrepone una sofisticada capa oscura semitransparente con borde sutil de cristal y las barras del ecualizador animadas en blanco puro de alto contraste, logrando una estética moderna similar a Spotify o Apple Music.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.1.1 APK** | ~9.3 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.1/Novaura-v1.4.1.1.apk) |
+| **Novaura v1.4.1.2 APK** | ~9.3 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.2/Novaura-v1.4.1.2.apk) |
 
 ---
 
