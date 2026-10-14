@@ -3,7 +3,7 @@
     android:initialLayout="@layout/widget_default"
     android:minWidth="@dimen/widget_def_width"
     android:minHeight="@dimen/widget_def_height"
-    android:minResizeHeight="0dp"
+    android:minResizeHeight="40dp"
     android:minResizeWidth="@dimen/widget_def_width"
     android:previewImage="@drawable/ui_widget_preview"
     android:resizeMode="horizontal|vertical"

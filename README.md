@@ -3,22 +3,23 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.2/Novaura-v1.4.1.2.apk">
-    <b>📥 Descargar APK (Novaura v1.4.1.2)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.3/Novaura-v1.4.1.3.apk">
+    <b>📥 Descargar APK (Novaura v1.4.1.3)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.1.2)
+## 🚀 Descargas (Versión 1.4.1.3)
 
-La versión 1.4.1.2 renueva por completo el indicador visual de reproducción en listas:
-- **Carátulas y miniaturas siempre visibles:** Se eliminó el recuadro gris opaco que ocultaba por completo la imagen o miniatura de la canción/video al reproducirse. Ahora la portada permanece 100% visible en todo momento.
-- **Elegante capa traslúcida con barras animadas en blanco:** Al reproducirse una pista, se sobrepone una sofisticada capa oscura semitransparente con borde sutil de cristal y las barras del ecualizador animadas en blanco puro de alto contraste, logrando una estética moderna similar a Spotify o Apple Music.
+La versión 1.4.1.3 introduce un nuevo Widget moderno y reproducción inteligente:
+- **Nuevo Widget tipo tarjeta horizontal (4x1 / 4x2):** Diseño idéntico a los reproductores de última generación, con tarjeta oscura traslúcida, borde sutil, carátula cuadrada con esquinas redondeadas a la izquierda, título y artista a la derecha, y botonera completa de 5 controles: Aleatorio, Anterior, Play/Pause, Siguiente y Repetir.
+- **Reproducción inteligente desde el Widget:** Si la app está en reposo o cerrada, presionar Play o Aleatorio en el widget inicia automáticamente la reproducción (reanudando la última canción, o reproduciendo Favoritos o Toda la biblioteca).
+- **Acceso directo a la app:** Tocar la portada o el texto del widget abre directamente Novaura en la pantalla de reproducción.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.1.2 APK** | ~9.3 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.2/Novaura-v1.4.1.2.apk) |
+| **Novaura v1.4.1.3 APK** | ~9.35 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.3/Novaura-v1.4.1.3.apk) |
 
 ---
 

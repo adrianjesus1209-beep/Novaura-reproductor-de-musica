@@ -26,6 +26,7 @@ import android.media.AudioManager
 import androidx.core.content.ContextCompat
 import javax.inject.Inject
 import org.oxycblt.auxio.playback.PlaybackSettings
+import org.oxycblt.auxio.playback.state.DeferredPlayback
 import org.oxycblt.auxio.playback.state.PlaybackStateManager
 import org.oxycblt.auxio.widgets.WidgetComponent
 import org.oxycblt.auxio.widgets.WidgetProvider
@@ -107,7 +108,16 @@ private constructor(
             // --- AUXIO EVENTS ---
             PlaybackActions.ACTION_PLAY_PAUSE -> {
                 L.d("Received play event")
-                playbackManager.playing(!playbackManager.progression.isPlaying)
+                if (playbackManager.currentSong != null) {
+                    playbackManager.playing(!playbackManager.progression.isPlaying)
+                } else {
+                    playbackManager.playDeferred(
+                        DeferredPlayback.RestoreState(
+                            play = true,
+                            fallback = DeferredPlayback.PlaySmart,
+                        )
+                    )
+                }
             }
             PlaybackActions.ACTION_INC_REPEAT_MODE -> {
                 L.d("Received repeat mode event")
@@ -115,7 +125,11 @@ private constructor(
             }
             PlaybackActions.ACTION_INVERT_SHUFFLE -> {
                 L.d("Received shuffle event")
-                playbackManager.shuffled(!playbackManager.isShuffled)
+                if (playbackManager.currentSong != null) {
+                    playbackManager.shuffled(!playbackManager.isShuffled)
+                } else {
+                    playbackManager.playDeferred(DeferredPlayback.ShuffleAll)
+                }
             }
             PlaybackActions.ACTION_SKIP_PREV -> {
                 L.d("Received skip previous event")

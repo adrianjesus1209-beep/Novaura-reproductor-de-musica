@@ -135,6 +135,11 @@ private constructor(
         val action =
             when (startId) {
                 IntegerTable.START_ID_ACTIVITY -> null
+                IntegerTable.START_ID_WIDGET_PLAY ->
+                    DeferredPlayback.RestoreState(
+                        play = true,
+                        fallback = DeferredPlayback.PlaySmart,
+                    )
                 IntegerTable.START_ID_TASKER ->
                     DeferredPlayback.RestoreState(
                         play = true,

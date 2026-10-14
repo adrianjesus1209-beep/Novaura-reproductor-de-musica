@@ -18,6 +18,7 @@
  
 package org.oxycblt.auxio.widgets
 
+import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
@@ -28,7 +29,10 @@ import android.os.Bundle
 import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
+import androidx.core.content.ContextCompat
+import org.oxycblt.auxio.AuxioService
 import org.oxycblt.auxio.BuildConfig
+import org.oxycblt.auxio.IntegerTable
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.music.resolveNames
@@ -36,7 +40,7 @@ import org.oxycblt.auxio.playback.service.PlaybackActions
 import org.oxycblt.auxio.playback.state.RepeatMode
 import org.oxycblt.auxio.ui.UISettings
 import org.oxycblt.auxio.ui.UISettingsImpl
-import org.oxycblt.auxio.util.newBroadcastPendingIntent
+import org.oxycblt.auxio.util.newMainPendingIntent
 import timber.log.Timber as L
 
 /**
@@ -46,6 +50,81 @@ import timber.log.Timber as L
  * @author Alexander Capehart (OxygenCobalt)
  */
 class WidgetProvider : AppWidgetProvider() {
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        when (intent.action) {
+            ACTION_WIDGET_PLAY_PAUSE -> {
+                L.d("Widget play/pause action received")
+                if (AuxioService.isForeground) {
+                    context.sendBroadcast(
+                        Intent(PlaybackActions.ACTION_PLAY_PAUSE)
+                            .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
+                    )
+                } else {
+                    val serviceIntent =
+                        Intent(context, AuxioService::class.java).apply {
+                            putExtra(
+                                AuxioService.INTENT_KEY_START_ID,
+                                IntegerTable.START_ID_WIDGET_PLAY,
+                            )
+                        }
+                    ContextCompat.startForegroundService(context, serviceIntent)
+                }
+            }
+            ACTION_WIDGET_SKIP_NEXT -> {
+                L.d("Widget skip next action received")
+                if (AuxioService.isForeground) {
+                    context.sendBroadcast(
+                        Intent(PlaybackActions.ACTION_SKIP_NEXT)
+                            .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
+                    )
+                } else {
+                    val serviceIntent =
+                        Intent(context, AuxioService::class.java).apply {
+                            putExtra(
+                                AuxioService.INTENT_KEY_START_ID,
+                                IntegerTable.START_ID_WIDGET_PLAY,
+                            )
+                        }
+                    ContextCompat.startForegroundService(context, serviceIntent)
+                }
+            }
+            ACTION_WIDGET_SKIP_PREV -> {
+                L.d("Widget skip prev action received")
+                if (AuxioService.isForeground) {
+                    context.sendBroadcast(
+                        Intent(PlaybackActions.ACTION_SKIP_PREV)
+                            .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
+                    )
+                }
+            }
+            ACTION_WIDGET_SHUFFLE -> {
+                L.d("Widget shuffle action received")
+                if (AuxioService.isForeground) {
+                    context.sendBroadcast(
+                        Intent(PlaybackActions.ACTION_INVERT_SHUFFLE)
+                            .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
+                    )
+                } else {
+                    val serviceIntent =
+                        Intent(context, AuxioService::class.java).apply {
+                            putExtra(AuxioService.INTENT_KEY_START_ID, IntegerTable.START_ID_TASKER)
+                        }
+                    ContextCompat.startForegroundService(context, serviceIntent)
+                }
+            }
+            ACTION_WIDGET_REPEAT -> {
+                L.d("Widget repeat action received")
+                if (AuxioService.isForeground) {
+                    context.sendBroadcast(
+                        Intent(PlaybackActions.ACTION_INC_REPEAT_MODE)
+                            .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
+                    )
+                }
+            }
+        }
+    }
+
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -89,30 +168,30 @@ class WidgetProvider : AppWidgetProvider() {
 
         val awm = AppWidgetManager.getInstance(context)
 
-        // Create and configure each possible layout for the widget. These dimensions seem
-        // arbitrary, but they are actually the minimum dimensions required to fit all of
-        // the widget elements, plus some leeway for text sizing.
-        val defaultLayout = newThinDockedLayout(context, uiSettings, state)
+        // Create and configure each possible layout for the widget.
+        val defaultLayout = newWideCardLayout(context, uiSettings, state)
         val views =
             mapOf(
                 SizeF(180f, 48f) to newThinStickLayout(context, state),
-                SizeF(304f, 48f) to newWideStickLayout(context, state),
-                SizeF(180f, 80f) to newThinWaferLayout(context, uiSettings, state),
-                SizeF(304f, 80f) to newWideWaferLayout(context, uiSettings, state),
-                SizeF(180f, 152f) to defaultLayout,
-                SizeF(304f, 152f) to newWideDockedLayout(context, uiSettings, state),
-                SizeF(180f, 272f) to newThinPaneLayout(context, uiSettings, state),
-                SizeF(304f, 272f) to newWidePaneLayout(context, uiSettings, state),
+                SizeF(260f, 48f) to newWideStickLayout(context, state),
+                SizeF(180f, 70f) to newThinCardLayout(context, uiSettings, state),
+                SizeF(260f, 70f) to newWideCardLayout(context, uiSettings, state),
+                SizeF(180f, 140f) to newThinCardLayout(context, uiSettings, state),
+                SizeF(260f, 140f) to newWideCardLayout(context, uiSettings, state),
+                SizeF(180f, 260f) to newThinPaneLayout(context, uiSettings, state),
+                SizeF(260f, 260f) to newWidePaneLayout(context, uiSettings, state),
             )
 
         // This is the order in which we will disable cover art layouts if they exceed the
-        // maximum bitmap memory usage. (See the comment in the loop below for more info.)
+        // maximum bitmap memory usage.
         val victims =
             mutableSetOf(
-                R.layout.widget_wafer_thin,
-                R.layout.widget_wafer_wide,
+                R.layout.widget_card_thin,
+                R.layout.widget_card_horizontal,
                 R.layout.widget_pane_thin,
                 R.layout.widget_pane_wide,
+                R.layout.widget_wafer_thin,
+                R.layout.widget_wafer_wide,
                 R.layout.widget_docked_thin,
                 R.layout.widget_docked_wide,
             )
@@ -181,10 +260,63 @@ class WidgetProvider : AppWidgetProvider() {
 
     // --- LAYOUTS ---
 
-    private fun newDefaultLayout(context: Context, uiSettings: UISettings) =
-        newRemoteViews(context, R.layout.widget_default)
-            .setupBackground(uiSettings)
-            .setupBackground(uiSettings)
+    private fun newDefaultLayout(context: Context, uiSettings: UISettings): RemoteViews {
+        val views = newRemoteViews(context, R.layout.widget_default)
+        val mainIntent = context.newMainPendingIntent()
+        views.setOnClickPendingIntent(android.R.id.background, mainIntent)
+        views.setOnClickPendingIntent(R.id.widget_cover, mainIntent)
+        views.setOnClickPendingIntent(R.id.widget_song, mainIntent)
+        views.setOnClickPendingIntent(R.id.widget_artist, mainIntent)
+        views.setOnClickPendingIntent(R.id.widget_info_container, mainIntent)
+
+        views.setOnClickPendingIntent(
+            R.id.widget_play_pause,
+            newWidgetPendingIntent(context, ACTION_WIDGET_PLAY_PAUSE),
+        )
+        views.setImageViewResource(R.id.widget_play_pause, R.drawable.ic_play_24)
+
+        views.setOnClickPendingIntent(
+            R.id.widget_shuffle,
+            newWidgetPendingIntent(context, ACTION_WIDGET_SHUFFLE),
+        )
+        views.setImageViewResource(R.id.widget_shuffle, R.drawable.ic_shuffle_off_24)
+
+        views.setOnClickPendingIntent(
+            R.id.widget_skip_prev,
+            newWidgetPendingIntent(context, ACTION_WIDGET_SKIP_PREV),
+        )
+
+        views.setOnClickPendingIntent(
+            R.id.widget_skip_next,
+            newWidgetPendingIntent(context, ACTION_WIDGET_SKIP_NEXT),
+        )
+
+        views.setOnClickPendingIntent(
+            R.id.widget_repeat,
+            newWidgetPendingIntent(context, ACTION_WIDGET_REPEAT),
+        )
+        views.setImageViewResource(R.id.widget_repeat, R.drawable.ic_repeat_off_24)
+
+        return views
+    }
+
+    private fun newWideCardLayout(
+        context: Context,
+        uiSettings: UISettings,
+        state: WidgetComponent.PlaybackState,
+    ) =
+        newRemoteViews(context, R.layout.widget_card_horizontal)
+            .setupPlaybackState(context, state)
+            .setupFullControls(context, state)
+
+    private fun newThinCardLayout(
+        context: Context,
+        uiSettings: UISettings,
+        state: WidgetComponent.PlaybackState,
+    ) =
+        newRemoteViews(context, R.layout.widget_card_thin)
+            .setupPlaybackState(context, state)
+            .setupTimelineControls(context, state)
 
     private fun newThinStickLayout(context: Context, state: WidgetComponent.PlaybackState) =
         newRemoteViews(context, R.layout.widget_stick_thin).setupTimelineControls(context, state)
@@ -354,6 +486,12 @@ class WidgetProvider : AppWidgetProvider() {
         setupCover(context, state)
         setTextViewText(R.id.widget_song, state.song.name.resolve(context))
         setTextViewText(R.id.widget_artist, state.song.artists.resolveNames(context))
+
+        val mainIntent = context.newMainPendingIntent()
+        setOnClickPendingIntent(R.id.widget_cover, mainIntent)
+        setOnClickPendingIntent(R.id.widget_song, mainIntent)
+        setOnClickPendingIntent(R.id.widget_artist, mainIntent)
+        setOnClickPendingIntent(R.id.widget_info_container, mainIntent)
         return this
     }
 
@@ -367,17 +505,11 @@ class WidgetProvider : AppWidgetProvider() {
         context: Context,
         state: WidgetComponent.PlaybackState,
     ): RemoteViews {
-        // Hook the play/pause button to the play/pause broadcast that will be recognized
-        // by PlaybackService.
         setOnClickPendingIntent(
             R.id.widget_play_pause,
-            context.newBroadcastPendingIntent(PlaybackActions.ACTION_PLAY_PAUSE),
+            newWidgetPendingIntent(context, ACTION_WIDGET_PLAY_PAUSE),
         )
 
-        // Set up the play/pause button appearance. Like the Android 13 media controls, use
-        // a circular FAB when paused, and a squircle FAB when playing. This does require us
-        // to disable the ripple animation sadly, as  it will glitch when this is used. The
-        // shape change should act as a similar signal.
         val icon: Int
         val background: Int
         if (state.isPlaying) {
@@ -389,8 +521,7 @@ class WidgetProvider : AppWidgetProvider() {
         }
 
         setImageViewResource(R.id.widget_play_pause, icon)
-        setBackgroundResource(R.id.widget_play_pause, background)
-
+        // If the view doesn't have a background set or on stick layouts, background is handled
         return this
     }
 
@@ -405,19 +536,15 @@ class WidgetProvider : AppWidgetProvider() {
         context: Context,
         state: WidgetComponent.PlaybackState,
     ): RemoteViews {
-        // Timeline controls contain the basic controls, set those up
         setupBasicControls(context, state)
-        // Timeline elements should always be left-to-right.
         setLayoutDirection(R.id.widget_controls, View.LAYOUT_DIRECTION_LTR)
-        // Hook the skip buttons to the respective broadcasts that can be recognized
-        // by PlaybackService.
         setOnClickPendingIntent(
             R.id.widget_skip_prev,
-            context.newBroadcastPendingIntent(PlaybackActions.ACTION_SKIP_PREV),
+            newWidgetPendingIntent(context, ACTION_WIDGET_SKIP_PREV),
         )
         setOnClickPendingIntent(
             R.id.widget_skip_next,
-            context.newBroadcastPendingIntent(PlaybackActions.ACTION_SKIP_NEXT),
+            newWidgetPendingIntent(context, ACTION_WIDGET_SKIP_NEXT),
         )
         return this
     }
@@ -433,23 +560,17 @@ class WidgetProvider : AppWidgetProvider() {
         context: Context,
         state: WidgetComponent.PlaybackState,
     ): RemoteViews {
-        // Full controls contain timeline controls, make are set those.
         setupTimelineControls(context, state)
 
-        // Hook the repeat/shuffle buttons to the respective broadcasts that can
-        // be recognized by PlaybackService.
         setOnClickPendingIntent(
             R.id.widget_repeat,
-            context.newBroadcastPendingIntent(PlaybackActions.ACTION_INC_REPEAT_MODE),
+            newWidgetPendingIntent(context, ACTION_WIDGET_REPEAT),
         )
         setOnClickPendingIntent(
             R.id.widget_shuffle,
-            context.newBroadcastPendingIntent(PlaybackActions.ACTION_INVERT_SHUFFLE),
+            newWidgetPendingIntent(context, ACTION_WIDGET_SHUFFLE),
         )
 
-        // Set up the repeat/shuffle buttons. When working with RemoteViews, we will
-        // need to hard-code different accent tinting configurations, as stateful drawables
-        // are unsupported.
         val repeatRes =
             when (state.repeatMode) {
                 RepeatMode.NONE -> R.drawable.ic_repeat_off_24
@@ -468,24 +589,32 @@ class WidgetProvider : AppWidgetProvider() {
         return this
     }
 
+    private fun newWidgetPendingIntent(context: Context, action: String): PendingIntent {
+        val intent =
+            Intent(context, WidgetProvider::class.java).apply {
+                this.action = action
+            }
+        val requestCode = action.hashCode()
+        return PendingIntent.getBroadcast(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
     private fun useRoundedRemoteViews(uiSettings: UISettings) =
         uiSettings.roundMode || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     private fun canDisplayWaferCover(uiSettings: UISettings) =
-        // We cannot display album covers in the wafer-style widget when round mode is enabled
-        // below Android 12, as:
-        // - We cannot rely on system widget corner clipping, like on Android 12+
-        // - We cannot manually clip the widget ourselves due to broken clipToOutline support
-        // - We cannot determine the exact widget height that would allow us to clip the loaded
-        // image itself
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S || !uiSettings.roundMode
 
     companion object {
-        /**
-         * Broadcast when [WidgetProvider] desires to update it's widget with new information.
-         * Responsible background tasks should intercept this and relay the message to
-         * [WidgetComponent].
-         */
         const val ACTION_WIDGET_UPDATE = BuildConfig.APPLICATION_ID + ".action.WIDGET_UPDATE"
+        const val ACTION_WIDGET_PLAY_PAUSE = BuildConfig.APPLICATION_ID + ".widget.PLAY_PAUSE"
+        const val ACTION_WIDGET_SKIP_NEXT = BuildConfig.APPLICATION_ID + ".widget.SKIP_NEXT"
+        const val ACTION_WIDGET_SKIP_PREV = BuildConfig.APPLICATION_ID + ".widget.SKIP_PREV"
+        const val ACTION_WIDGET_SHUFFLE = BuildConfig.APPLICATION_ID + ".widget.SHUFFLE"
+        const val ACTION_WIDGET_REPEAT = BuildConfig.APPLICATION_ID + ".widget.REPEAT"
     }
 }

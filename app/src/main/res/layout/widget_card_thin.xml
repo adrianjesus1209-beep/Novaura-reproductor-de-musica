@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/ui_widget_card_bg"
+    android:baselineAligned="false"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="10dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="10dp"
+    android:paddingBottom="8dp"
+    android:theme="@style/Theme.Auxio.Widget">
+
+    <FrameLayout
+        android:id="@+id/widget_cover_container"
+        android:layout_width="58dp"
+        android:layout_height="58dp"
+        android:layout_gravity="center_vertical"
+        android:background="@drawable/ui_widget_cover_rounded">
+
+        <android.widget.ImageView
+            android:id="@+id/widget_cover"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/ui_widget_cover_rounded"
+            android:clipToOutline="true"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_remote_default_cover_24"
+            tools:ignore="ContentDescription" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_info_container"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical"
+        android:layout_marginStart="10dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <android.widget.TextView
+            android:id="@+id/widget_song"
+            style="@style/Widget.Auxio.TextView.Primary.AppWidget"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="marquee"
+            android:marqueeRepeatLimit="marquee_forever"
+            android:singleLine="true"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            tools:text="Song name" />
+
+        <android.widget.TextView
+            android:id="@+id/widget_artist"
+            style="@style/Widget.Auxio.TextView.Secondary.AppWidget"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textColor="#B3FFFFFF"
+            android:textSize="11sp"
+            tools:text="Artist name" />
+
+        <LinearLayout
+            android:id="@+id/widget_controls"
+            android:layout_width="match_parent"
+            android:layout_height="34dp"
+            android:layout_marginTop="3dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <android.widget.ImageButton
+                android:id="@+id/widget_skip_prev"
+                style="@style/Widget.Auxio.MaterialButton.AppWidget"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:contentDescription="@string/desc_skip_prev"
+                android:padding="5dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_skip_prev_24" />
+
+            <android.widget.ImageButton
+                android:id="@+id/widget_play_pause"
+                style="@style/Widget.Auxio.MaterialButton.AppWidget"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.2"
+                android:contentDescription="@string/desc_play_pause"
+                android:padding="3dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_play_24" />
+
+            <android.widget.ImageButton
+                android:id="@+id/widget_skip_next"
+                style="@style/Widget.Auxio.MaterialButton.AppWidget"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:contentDescription="@string/desc_skip_next"
+                android:padding="5dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_skip_next_24" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

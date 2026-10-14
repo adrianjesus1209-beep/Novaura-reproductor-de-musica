@@ -1,33 +1,137 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@android:id/background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/ui_widget_bg_sharp"
-    android:backgroundTint="?attr/colorSurface"
-    android:theme="@style/Theme.Auxio.Widget"
-    tools:ignore="Overdraw">
+    android:background="@drawable/ui_widget_card_bg"
+    android:baselineAligned="false"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="10dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="10dp"
+    android:paddingBottom="8dp"
+    android:theme="@style/Theme.Auxio.Widget">
 
-    <android.widget.ImageView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:alpha="0.275"
-        android:contentDescription="@string/desc_no_cover"
-        android:scaleType="centerCrop"
-        android:src="@drawable/ic_novaura_stat_24"
-        android:tint="?attr/colorPrimary" />
+    <FrameLayout
+        android:id="@+id/widget_cover_container"
+        android:layout_width="66dp"
+        android:layout_height="66dp"
+        android:layout_gravity="center_vertical"
+        android:background="@drawable/ui_widget_cover_rounded">
 
-    <android.widget.TextView
-        style="@style/Widget.Auxio.TextView.Primary.AppWidget"
-        android:layout_width="match_parent"
+        <android.widget.ImageView
+            android:id="@+id/widget_cover"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/ui_widget_cover_rounded"
+            android:clipToOutline="true"
+            android:padding="12dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_novaura_stat_24"
+            android:tint="#FFFFFF"
+            tools:ignore="ContentDescription" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_info_container"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:ellipsize="none"
-        android:gravity="center"
-        android:padding="@dimen/spacing_medium"
-        android:singleLine="false"
-        android:text="@string/def_playback"
-        android:textAlignment="center" />
+        android:layout_gravity="center_vertical"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
 
-</FrameLayout>
+        <android.widget.TextView
+            android:id="@+id/widget_song"
+            style="@style/Widget.Auxio.TextView.Primary.AppWidget"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:text="Novaura"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <android.widget.TextView
+            android:id="@+id/widget_artist"
+            style="@style/Widget.Auxio.TextView.Secondary.AppWidget"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:text="Toca ▶ para reproducir"
+            android:textColor="#B3FFFFFF"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:id="@+id/widget_controls"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:layout_marginTop="4dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <android.widget.ImageButton
+                android:id="@+id/widget_shuffle"
+                style="@style/Widget.Auxio.MaterialButton.AppWidget"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:contentDescription="@string/desc_shuffle"
+                android:padding="6dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_shuffle_off_24" />
+
+            <android.widget.ImageButton
+                android:id="@+id/widget_skip_prev"
+                style="@style/Widget.Auxio.MaterialButton.AppWidget"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:contentDescription="@string/desc_skip_prev"
+                android:padding="6dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_skip_prev_24" />
+
+            <android.widget.ImageButton
+                android:id="@+id/widget_play_pause"
+                style="@style/Widget.Auxio.MaterialButton.AppWidget"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1.1"
+                android:contentDescription="@string/desc_play_pause"
+                android:padding="4dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_play_24" />
+
+            <android.widget.ImageButton
+                android:id="@+id/widget_skip_next"
+                style="@style/Widget.Auxio.MaterialButton.AppWidget"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:contentDescription="@string/desc_skip_next"
+                android:padding="6dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_skip_next_24" />
+
+            <android.widget.ImageButton
+                android:id="@+id/widget_repeat"
+                style="@style/Widget.Auxio.MaterialButton.AppWidget"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:contentDescription="@string/desc_change_repeat"
+                android:padding="6dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_repeat_off_24" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

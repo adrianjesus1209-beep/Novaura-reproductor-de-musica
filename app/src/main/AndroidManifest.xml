@@ -152,6 +152,11 @@
 
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="${applicationId}.widget.PLAY_PAUSE" />
+                <action android:name="${applicationId}.widget.SKIP_NEXT" />
+                <action android:name="${applicationId}.widget.SKIP_PREV" />
+                <action android:name="${applicationId}.widget.SHUFFLE" />
+                <action android:name="${applicationId}.widget.REPEAT" />
             </intent-filter>
 
             <meta-data

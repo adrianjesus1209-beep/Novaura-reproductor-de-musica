@@ -286,6 +286,9 @@ sealed interface DeferredPlayback {
      */
     data object ShuffleAll : DeferredPlayback
 
+    /** Start smart playback: play favorites if available, otherwise play all songs. */
+    data object PlaySmart : DeferredPlayback
+
     /**
      * Start playing an audio file at the given [Uri].
      *

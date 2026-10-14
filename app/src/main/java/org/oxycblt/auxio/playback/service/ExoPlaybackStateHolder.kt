@@ -49,6 +49,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.oxycblt.auxio.image.ImageSettings
+import org.oxycblt.auxio.music.FavoritesManager
 import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.playback.PlaybackSettings
 import org.oxycblt.auxio.playback.audio.AudioLevelProcessor
@@ -78,6 +79,7 @@ class ExoPlaybackStateHolder(
     private val replayGainProcessor: ReplayGainAudioProcessor,
     private val musicRepository: MusicRepository,
     private val imageSettings: ImageSettings,
+    private val favoritesManager: FavoritesManager,
 ) :
     PlaybackStateHolder,
     Player.Listener,
@@ -186,6 +188,24 @@ class ExoPlaybackStateHolder(
                         "Invalid playback parameters"
                     }
                 )
+            }
+            // Smart play -> Play favorites if present, otherwise play all songs
+            is DeferredPlayback.PlaySmart -> {
+                L.d("Smart playback: Trying favorites, then all songs")
+                val favs = favoritesManager.favoriteSongs.value
+                if (favs.isNotEmpty()) {
+                    playbackManager.play(
+                        requireNotNull(commandFactory.songs(favs, ShuffleMode.OFF)) {
+                            "Invalid playback parameters"
+                        }
+                    )
+                } else {
+                    playbackManager.play(
+                        requireNotNull(commandFactory.all(ShuffleMode.OFF)) {
+                            "Invalid playback parameters"
+                        }
+                    )
+                }
             }
             // Open -> Try to find the Song for the given file and then play it from all songs
             is DeferredPlayback.Open -> {
@@ -723,6 +743,7 @@ class ExoPlaybackStateHolder(
         private val audioLevelProcessor: AudioLevelProcessor,
         private val musicRepository: MusicRepository,
         private val imageSettings: ImageSettings,
+        private val favoritesManager: FavoritesManager,
     ) {
         fun create(): ExoPlaybackStateHolder {
             // Since Auxio is a music player, only specify an audio renderer to save
@@ -772,6 +793,7 @@ class ExoPlaybackStateHolder(
                 replayGainProcessor,
                 musicRepository,
                 imageSettings,
+                favoritesManager,
             )
         }
     }
