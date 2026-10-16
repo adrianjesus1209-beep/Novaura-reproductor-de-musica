@@ -19,11 +19,13 @@
 package org.oxycblt.musikr
 
 import android.content.Context
+import android.net.Uri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.oxycblt.musikr.covers.CoverResult
+import org.oxycblt.musikr.fs.File
 import org.oxycblt.musikr.pipeline.EvaluateStep
 import org.oxycblt.musikr.pipeline.ExploreStep
 import org.oxycblt.musikr.pipeline.Explored
@@ -78,6 +80,7 @@ interface Musikr {
          */
         fun new(context: Context, config: Config): Musikr =
             MusikrImpl(
+                context,
                 config,
                 ExploreStep.from(context, config),
                 ExtractStep.from(context, config),
@@ -126,6 +129,7 @@ sealed interface IndexingProgress {
 }
 
 private class MusikrImpl(
+    private val context: Context,
     private val config: Config,
     private val exploreStep: ExploreStep,
     private val extractStep: ExtractStep,
@@ -191,12 +195,18 @@ private class MusikrImpl(
         val cachedFiles = config.storage.cache.readAll()
         if (cachedFiles.isEmpty()) return@coroutineScope null
 
+        val deadUris = mutableListOf<Uri>()
         val trackedExtractedChannel = Channel<Extracted>(PipelineTuning.stageBuffer)
         val feedTask =
             launch(Dispatchers.Default) {
                 for (cachedFile in cachedFiles) {
                     val audio = cachedFile.audio ?: continue
                     if (audio.tags.durationMs in 1 until PipelineTuning.MIN_PLAUSIBLE_DURATION_MS) {
+                        continue
+                    }
+                    val fileExists = checkFileExists(cachedFile.file)
+                    if (!fileExists) {
+                        deadUris.add(cachedFile.file.uri)
                         continue
                     }
                     val cover =
@@ -214,6 +224,9 @@ private class MusikrImpl(
                     )
                 }
                 trackedExtractedChannel.close()
+                if (deadUris.isNotEmpty()) {
+                    config.storage.cache.delete(deadUris)
+                }
             }
         val library = evaluateStep.evaluate(trackedExtractedChannel)
         feedTask.join()
@@ -221,12 +234,26 @@ private class MusikrImpl(
             config,
             library,
             ScanReport(
-                rows = cachedFiles.size,
-                rejected = 0,
+                rows = cachedFiles.size - deadUris.size,
+                rejected = deadUris.size,
                 byReason = emptyMap(),
-                songs = cachedFiles.size,
+                songs = cachedFiles.size - deadUris.size,
             ),
         )
+    }
+
+    private fun checkFileExists(file: File): Boolean {
+        val rawPath = file.path.components.unixString
+        if (rawPath.startsWith("/")) {
+            val ioFile = java.io.File(rawPath)
+            if (!ioFile.exists()) {
+                return false
+            }
+        }
+        return runCatching {
+                context.contentResolver.openFileDescriptor(file.uri, "r")?.use { true } ?: false
+            }
+            .getOrDefault(false)
     }
 }
 

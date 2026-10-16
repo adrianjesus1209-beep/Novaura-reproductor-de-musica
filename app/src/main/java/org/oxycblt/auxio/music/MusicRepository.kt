@@ -20,6 +20,7 @@ package org.oxycblt.auxio.music
 
 import android.content.Context
 import android.media.MediaScannerConnection
+import android.net.Uri
 import android.os.SystemClock
 import android.os.storage.StorageManager
 import android.provider.DocumentsContract
@@ -377,6 +378,7 @@ constructor(
 
     override suspend fun deleteSongs(songs: List<Song>): Boolean {
         var anyDeleted = false
+        val deletedUris = mutableListOf<Uri>()
         for (song in songs) {
             L.d("Deleting $song")
             val uri = song.uri
@@ -395,8 +397,7 @@ constructor(
                         true
                     } else {
                         // On Android 11+, MediaStore.createDeleteRequest may have already deleted
-                        // the file
-                        // before this repository call. Check if the file is indeed gone.
+                        // the file before this repository call. Check if the file is indeed gone.
                         val stillExists =
                             runCatching {
                                     context.contentResolver.openFileDescriptor(uri, "r")?.use {
@@ -409,10 +410,13 @@ constructor(
                 }
             if (deleted) {
                 anyDeleted = true
+                deletedUris.add(uri)
             }
         }
 
         if (anyDeleted) {
+            // Delete from database cache immediately so runFromCache() will not return them
+            cache.delete(deletedUris)
             // Reload the library using the cache so the deleted song disappears everywhere.
             requestIndex(true)
         }

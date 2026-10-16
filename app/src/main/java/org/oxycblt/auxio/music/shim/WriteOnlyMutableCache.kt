@@ -18,6 +18,7 @@
  
 package org.oxycblt.auxio.music.shim
 
+import android.net.Uri
 import org.oxycblt.musikr.cache.CacheResult
 import org.oxycblt.musikr.cache.CachedFile
 import org.oxycblt.musikr.cache.MutableCache
@@ -43,5 +44,9 @@ class WriteOnlyMutableCache(private val inner: MutableCache) : MutableCache {
 
     override suspend fun cleanup(excluding: List<CachedFile>) {
         inner.cleanup(excluding)
+    }
+
+    override suspend fun delete(uris: Collection<Uri>) {
+        inner.delete(uris)
     }
 }

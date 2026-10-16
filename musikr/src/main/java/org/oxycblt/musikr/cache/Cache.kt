@@ -18,6 +18,7 @@
  
 package org.oxycblt.musikr.cache
 
+import android.net.Uri
 import org.oxycblt.musikr.fs.File
 import org.oxycblt.musikr.metadata.Properties
 import org.oxycblt.musikr.tag.parse.ParsedTags
@@ -86,6 +87,13 @@ interface MutableCache : Cache {
      *   created by the loader this cache is used with.
      */
     suspend fun cleanup(excluding: List<CachedFile>)
+
+    /**
+     * Remove the given [uris] from the cache.
+     *
+     * @param uris The URIs of the files to remove from the cache.
+     */
+    suspend fun delete(uris: Collection<Uri>) {}
 }
 
 /** A cached song entry containing the data needed by the rest of the loader. */

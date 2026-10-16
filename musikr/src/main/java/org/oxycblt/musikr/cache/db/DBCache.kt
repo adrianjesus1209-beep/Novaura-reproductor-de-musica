@@ -107,6 +107,10 @@ private constructor(private val inner: DBCache, private val writeDao: CacheWrite
         writeDao.deleteExcludingUris(excluding.mapTo(mutableSetOf()) { it.file.uri.toString() })
     }
 
+    override suspend fun delete(uris: Collection<Uri>) {
+        writeDao.deleteUris(uris)
+    }
+
     companion object {
         /**
          * Create a new instance of [MutableDBCache] from the given [context].

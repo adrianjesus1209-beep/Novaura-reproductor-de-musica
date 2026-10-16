@@ -74,6 +74,14 @@ internal interface CacheWriteDao {
         }
     }
 
+    @Transaction
+    suspend fun deleteUris(uris: Collection<Uri>) {
+        val uriStrings = uris.map { it.toString() }
+        for (chunk in uriStrings.chunked(999)) {
+            deleteExcludingUriChunk(chunk)
+        }
+    }
+
     @Query("SELECT uri FROM CachedFileData") suspend fun selectAllUris(): List<String>
 
     @Query("DELETE FROM CachedFileData WHERE uri IN (:uris)")
