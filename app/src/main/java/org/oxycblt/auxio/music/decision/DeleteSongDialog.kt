@@ -24,6 +24,8 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.view.View
+import android.view.WindowManager
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -52,13 +54,12 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
 
     private lateinit var songsToDelete: List<Song>
     private var pendingMediaStoreSongs: List<Song> = emptyList()
+    private var hasAutoLaunched = false
 
     private val deleteLauncher =
         registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 performDelete(pendingMediaStoreSongs)
-            } else {
-                showNoPermission()
             }
             findNavController().navigateUp()
         }
@@ -72,6 +73,16 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
             }
             findNavController().navigateUp()
         }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        hasAutoLaunched = savedInstanceState?.getBoolean(KEY_AUTO_LAUNCHED, false) ?: false
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_AUTO_LAUNCHED, hasAutoLaunched)
+    }
 
     override fun onConfigDialog(builder: AlertDialog.Builder) {
         val titleRes =
@@ -88,9 +99,27 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
 
     override fun onStart() {
         super.onStart()
-        (requireDialog() as? AlertDialog)?.let { dialog ->
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
+        val isAllMediaStoreOnR =
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                ::songsToDelete.isInitialized &&
+                songsToDelete.isNotEmpty() &&
+                songsToDelete.none { DocumentsContract.isDocumentUri(requireContext(), it.uri) }
+
+        if (isAllMediaStoreOnR) {
+            dialog?.window?.apply {
+                clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                setBackgroundDrawableResource(android.R.color.transparent)
+                decorView.visibility = View.INVISIBLE
+            }
+            if (!hasAutoLaunched) {
+                hasAutoLaunched = true
                 onConfirmDelete()
+            }
+        } else {
+            (requireDialog() as? AlertDialog)?.let { dialog ->
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
+                    onConfirmDelete()
+                }
             }
         }
     }
@@ -196,5 +225,9 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
 
     private fun showNoPermission() {
         requireContext().showToast(R.string.err_delete_failed)
+    }
+
+    private companion object {
+        const val KEY_AUTO_LAUNCHED = "auto_launched"
     }
 }
