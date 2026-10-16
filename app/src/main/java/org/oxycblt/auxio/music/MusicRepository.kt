@@ -388,9 +388,24 @@ constructor(
                         }
                         .isSuccess
                 } else {
-                    // MediaStore deletion (granted beforehand by the caller when needed).
-                    runCatching { context.contentResolver.delete(uri, null, null) > 0 }
-                        .getOrDefault(false)
+                    val rowsDeleted =
+                        runCatching { context.contentResolver.delete(uri, null, null) }
+                            .getOrDefault(0)
+                    if (rowsDeleted > 0) {
+                        true
+                    } else {
+                        // On Android 11+, MediaStore.createDeleteRequest may have already deleted
+                        // the file
+                        // before this repository call. Check if the file is indeed gone.
+                        val stillExists =
+                            runCatching {
+                                    context.contentResolver.openFileDescriptor(uri, "r")?.use {
+                                        true
+                                    } ?: false
+                                }
+                                .getOrDefault(false)
+                        !stillExists
+                    }
                 }
             if (deleted) {
                 anyDeleted = true

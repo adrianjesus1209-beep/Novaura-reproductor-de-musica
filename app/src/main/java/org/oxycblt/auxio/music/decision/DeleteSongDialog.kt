@@ -20,11 +20,12 @@ package org.oxycblt.auxio.music.decision
 
 import android.Manifest
 import android.app.Activity
-import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
@@ -52,8 +53,25 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
     private lateinit var songsToDelete: List<Song>
     private var pendingMediaStoreSongs: List<Song> = emptyList()
 
-    private val mediaStoreRequestCode = 1
-    private val permissionRequestCode = 2
+    private val deleteLauncher =
+        registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                performDelete(pendingMediaStoreSongs)
+            } else {
+                showNoPermission()
+            }
+            findNavController().navigateUp()
+        }
+
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                performDelete(pendingMediaStoreSongs)
+            } else {
+                showNoPermission()
+            }
+            findNavController().navigateUp()
+        }
 
     override fun onConfigDialog(builder: AlertDialog.Builder) {
         val titleRes =
@@ -64,13 +82,17 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
             }
         builder
             .setTitle(titleRes)
-            .setPositiveButton(R.string.lbl_delete) { _, _ ->
-                // Normally the navigateUp will occur after this, which then collides with the
-                // view's navigation. Forcefully navigate up to stop this.
-                findNavController().navigateUp()
+            .setPositiveButton(R.string.lbl_delete, null)
+            .setNegativeButton(R.string.lbl_cancel, null)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        (requireDialog() as? AlertDialog)?.let { dialog ->
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
                 onConfirmDelete()
             }
-            .setNegativeButton(R.string.lbl_cancel, null)
+        }
     }
 
     override fun onCreateBinding(inflater: android.view.LayoutInflater) =
@@ -102,37 +124,6 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode == mediaStoreRequestCode) {
-            if (resultCode == Activity.RESULT_OK) {
-                performDelete(pendingMediaStoreSongs)
-            } else {
-                showNoPermission()
-            }
-            return
-        }
-        super.onActivityResult(requestCode, resultCode, data)
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray,
-    ) {
-        if (requestCode == permissionRequestCode) {
-            val granted =
-                grantResults.isNotEmpty() &&
-                    grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
-            if (granted) {
-                performDelete(pendingMediaStoreSongs)
-            } else {
-                showNoPermission()
-            }
-            return
-        }
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-    }
-
     private fun onConfirmDelete() {
         val currentlyPlayingUid = playbackModel.song.value?.uid
         if (currentlyPlayingUid != null && songsToDelete.any { it.uid == currentlyPlayingUid }) {
@@ -151,53 +142,50 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
         }
 
         if (mediaStoreSongs.isEmpty()) {
+            findNavController().navigateUp()
             return
         }
 
         pendingMediaStoreSongs = mediaStoreSongs
-        val mediaStoreUris = mediaStoreSongs.map { it.uri }
 
         when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
                 // Android 11+: Ask the user directly to delete the media files.
-                val pendingIntent =
-                    MediaStore.createDeleteRequest(
-                        requireContext().contentResolver,
-                        mediaStoreUris,
-                    )
-                startIntentSenderForResult(
-                    pendingIntent.intentSender,
-                    mediaStoreRequestCode,
-                    null,
-                    0,
-                    0,
-                    0,
-                    null,
-                )
+                try {
+                    val mediaStoreUris = mediaStoreSongs.map { it.uri }
+                    val pendingIntent =
+                        MediaStore.createDeleteRequest(
+                            requireContext().contentResolver,
+                            mediaStoreUris,
+                        )
+                    val request = IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                    deleteLauncher.launch(request)
+                } catch (e: Exception) {
+                    L.e(e, "createDeleteRequest failed, attempting direct delete fallback")
+                    performDelete(mediaStoreSongs)
+                    findNavController().navigateUp()
+                }
             }
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
                 // Android 10: Ask the user to grant write access to the media files.
-                val pendingIntent =
-                    MediaStore.createWriteRequest(
-                        requireContext().contentResolver,
-                        mediaStoreUris,
-                    )
-                startIntentSenderForResult(
-                    pendingIntent.intentSender,
-                    mediaStoreRequestCode,
-                    null,
-                    0,
-                    0,
-                    0,
-                    null,
-                )
+                try {
+                    val mediaStoreUris = mediaStoreSongs.map { it.uri }
+                    val pendingIntent =
+                        MediaStore.createWriteRequest(
+                            requireContext().contentResolver,
+                            mediaStoreUris,
+                        )
+                    val request = IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                    deleteLauncher.launch(request)
+                } catch (e: Exception) {
+                    L.e(e, "createWriteRequest failed on Android 10")
+                    performDelete(mediaStoreSongs)
+                    findNavController().navigateUp()
+                }
             }
             else -> {
                 // Android 9 and below: WRITE_EXTERNAL_STORAGE is required.
-                requestPermissions(
-                    arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                    permissionRequestCode,
-                )
+                permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
         }
     }

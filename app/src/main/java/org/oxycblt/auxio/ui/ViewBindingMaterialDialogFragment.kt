@@ -116,9 +116,9 @@ abstract class ViewBindingMaterialDialogFragment<VB : ViewBinding> : DialogFragm
         super.onStart()
 
         (requireDialog() as AlertDialog).apply {
-            (getButton(AlertDialog.BUTTON_NEUTRAL) as AppCompatButton).fixDoubleRipple()
-            (getButton(AlertDialog.BUTTON_POSITIVE) as AppCompatButton).fixDoubleRipple()
-            (getButton(AlertDialog.BUTTON_NEGATIVE) as AppCompatButton).fixDoubleRipple()
+            (getButton(AlertDialog.BUTTON_NEUTRAL) as? AppCompatButton)?.fixDoubleRipple()
+            (getButton(AlertDialog.BUTTON_POSITIVE) as? AppCompatButton)?.fixDoubleRipple()
+            (getButton(AlertDialog.BUTTON_NEGATIVE) as? AppCompatButton)?.fixDoubleRipple()
         }
     }
 
