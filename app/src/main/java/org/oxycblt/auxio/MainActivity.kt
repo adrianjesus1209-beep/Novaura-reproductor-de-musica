@@ -19,6 +19,7 @@
 package org.oxycblt.auxio
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import androidx.activity.viewModels
@@ -53,6 +54,7 @@ import timber.log.Timber as L
 class MainActivity : AppCompatActivity() {
     private val playbackModel: PlaybackViewModel by viewModels()
     @Inject lateinit var uiSettings: UISettings
+    private var isIntroDismissed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,7 +64,53 @@ class MainActivity : AppCompatActivity() {
         val binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setupEdgeToEdge(binding.root)
+        setupIntroVideo(binding, savedInstanceState)
         L.d("Activity created")
+    }
+
+    private fun setupIntroVideo(binding: ActivityMainBinding, savedInstanceState: Bundle?) {
+        if (savedInstanceState != null || hasIntroPlayedInProcess) {
+            binding.introVideoContainer.visibility = View.GONE
+            return
+        }
+
+        binding.introVideoContainer.visibility = View.VISIBLE
+        val videoUri = Uri.parse("android.resource://$packageName/${R.raw.logo_apertura}")
+        val videoView = binding.introVideoView
+        val container = binding.introVideoContainer
+
+        fun dismissIntro() {
+            if (isIntroDismissed) return
+            isIntroDismissed = true
+            hasIntroPlayedInProcess = true
+            try {
+                if (videoView.isPlaying) {
+                    videoView.stopPlayback()
+                }
+            } catch (e: Exception) {
+                L.w("Error stopping intro video: $e")
+            }
+            container
+                .animate()
+                .alpha(0f)
+                .setDuration(350L)
+                .withEndAction {
+                    container.visibility = View.GONE
+                }
+                .start()
+        }
+
+        binding.introSkipButton.setOnClickListener { dismissIntro() }
+        container.setOnClickListener { dismissIntro() }
+
+        videoView.setOnCompletionListener { dismissIntro() }
+        videoView.setOnErrorListener { _, _, _ ->
+            dismissIntro()
+            true
+        }
+
+        videoView.setVideoURI(videoUri)
+        videoView.start()
     }
 
     override fun onResume() {
@@ -151,5 +199,6 @@ class MainActivity : AppCompatActivity() {
 
     private companion object {
         const val KEY_INTENT_USED = BuildConfig.APPLICATION_ID + ".key.FILE_INTENT_USED"
+        private var hasIntroPlayedInProcess = false
     }
 }

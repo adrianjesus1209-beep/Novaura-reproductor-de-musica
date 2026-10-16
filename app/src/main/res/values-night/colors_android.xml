@@ -14,5 +14,5 @@
     <color name="dynamic_primary">@color/m3_ref_palette_dynamic_primary80</color>
 
     <!-- Novaura splash background -->
-    <color name="splash_background">#121212</color>
+    <color name="splash_background">#000000</color>
 </resources>
