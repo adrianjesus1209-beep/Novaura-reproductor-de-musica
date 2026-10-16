@@ -3,23 +3,24 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.3/Novaura-v1.4.1.3.apk">
-    <b>📥 Descargar APK (Novaura v1.4.1.3)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.4/Novaura-v1.4.1.4.apk">
+    <b>📥 Descargar APK (Novaura v1.4.1.4)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.1.3)
+## 🚀 Descargas (Versión 1.4.1.4)
 
-La versión 1.4.1.3 introduce un nuevo Widget moderno y reproducción inteligente:
-- **Nuevo Widget tipo tarjeta horizontal (4x1 / 4x2):** Diseño idéntico a los reproductores de última generación, con tarjeta oscura traslúcida, borde sutil, carátula cuadrada con esquinas redondeadas a la izquierda, título y artista a la derecha, y botonera completa de 5 controles: Aleatorio, Anterior, Play/Pause, Siguiente y Repetir.
-- **Reproducción inteligente desde el Widget:** Si la app está en reposo o cerrada, presionar Play o Aleatorio en el widget inicia automáticamente la reproducción (reanudando la última canción, o reproduciendo Favoritos o Toda la biblioteca).
-- **Acceso directo a la app:** Tocar la portada o el texto del widget abre directamente Novaura en la pantalla de reproducción.
+La versión 1.4.1.4 actualiza los créditos, enlaces y perfil de autor en Novaura:
+- **Créditos y enlaces actualizados:** Todos los accesos de "Código fuente", "Wiki", "Licencias", "Feedback" y "Apoyar" ahora apuntan directamente al repositorio oficial y perfil de GitHub de Novaura (`adrianjesus1209-beep`).
+- **Autor oficial:** Información del autor actualizada a Adrián Jesús.
+- **Atribución limpia y transparente:** Se sustituyó la sección de donaciones externas por una tarjeta clara de reconocimientos y créditos al proyecto base de código abierto Auxio de Alexander Capehart.
+- **Nuevo Widget tipo tarjeta horizontal (4x1 / 4x2):** Introducido con tarjeta oscura traslúcida, borde sutil, carátula cuadrada con esquinas redondeadas, título, artista y 5 controles (Aleatorio, Anterior, Play/Pause, Siguiente y Repetir) con inicio inteligente de reproducción.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.1.3 APK** | ~9.35 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.3/Novaura-v1.4.1.3.apk) |
+| **Novaura v1.4.1.4 APK** | ~9.35 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.4/Novaura-v1.4.1.4.apk) |
 
 ---
 
