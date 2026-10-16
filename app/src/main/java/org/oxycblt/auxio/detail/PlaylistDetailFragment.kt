@@ -411,8 +411,10 @@ class PlaylistDetailFragment :
         val directions =
             when (decision) {
                 is SongDecision.Delete -> {
-                    L.d("Deleting ${decision.song}")
-                    PlaylistDetailFragmentDirections.deleteSong(decision.song.uid)
+                    L.d("Deleting ${decision.songs.size} songs")
+                    PlaylistDetailFragmentDirections.deleteSong(
+                        decision.songs.map { it.uid }.toTypedArray()
+                    )
                 }
             }
         findNavController().navigateSafe(directions)

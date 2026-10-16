@@ -40,23 +40,30 @@ import org.oxycblt.auxio.util.showToast
 import org.oxycblt.musikr.Song
 import timber.log.Timber as L
 
-/** A [ViewBindingMaterialDialogFragment] that asks the user to confirm the deletion of a [Song]. */
+/** A [ViewBindingMaterialDialogFragment] that asks the user to confirm the deletion of [Song]s. */
 @AndroidEntryPoint
 class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBinding>() {
     private val musicModel: MusicViewModel by activityViewModels()
     private val playbackModel: PlaybackViewModel by activityViewModels()
-    // Information about what song to delete is initially within the navigation arguments as UIDs,
+    // Information about what songs to delete is initially within the navigation arguments as UIDs,
     // as that is the only safe way to parcel song information.
     private val args: DeleteSongDialogArgs by navArgs()
 
-    private lateinit var songToDelete: Song
+    private lateinit var songsToDelete: List<Song>
+    private var pendingMediaStoreSongs: List<Song> = emptyList()
 
     private val mediaStoreRequestCode = 1
     private val permissionRequestCode = 2
 
     override fun onConfigDialog(builder: AlertDialog.Builder) {
+        val titleRes =
+            if (args.songUids.size > 1) {
+                R.string.lbl_confirm_delete_selection
+            } else {
+                R.string.lbl_confirm_delete_song
+            }
         builder
-            .setTitle(R.string.lbl_confirm_delete_song)
+            .setTitle(titleRes)
             .setPositiveButton(R.string.lbl_delete) { _, _ ->
                 // Normally the navigateUp will occur after this, which then collides with the
                 // view's navigation. Forcefully navigate up to stop this.
@@ -77,22 +84,28 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
 
         // --- VIEWMODEL SETUP ---
         musicModel.songDecision.consume()
-        val song = musicModel.findSong(args.songUid)
-        if (song == null) {
-            L.d("No song to delete, navigating away")
+        val songs = args.songUids.mapNotNull { musicModel.findSong(it) }
+        if (songs.isEmpty()) {
+            L.d("No songs to delete, navigating away")
             findNavController().navigateUp()
             return
         }
-        songToDelete = song
+        songsToDelete = songs
 
-        requireBinding().deletionInfo.text =
-            getString(R.string.fmt_deletion_info, song.name.resolve(requireContext()))
+        if (songs.size > 1) {
+            requireBinding().deletionInfo.text =
+                getString(R.string.fmt_deletion_info_plural, songs.size)
+        } else {
+            val song = songs.first()
+            requireBinding().deletionInfo.text =
+                getString(R.string.fmt_deletion_info, song.name.resolve(requireContext()))
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (requestCode == mediaStoreRequestCode) {
             if (resultCode == Activity.RESULT_OK) {
-                performDelete(songToDelete)
+                performDelete(pendingMediaStoreSongs)
             } else {
                 showNoPermission()
             }
@@ -111,7 +124,7 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
                 grantResults.isNotEmpty() &&
                     grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
             if (granted) {
-                performDelete(songToDelete)
+                performDelete(pendingMediaStoreSongs)
             } else {
                 showNoPermission()
             }
@@ -121,26 +134,36 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
     }
 
     private fun onConfirmDelete() {
-        // Safely move past the currently playing/deleted song if it is the one being deleted.
-        if (playbackModel.song.value?.uid == songToDelete.uid) {
+        val currentlyPlayingUid = playbackModel.song.value?.uid
+        if (currentlyPlayingUid != null && songsToDelete.any { it.uid == currentlyPlayingUid }) {
             playbackModel.next()
         }
 
-        val uri = songToDelete.uri
-        // Songs added via SAF/All files access flow (ex: OTG drives, external SD cards) are deleted
-        // through a tree document, which does not require any extra permissions.
-        if (DocumentsContract.isDocumentUri(requireContext(), uri)) {
-            performDelete(songToDelete)
+        // Separate songs into SAF tree uris and MediaStore uris
+        val (safSongs, mediaStoreSongs) =
+            songsToDelete.partition {
+                DocumentsContract.isDocumentUri(requireContext(), it.uri)
+            }
+
+        // If there are SAF songs, delete them directly
+        if (safSongs.isNotEmpty()) {
+            performDelete(safSongs)
+        }
+
+        if (mediaStoreSongs.isEmpty()) {
             return
         }
 
+        pendingMediaStoreSongs = mediaStoreSongs
+        val mediaStoreUris = mediaStoreSongs.map { it.uri }
+
         when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
-                // Android 11+: Ask the user directly to delete the media file.
+                // Android 11+: Ask the user directly to delete the media files.
                 val pendingIntent =
                     MediaStore.createDeleteRequest(
                         requireContext().contentResolver,
-                        listOf(songToDelete.uri),
+                        mediaStoreUris,
                     )
                 startIntentSenderForResult(
                     pendingIntent.intentSender,
@@ -153,11 +176,11 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
                 )
             }
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
-                // Android 10: Ask the user to grant write access to the media file.
+                // Android 10: Ask the user to grant write access to the media files.
                 val pendingIntent =
                     MediaStore.createWriteRequest(
                         requireContext().contentResolver,
-                        listOf(songToDelete.uri),
+                        mediaStoreUris,
                     )
                 startIntentSenderForResult(
                     pendingIntent.intentSender,
@@ -179,8 +202,8 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
         }
     }
 
-    private fun performDelete(song: Song) {
-        musicModel.deleteSong(song, rude = true)
+    private fun performDelete(songs: List<Song>) {
+        musicModel.deleteSongs(songs, rude = true)
     }
 
     private fun showNoPermission() {

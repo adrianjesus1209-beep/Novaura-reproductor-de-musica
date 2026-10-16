@@ -161,6 +161,14 @@ interface MusicRepository {
     suspend fun deleteSong(song: Song): Boolean
 
     /**
+     * Delete the given [Song]s and their backing files from disk.
+     *
+     * @param songs The songs to delete.
+     * @return Whether any song was successfully deleted.
+     */
+    suspend fun deleteSongs(songs: List<Song>): Boolean
+
+    /**
      * Add the given [Song]s to a [Playlist].
      *
      * @param songs The [Song]s to add to the [Playlist].
@@ -365,27 +373,35 @@ constructor(
         withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
     }
 
-    override suspend fun deleteSong(song: Song): Boolean {
-        L.d("Deleting $song")
-        val uri = song.uri
-        val deleted =
-            if (DocumentsContract.isDocumentUri(context, uri)) {
-                // Deletion via SAF tree grants does not need additional write permissions.
-                runCatching {
-                        DocumentsContract.deleteDocument(context.contentResolver, uri)
-                    }
-                    .isSuccess
-            } else {
-                // MediaStore deletion (granted beforehand by the caller when needed).
-                runCatching { context.contentResolver.delete(uri, null, null) > 0 }
-                    .getOrDefault(false)
-            }
+    override suspend fun deleteSong(song: Song): Boolean = deleteSongs(listOf(song))
 
-        if (deleted) {
+    override suspend fun deleteSongs(songs: List<Song>): Boolean {
+        var anyDeleted = false
+        for (song in songs) {
+            L.d("Deleting $song")
+            val uri = song.uri
+            val deleted =
+                if (DocumentsContract.isDocumentUri(context, uri)) {
+                    // Deletion via SAF tree grants does not need additional write permissions.
+                    runCatching {
+                            DocumentsContract.deleteDocument(context.contentResolver, uri)
+                        }
+                        .isSuccess
+                } else {
+                    // MediaStore deletion (granted beforehand by the caller when needed).
+                    runCatching { context.contentResolver.delete(uri, null, null) > 0 }
+                        .getOrDefault(false)
+                }
+            if (deleted) {
+                anyDeleted = true
+            }
+        }
+
+        if (anyDeleted) {
             // Reload the library using the cache so the deleted song disappears everywhere.
             requestIndex(true)
         }
-        return deleted
+        return anyDeleted
     }
 
     override suspend fun addToPlaylist(songs: List<Song>, playlist: Playlist) {

@@ -74,6 +74,14 @@ abstract class MenuDialogFragment<M : Menu> :
      */
     abstract fun onClick(item: MenuItem, menu: M)
 
+    /**
+     * Prepare or modify the inflated [MenuBuilder] before it is converted to items for display.
+     *
+     * @param menu The [MenuBuilder] that was inflated.
+     * @param menuData The currently-shown menu [M].
+     */
+    @SuppressLint("RestrictedApi") open fun onPrepareMenu(menu: MenuBuilder, menuData: M) {}
+
     override fun onCreateBinding(inflater: LayoutInflater) = DialogMenuBinding.inflate(inflater)
 
     override fun onBindingCreated(binding: DialogMenuBinding, savedInstanceState: Bundle?) {
@@ -117,6 +125,8 @@ abstract class MenuDialogFragment<M : Menu> :
         // depend on the AndroidX Toolbar internal API and hope for the best.
         @SuppressLint("RestrictedApi") val builder = MenuBuilder(requireContext())
         SupportMenuInflater(requireContext()).inflate(casted.res, builder)
+
+        onPrepareMenu(builder, casted)
 
         // Disable any menu options as specified by the impl
         val disabledIds = getDisabledItemIds(casted)

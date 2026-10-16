@@ -316,17 +316,35 @@ constructor(
      *   normal use.
      */
     fun deleteSong(song: Song, rude: Boolean = false) {
+        deleteSongs(listOf(song), rude)
+    }
+
+    /**
+     * Delete the given [Song]s and their backing files from disk.
+     *
+     * @param songs The songs to delete.
+     * @param rude Whether to immediately delete the songs or prompt the user first. This should be
+     *   false at almost all times. This argument is internal and does not need to be specified in
+     *   normal use.
+     */
+    fun deleteSongs(songs: List<Song>, rude: Boolean = false) {
+        if (songs.isEmpty()) return
         if (rude) {
-            L.d("Deleting $song")
+            L.d("Deleting ${songs.size} songs")
             viewModelScope.launch(Dispatchers.IO) {
-                val success = musicRepository.deleteSong(song)
+                val success = musicRepository.deleteSongs(songs)
                 songMessage.put(
-                    if (success) SongMessage.DeleteSuccess else SongMessage.DeleteFailed
+                    if (success) {
+                        if (songs.size == 1) SongMessage.DeleteSuccess
+                        else SongMessage.DeleteMultipleSuccess
+                    } else {
+                        SongMessage.DeleteFailed
+                    }
                 )
             }
         } else {
-            L.d("Launching deletion dialog for $song")
-            songDecision.put(SongDecision.Delete(song))
+            L.d("Launching deletion dialog for ${songs.size} songs")
+            songDecision.put(SongDecision.Delete(songs))
         }
     }
 
@@ -534,11 +552,11 @@ sealed interface PlaylistMessage {
  */
 sealed interface SongDecision {
     /**
-     * Navigate to a dialog that confirms the deletion of an existing [Song].
+     * Navigate to a dialog that confirms the deletion of existing [Song]s.
      *
-     * @param song The song to act on.
+     * @param songs The songs to act on.
      */
-    data class Delete(val song: Song) : SongDecision
+    data class Delete(val songs: List<Song>) : SongDecision
 }
 
 sealed interface SongMessage {
@@ -547,6 +565,11 @@ sealed interface SongMessage {
     data object DeleteSuccess : SongMessage {
         override val stringRes: Int
             get() = R.string.lng_song_deleted
+    }
+
+    data object DeleteMultipleSuccess : SongMessage {
+        override val stringRes: Int
+            get() = R.string.lng_songs_deleted
     }
 
     data object DeleteFailed : SongMessage {

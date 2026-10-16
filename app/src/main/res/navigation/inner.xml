@@ -526,8 +526,8 @@
         android:label="delete_song_dialog"
         tools:layout="@layout/dialog_delete_song">
         <argument
-            android:name="songUid"
-            app:argType="org.oxycblt.musikr.Music$UID" />
+            android:name="songUids"
+            app:argType="org.oxycblt.musikr.Music$UID[]" />
     </dialog>
 
     <dialog

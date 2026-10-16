@@ -44,6 +44,8 @@ import org.oxycblt.auxio.list.menu.Menu
 import org.oxycblt.auxio.list.recycler.SongViewHolder
 import org.oxycblt.auxio.music.FavoritesManager
 import org.oxycblt.auxio.music.MusicViewModel
+import org.oxycblt.auxio.music.SongDecision
+import org.oxycblt.auxio.music.SongMessage
 import org.oxycblt.auxio.playback.PlaySong
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.formatDurationMs
@@ -52,8 +54,10 @@ import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.getDimenPixels
 import org.oxycblt.auxio.util.getPlural
 import org.oxycblt.auxio.util.navigateSafe
+import org.oxycblt.auxio.util.showToast
 import org.oxycblt.auxio.util.systemBarInsetsCompat
 import org.oxycblt.musikr.Song
+import timber.log.Timber as L
 
 /**
  * A detail view presenting favorite songs as a dedicated album ("como un álbum pero apartado").
@@ -134,6 +138,8 @@ class FavoritesDetailFragment :
         }
 
         collect(listModel.menu.flow, ::handleMenu)
+        collect(musicModel.songDecision.flow, ::handleSongDecision)
+        collect(musicModel.songMessage.flow, ::handleSongMessage)
     }
 
     override fun onDestroyBinding(binding: FragmentDetailBinding) {
@@ -277,6 +283,27 @@ class FavoritesDetailFragment :
                 else -> return
             }
         findNavController().navigateSafe(directions)
+    }
+
+    private fun handleSongDecision(decision: SongDecision?) {
+        if (decision == null) return
+        musicModel.songDecision.consume()
+        val directions =
+            when (decision) {
+                is SongDecision.Delete -> {
+                    L.d("Deleting ${decision.songs.size} songs")
+                    FavoritesDetailFragmentDirections.deleteSong(
+                        decision.songs.map { it.uid }.toTypedArray()
+                    )
+                }
+            }
+        findNavController().navigateSafe(directions)
+    }
+
+    private fun handleSongMessage(message: SongMessage?) {
+        if (message == null) return
+        requireContext().showToast(message.stringRes)
+        musicModel.songMessage.consume()
     }
 
     private class SongAdapter(private val listener: SelectableListListener<Song>) :

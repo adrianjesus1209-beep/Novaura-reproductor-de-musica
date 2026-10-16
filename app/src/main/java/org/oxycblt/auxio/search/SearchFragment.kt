@@ -383,8 +383,10 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
         val directions =
             when (decision) {
                 is SongDecision.Delete -> {
-                    L.d("Deleting ${decision.song}")
-                    SearchFragmentDirections.deleteSong(decision.song.uid)
+                    L.d("Deleting ${decision.songs.size} songs")
+                    SearchFragmentDirections.deleteSong(
+                        decision.songs.map { it.uid }.toTypedArray()
+                    )
                 }
             }
         findNavController().navigateSafe(directions)

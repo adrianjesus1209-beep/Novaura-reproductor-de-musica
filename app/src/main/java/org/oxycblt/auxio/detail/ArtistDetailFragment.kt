@@ -311,8 +311,10 @@ class ArtistDetailFragment : DetailFragment<Artist, Music>() {
         val directions =
             when (decision) {
                 is SongDecision.Delete -> {
-                    L.d("Deleting ${decision.song}")
-                    ArtistDetailFragmentDirections.deleteSong(decision.song.uid)
+                    L.d("Deleting ${decision.songs.size} songs")
+                    ArtistDetailFragmentDirections.deleteSong(
+                        decision.songs.map { it.uid }.toTypedArray()
+                    )
                 }
             }
         findNavController().navigateSafe(directions)

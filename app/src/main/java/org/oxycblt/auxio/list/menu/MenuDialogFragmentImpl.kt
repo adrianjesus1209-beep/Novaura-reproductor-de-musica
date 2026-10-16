@@ -19,6 +19,7 @@
 package org.oxycblt.auxio.list.menu
 
 import android.view.MenuItem
+import androidx.appcompat.view.menu.MenuBuilder
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.navArgs
@@ -369,6 +370,16 @@ class SelectionMenuDialogFragment : MenuDialogFragment<Menu.ForSelection>() {
     // Nothing to disable in song menus.
     override fun getDisabledItemIds(menu: Menu.ForSelection) = setOf<Int>()
 
+    override fun onPrepareMenu(menu: MenuBuilder, menuData: Menu.ForSelection) {
+        val deleteItem = menu.findItem(R.id.action_delete) ?: return
+        deleteItem.title =
+            if (menuData.songs.size > 1) {
+                getString(R.string.lbl_delete_selection)
+            } else {
+                getString(R.string.lbl_delete)
+            }
+    }
+
     override fun updateMenu(binding: DialogMenuBinding, menu: Menu.ForSelection) {
         binding.menuCover.bind(
             menu.songs,
@@ -396,6 +407,7 @@ class SelectionMenuDialogFragment : MenuDialogFragment<Menu.ForSelection>() {
             }
             R.id.action_playlist_add -> musicModel.addToPlaylist(menu.songs)
             R.id.action_share -> requireContext().share(menu.songs)
+            R.id.action_delete -> musicModel.deleteSongs(menu.songs)
             else -> error("Unexpected menu item selected $item")
         }
     }
