@@ -175,6 +175,9 @@ private constructor(
     val notification: ForegroundServiceNotification?
         get() = if (exoHolder.sessionOngoing) sessionHolder.notification else null
 
+    val sessionNotification: ForegroundServiceNotification
+        get() = sessionHolder.notification
+
     fun release() {
         autoStopJob?.cancel()
         waitJob.cancel()

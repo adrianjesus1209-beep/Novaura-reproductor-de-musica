@@ -49,6 +49,7 @@ class AuxioService :
     @SuppressLint("WrongConstant")
     override fun onCreate() {
         super.onCreate()
+        isAlive = true
         playbackFragment = playbackFragmentFactory.create(this, this)
         musicFragment = musicFragmentFactory.create(this, this, this)
         sessionToken = playbackFragment.attach()
@@ -60,12 +61,27 @@ class AuxioService :
         // TODO: Start command occurring from a foreign service basically implies a detached
         //  service, we might need more handling here.
         super.onStartCommand(intent, flags, startId)
+        val startReqId = intent?.getIntExtra(INTENT_KEY_START_ID, -1)
+        if (
+            startReqId == IntegerTable.START_ID_WIDGET_PLAY ||
+                startReqId == IntegerTable.START_ID_TASKER
+        ) {
+            ensureForegroundNotification()
+        }
         onHandleForeground(intent)
         // If we die we want to not restart, we will immediately try to foreground in and just
         // fail to start again since the activity will be dead too. This is not the semantically
         // "correct" flag (normally you want START_STICKY for playback) but we need this to avoid
         // weird foreground errors.
         return START_NOT_STICKY
+    }
+
+    private fun ensureForegroundNotification() {
+        if (!isForeground) {
+            val notification = playbackFragment.sessionNotification
+            startForeground(notification.code, notification.build())
+            isForeground = true
+        }
     }
 
     override fun onBind(intent: Intent): IBinder? {
@@ -86,6 +102,7 @@ class AuxioService :
 
     override fun onDestroy() {
         super.onDestroy()
+        isAlive = false
         musicFragment.release()
         playbackFragment.release()
     }
@@ -158,6 +175,9 @@ class AuxioService :
 
         var isForeground = false
             private set
+
+        var isAlive = false
+            internal set
 
         // This is only meant for Auxio to internally ensure that it's state management will work.
         const val INTENT_KEY_START_ID = BuildConfig.APPLICATION_ID + ".service.START_ID"

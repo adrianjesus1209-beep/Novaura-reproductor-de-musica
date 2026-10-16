@@ -56,9 +56,10 @@ class WidgetProvider : AppWidgetProvider() {
         when (intent.action) {
             ACTION_WIDGET_PLAY_PAUSE -> {
                 L.d("Widget play/pause action received")
-                if (AuxioService.isForeground) {
+                if (AuxioService.isAlive) {
                     context.sendBroadcast(
                         Intent(PlaybackActions.ACTION_PLAY_PAUSE)
+                            .setPackage(context.packageName)
                             .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
                     )
                 } else {
@@ -69,14 +70,32 @@ class WidgetProvider : AppWidgetProvider() {
                                 IntegerTable.START_ID_WIDGET_PLAY,
                             )
                         }
-                    ContextCompat.startForegroundService(context, serviceIntent)
+                    try {
+                        ContextCompat.startForegroundService(context, serviceIntent)
+                    } catch (e: Exception) {
+                        L.w(e, "Unable to start foreground service directly from widget")
+                        val launchIntent =
+                            context.packageManager
+                                .getLaunchIntentForPackage(context.packageName)
+                                ?.apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    putExtra(
+                                        AuxioService.INTENT_KEY_START_ID,
+                                        IntegerTable.START_ID_WIDGET_PLAY,
+                                    )
+                                }
+                        if (launchIntent != null) {
+                            context.startActivity(launchIntent)
+                        }
+                    }
                 }
             }
             ACTION_WIDGET_SKIP_NEXT -> {
                 L.d("Widget skip next action received")
-                if (AuxioService.isForeground) {
+                if (AuxioService.isAlive) {
                     context.sendBroadcast(
                         Intent(PlaybackActions.ACTION_SKIP_NEXT)
+                            .setPackage(context.packageName)
                             .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
                     )
                 } else {
@@ -87,14 +106,32 @@ class WidgetProvider : AppWidgetProvider() {
                                 IntegerTable.START_ID_WIDGET_PLAY,
                             )
                         }
-                    ContextCompat.startForegroundService(context, serviceIntent)
+                    try {
+                        ContextCompat.startForegroundService(context, serviceIntent)
+                    } catch (e: Exception) {
+                        L.w(e, "Unable to start foreground service directly from widget")
+                        val launchIntent =
+                            context.packageManager
+                                .getLaunchIntentForPackage(context.packageName)
+                                ?.apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    putExtra(
+                                        AuxioService.INTENT_KEY_START_ID,
+                                        IntegerTable.START_ID_WIDGET_PLAY,
+                                    )
+                                }
+                        if (launchIntent != null) {
+                            context.startActivity(launchIntent)
+                        }
+                    }
                 }
             }
             ACTION_WIDGET_SKIP_PREV -> {
                 L.d("Widget skip prev action received")
-                if (AuxioService.isForeground) {
+                if (AuxioService.isAlive) {
                     context.sendBroadcast(
                         Intent(PlaybackActions.ACTION_SKIP_PREV)
+                            .setPackage(context.packageName)
                             .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
                     )
                 } else {
@@ -105,14 +142,32 @@ class WidgetProvider : AppWidgetProvider() {
                                 IntegerTable.START_ID_WIDGET_PLAY,
                             )
                         }
-                    ContextCompat.startForegroundService(context, serviceIntent)
+                    try {
+                        ContextCompat.startForegroundService(context, serviceIntent)
+                    } catch (e: Exception) {
+                        L.w(e, "Unable to start foreground service directly from widget")
+                        val launchIntent =
+                            context.packageManager
+                                .getLaunchIntentForPackage(context.packageName)
+                                ?.apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    putExtra(
+                                        AuxioService.INTENT_KEY_START_ID,
+                                        IntegerTable.START_ID_WIDGET_PLAY,
+                                    )
+                                }
+                        if (launchIntent != null) {
+                            context.startActivity(launchIntent)
+                        }
+                    }
                 }
             }
             ACTION_WIDGET_SHUFFLE -> {
                 L.d("Widget shuffle action received")
-                if (AuxioService.isForeground) {
+                if (AuxioService.isAlive) {
                     context.sendBroadcast(
                         Intent(PlaybackActions.ACTION_INVERT_SHUFFLE)
+                            .setPackage(context.packageName)
                             .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
                     )
                 } else {
@@ -120,14 +175,19 @@ class WidgetProvider : AppWidgetProvider() {
                         Intent(context, AuxioService::class.java).apply {
                             putExtra(AuxioService.INTENT_KEY_START_ID, IntegerTable.START_ID_TASKER)
                         }
-                    ContextCompat.startForegroundService(context, serviceIntent)
+                    try {
+                        ContextCompat.startForegroundService(context, serviceIntent)
+                    } catch (e: Exception) {
+                        L.w(e, "Unable to start foreground service directly from widget")
+                    }
                 }
             }
             ACTION_WIDGET_REPEAT -> {
                 L.d("Widget repeat action received")
-                if (AuxioService.isForeground) {
+                if (AuxioService.isAlive) {
                     context.sendBroadcast(
                         Intent(PlaybackActions.ACTION_INC_REPEAT_MODE)
+                            .setPackage(context.packageName)
                             .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
                     )
                 }
@@ -300,7 +360,10 @@ class WidgetProvider : AppWidgetProvider() {
      */
     private fun requestUpdate(context: Context) {
         L.d("Sending update intent to PlaybackService")
-        val intent = Intent(ACTION_WIDGET_UPDATE).addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
+        val intent =
+            Intent(ACTION_WIDGET_UPDATE)
+                .setPackage(context.packageName)
+                .addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
         context.sendBroadcast(intent)
     }
 
