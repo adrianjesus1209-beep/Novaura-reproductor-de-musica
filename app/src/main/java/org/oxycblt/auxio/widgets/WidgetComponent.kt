@@ -30,6 +30,8 @@ import org.oxycblt.auxio.image.BitmapProvider
 import org.oxycblt.auxio.image.ImageSettings
 import org.oxycblt.auxio.image.coil.RoundedRectTransformation
 import org.oxycblt.auxio.image.coil.SquareCropTransformation
+import org.oxycblt.auxio.music.resolve
+import org.oxycblt.auxio.music.resolveNames
 import org.oxycblt.auxio.playback.state.PlaybackStateManager
 import org.oxycblt.auxio.playback.state.Progression
 import org.oxycblt.auxio.playback.state.QueueChange
@@ -126,6 +128,15 @@ private constructor(
                 override fun onCompleted(bitmap: Bitmap?) {
                     val state = PlaybackState(song, bitmap, isPlaying, repeatMode, isShuffled)
                     L.d("Bitmap loaded, uploading state $state")
+                    WidgetCache.save(
+                        context = context,
+                        songName = song.name.resolve(context),
+                        artistName = song.artists.resolveNames(context),
+                        albumName = song.album.name.resolve(context),
+                        cover = bitmap,
+                        repeatMode = repeatMode,
+                        isShuffled = isShuffled,
+                    )
                     widgetProvider.update(context, uiSettings, state)
                 }
             },

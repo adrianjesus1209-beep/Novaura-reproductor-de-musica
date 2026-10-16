@@ -3,24 +3,24 @@
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.4/Novaura-v1.4.1.4.apk">
-    <b>📥 Descargar APK (Novaura v1.4.1.4)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.5/Novaura-v1.4.1.5.apk">
+    <b>📥 Descargar APK (Novaura v1.4.1.5)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.1.4)
+## 🚀 Descargas (Versión 1.4.1.5)
 
-La versión 1.4.1.4 actualiza los créditos, enlaces y perfil de autor en Novaura:
-- **Créditos y enlaces actualizados:** Todos los accesos de "Código fuente", "Wiki", "Licencias", "Feedback" y "Apoyar" ahora apuntan directamente al repositorio oficial y perfil de GitHub de Novaura (`adrianjesus1209-beep`).
-- **Autor oficial:** Información del autor actualizada a Adrián Jesús.
-- **Atribución limpia y transparente:** Se sustituyó la sección de donaciones externas por una tarjeta clara de reconocimientos y créditos al proyecto base de código abierto Auxio de Alexander Capehart.
-- **Nuevo Widget tipo tarjeta horizontal (4x1 / 4x2):** Introducido con tarjeta oscura traslúcida, borde sutil, carátula cuadrada con esquinas redondeadas, título, artista y 5 controles (Aleatorio, Anterior, Play/Pause, Siguiente y Repetir) con inicio inteligente de reproducción.
+La versión 1.4.1.5 introduce **caché persistente en el Widget** y mejoras de reproducción en segundo plano:
+- **Caché persistente en el Widget:** La última canción en reproducción (título de la canción, artista y carátula del álbum) ahora queda guardada en la caché del widget.
+- **Sin pérdida del estado al cerrar:** Al cerrar la aplicación, pausar la música, reiniciar el teléfono o limpiarla de aplicaciones recientes, el widget ya **no** se reinicia a una tarjeta vacía ("Novaura / Toca para reproducir"); conserva siempre la carátula y los datos de la canción en pausa con el botón de Play listo para reanudar.
+- **Reanudación instantánea:** Tocar Play en el widget reanuda la canción inmediatamente desde donde quedó.
+- **Soporte mejorado de controles:** Los botones Anterior, Siguiente y Aleatorio ahora responden e inician la reproducción incluso con el servicio en reposo.
 
 | Archivo | Tamaño | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.1.4 APK** | ~9.35 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.4/Novaura-v1.4.1.4.apk) |
+| **Novaura v1.4.1.5 APK** | ~9.35 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.5/Novaura-v1.4.1.5.apk) |
 
 ---
 

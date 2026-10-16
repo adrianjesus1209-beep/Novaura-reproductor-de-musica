@@ -24,6 +24,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.os.Build
 import android.os.Bundle
 import android.util.SizeF
@@ -96,6 +97,15 @@ class WidgetProvider : AppWidgetProvider() {
                         Intent(PlaybackActions.ACTION_SKIP_PREV)
                             .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
                     )
+                } else {
+                    val serviceIntent =
+                        Intent(context, AuxioService::class.java).apply {
+                            putExtra(
+                                AuxioService.INTENT_KEY_START_ID,
+                                IntegerTable.START_ID_WIDGET_PLAY,
+                            )
+                        }
+                    ContextCompat.startForegroundService(context, serviceIntent)
                 }
             }
             ACTION_WIDGET_SHUFFLE -> {
@@ -158,14 +168,69 @@ class WidgetProvider : AppWidgetProvider() {
      * @param uiSettings [UISettings] to obtain round mode configuration
      * @param state [WidgetComponent.PlaybackState] to show, or null if no playback is going on.
      */
+    data class WidgetItemState(
+        val songTitle: String,
+        val artistName: String,
+        val albumName: String,
+        val cover: Bitmap?,
+        val isPlaying: Boolean,
+        val repeatMode: RepeatMode,
+        val isShuffled: Boolean,
+    )
+
+    private fun WidgetComponent.PlaybackState.toItemState(context: Context) =
+        WidgetItemState(
+            songTitle = song.name.resolve(context),
+            artistName = song.artists.resolveNames(context),
+            albumName = song.album.name.resolve(context),
+            cover = cover,
+            isPlaying = isPlaying,
+            repeatMode = repeatMode,
+            isShuffled = isShuffled,
+        )
+
+    private fun WidgetCache.CachedState.toItemState() =
+        WidgetItemState(
+            songTitle = songName,
+            artistName = artistName,
+            albumName = albumName,
+            cover = cover,
+            isPlaying = false,
+            repeatMode = repeatMode,
+            isShuffled = isShuffled,
+        )
+
     fun update(context: Context, uiSettings: UISettings, state: WidgetComponent.PlaybackState?) {
         if (state == null) {
-            // No state, use the default widget.
-            L.d("No state provided, returning to default")
+            L.d("No state provided, checking cache or resetting")
             reset(context, uiSettings)
             return
         }
+        updateInternal(context, uiSettings, state.toItemState(context))
+    }
 
+    fun reset(context: Context, uiSettings: UISettings) {
+        val cached = WidgetCache.load(context)
+        if (cached != null) {
+            L.d("WidgetProvider: Restoring cached widget layout for ${cached.songName}")
+            updateInternal(context, uiSettings, cached.toItemState())
+            return
+        }
+        L.d("Using default layout")
+        showDefaultFallback(context, uiSettings)
+    }
+
+    private fun showDefaultFallback(context: Context, uiSettings: UISettings) {
+        val layout = newDefaultLayout(context, uiSettings)
+        AppWidgetManager.getInstance(context)
+            .updateAppWidget(ComponentName(context, this::class.java), layout)
+    }
+
+    private fun updateInternal(
+        context: Context,
+        uiSettings: UISettings,
+        state: WidgetItemState,
+    ) {
         val awm = AppWidgetManager.getInstance(context)
 
         // Create and configure each possible layout for the widget.
@@ -212,37 +277,18 @@ class WidgetProvider : AppWidgetProvider() {
                 ) {
                     throw e
                 }
-                // Some android devices on Android 12-14 suffer from a bug where the maximum bitmap
-                // size calculation does not factor in bitmaps shared across multiple RemoteView
-                // forms.
-                // To mitigate an outright crash, progressively disable layouts that contain cover
-                // art
-                // in order of least to most commonly used until it actually works.
                 val victim = victims.first()
                 val view = views.entries.find { it.value.layoutId == victim } ?: continue
                 view.value.discardCover(context)
                 victims.remove(victim)
             } catch (e: Exception) {
-                // Layout update failed, gracefully degrade to the default widget.
                 L.w("Unable to update widget: $e")
-                reset(context, uiSettings)
+                showDefaultFallback(context, uiSettings)
+                return
             }
         }
-        // We flat-out cannot fit the bitmap into the widget. Weird.
         L.w("Unable to update widget: Bitmap too large")
-        reset(context, uiSettings)
-    }
-
-    /**
-     * Revert to the default layout that displays "No music playing".
-     *
-     * @param context [Context] required to update the widget layout.
-     */
-    fun reset(context: Context, uiSettings: UISettings) {
-        L.d("Using default layout")
-        val layout = newDefaultLayout(context, uiSettings)
-        AppWidgetManager.getInstance(context)
-            .updateAppWidget(ComponentName(context, this::class.java), layout)
+        showDefaultFallback(context, uiSettings)
     }
 
     // --- INTERNAL METHODS ---
@@ -303,7 +349,7 @@ class WidgetProvider : AppWidgetProvider() {
     private fun newWideCardLayout(
         context: Context,
         uiSettings: UISettings,
-        state: WidgetComponent.PlaybackState,
+        state: WidgetItemState,
     ) =
         newRemoteViews(context, R.layout.widget_card_horizontal)
             .setupPlaybackState(context, state)
@@ -312,22 +358,22 @@ class WidgetProvider : AppWidgetProvider() {
     private fun newThinCardLayout(
         context: Context,
         uiSettings: UISettings,
-        state: WidgetComponent.PlaybackState,
+        state: WidgetItemState,
     ) =
         newRemoteViews(context, R.layout.widget_card_thin)
             .setupPlaybackState(context, state)
             .setupTimelineControls(context, state)
 
-    private fun newThinStickLayout(context: Context, state: WidgetComponent.PlaybackState) =
+    private fun newThinStickLayout(context: Context, state: WidgetItemState) =
         newRemoteViews(context, R.layout.widget_stick_thin).setupTimelineControls(context, state)
 
-    private fun newWideStickLayout(context: Context, state: WidgetComponent.PlaybackState) =
+    private fun newWideStickLayout(context: Context, state: WidgetItemState) =
         newRemoteViews(context, R.layout.widget_stick_wide).setupFullControls(context, state)
 
     private fun newThinWaferLayout(
         context: Context,
         uiSettings: UISettings,
-        state: WidgetComponent.PlaybackState,
+        state: WidgetItemState,
     ) =
         newRemoteViews(context, R.layout.widget_wafer_thin)
             .setupBackground(uiSettings)
@@ -338,7 +384,7 @@ class WidgetProvider : AppWidgetProvider() {
     private fun newWideWaferLayout(
         context: Context,
         uiSettings: UISettings,
-        state: WidgetComponent.PlaybackState,
+        state: WidgetItemState,
     ) =
         newRemoteViews(context, R.layout.widget_wafer_wide)
             .setupBackground(uiSettings)
@@ -349,7 +395,7 @@ class WidgetProvider : AppWidgetProvider() {
     private fun newThinDockedLayout(
         context: Context,
         uiSettings: UISettings,
-        state: WidgetComponent.PlaybackState,
+        state: WidgetItemState,
     ) =
         newRemoteViews(context, R.layout.widget_docked_thin)
             .setupBar(uiSettings)
@@ -359,7 +405,7 @@ class WidgetProvider : AppWidgetProvider() {
     private fun newWideDockedLayout(
         context: Context,
         uiSettings: UISettings,
-        state: WidgetComponent.PlaybackState,
+        state: WidgetItemState,
     ) =
         newRemoteViews(context, R.layout.widget_docked_wide)
             .setupBar(uiSettings)
@@ -369,7 +415,7 @@ class WidgetProvider : AppWidgetProvider() {
     private fun newThinPaneLayout(
         context: Context,
         uiSettings: UISettings,
-        state: WidgetComponent.PlaybackState,
+        state: WidgetItemState,
     ) =
         newRemoteViews(context, R.layout.widget_pane_thin)
             .setupBackground(uiSettings)
@@ -379,7 +425,7 @@ class WidgetProvider : AppWidgetProvider() {
     private fun newWidePaneLayout(
         context: Context,
         uiSettings: UISettings,
-        state: WidgetComponent.PlaybackState,
+        state: WidgetItemState,
     ) =
         newRemoteViews(context, R.layout.widget_pane_wide)
             .setupBackground(uiSettings)
@@ -425,11 +471,11 @@ class WidgetProvider : AppWidgetProvider() {
      * Set up the album cover in a [RemoteViews] layout that contains one.
      *
      * @param context [Context] required to set up the view.
-     * @param state Current [WidgetComponent.PlaybackState] to display.
+     * @param state Current [WidgetItemState] to display.
      */
     private fun RemoteViews.setupCover(
         context: Context,
-        state: WidgetComponent.PlaybackState?,
+        state: WidgetItemState?,
     ): RemoteViews {
         if (state == null) {
             setImageViewBitmap(R.id.widget_cover, null)
@@ -443,7 +489,7 @@ class WidgetProvider : AppWidgetProvider() {
                 R.id.widget_cover,
                 context.getString(
                     R.string.desc_album_cover,
-                    state.song.album.name.resolve(context),
+                    state.albumName,
                 ),
             )
         } else {
@@ -477,15 +523,15 @@ class WidgetProvider : AppWidgetProvider() {
      * them.
      *
      * @param context [Context] required to set up the view.
-     * @param state Current [WidgetComponent.PlaybackState] to display.
+     * @param state Current [WidgetItemState] to display.
      */
     private fun RemoteViews.setupPlaybackState(
         context: Context,
-        state: WidgetComponent.PlaybackState,
+        state: WidgetItemState,
     ): RemoteViews {
         setupCover(context, state)
-        setTextViewText(R.id.widget_song, state.song.name.resolve(context))
-        setTextViewText(R.id.widget_artist, state.song.artists.resolveNames(context))
+        setTextViewText(R.id.widget_song, state.songTitle)
+        setTextViewText(R.id.widget_artist, state.artistName)
 
         val mainIntent = context.newMainPendingIntent()
         setOnClickPendingIntent(R.id.widget_cover, mainIntent)
@@ -499,11 +545,11 @@ class WidgetProvider : AppWidgetProvider() {
      * Set up the play/pause button in a [RemoteViews] layout that contains one.
      *
      * @param context [Context] required to set up the view.
-     * @param state Current [WidgetComponent.PlaybackState] to display.
+     * @param state Current [WidgetItemState] to display.
      */
     private fun RemoteViews.setupBasicControls(
         context: Context,
-        state: WidgetComponent.PlaybackState,
+        state: WidgetItemState,
     ): RemoteViews {
         setOnClickPendingIntent(
             R.id.widget_play_pause,
@@ -511,17 +557,13 @@ class WidgetProvider : AppWidgetProvider() {
         )
 
         val icon: Int
-        val background: Int
         if (state.isPlaying) {
             icon = R.drawable.ic_pause_24
-            background = R.drawable.ui_remote_fab_container_playing
         } else {
             icon = R.drawable.ic_play_24
-            background = R.drawable.ui_remote_fab_container_paused
         }
 
         setImageViewResource(R.id.widget_play_pause, icon)
-        // If the view doesn't have a background set or on stick layouts, background is handled
         return this
     }
 
@@ -530,11 +572,11 @@ class WidgetProvider : AppWidgetProvider() {
      * them.
      *
      * @param context [Context] required to set up the view.
-     * @param state Current [WidgetComponent.PlaybackState] to display.
+     * @param state Current [WidgetItemState] to display.
      */
     private fun RemoteViews.setupTimelineControls(
         context: Context,
-        state: WidgetComponent.PlaybackState,
+        state: WidgetItemState,
     ): RemoteViews {
         setupBasicControls(context, state)
         setLayoutDirection(R.id.widget_controls, View.LAYOUT_DIRECTION_LTR)
@@ -554,11 +596,11 @@ class WidgetProvider : AppWidgetProvider() {
      * contains them.
      *
      * @param context [Context] required to set up the view.
-     * @param state Current [WidgetComponent.PlaybackState] to display.
+     * @param state Current [WidgetItemState] to display.
      */
     private fun RemoteViews.setupFullControls(
         context: Context,
-        state: WidgetComponent.PlaybackState,
+        state: WidgetItemState,
     ): RemoteViews {
         setupTimelineControls(context, state)
 
