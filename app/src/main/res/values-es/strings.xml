@@ -446,5 +446,55 @@
     <string name="lbl_streaming">Reproduciendo en línea</string>
     <string name="lbl_stream_error">No se pudo reproducir el audio en línea</string>
     <string name="lbl_close">Cerrar</string>
+    <!-- Cola y Gestor de Descargas -->
+    <string name="tab_search">Búsqueda</string>
+    <string name="tab_online_playlists">Listas Online</string>
+    <string name="tab_downloads_queue">Descargas</string>
+    <string name="lbl_pause">Pausar</string>
+    <string name="lbl_resume">Reanudar</string>
+    <string name="lbl_status_queued">En cola</string>
+    <string name="lbl_status_downloading">Descargando…</string>
+    <string name="lbl_status_paused">Pausada</string>
+    <string name="lbl_status_completed">Completada</string>
+    <string name="lbl_status_error">Error</string>
+    <string name="lbl_pause_all">Pausar todas</string>
+    <string name="lbl_resume_all">Reanudar todas</string>
+    <string name="lbl_cancel_all">Cancelar todas</string>
+    <string name="lbl_clear_completed">Limpiar completadas</string>
+    <string name="lbl_no_active_downloads">No hay descargas activas</string>
+    <string name="lbl_downloads_empty_desc">Las canciones que descargues aparecerán aquí con su barra de progreso y opciones de pausa/cancelación.</string>
+
+    <!-- Listas de Reproducción Online -->
+    <string name="lbl_create_online_playlist">Nueva lista online</string>
+    <string name="lbl_playlist_name_hint">Nombre de la lista</string>
+    <string name="lbl_add_to_online_playlist">Añadir a lista online</string>
+    <string name="lbl_no_online_playlists">No tienes listas online aún</string>
+    <string name="lbl_online_playlists_empty_desc">Crea listas con tus canciones online favoritas para escucharlas por internet sin descargarlas.</string>
+    <string name="lbl_play_all">Reproducir todo</string>
+    <string name="lbl_song_added_to_playlist">Añadida a %s</string>
+    <string name="lbl_song_already_in_playlist">Esta canción ya está en la lista</string>
+    <string name="lbl_delete_playlist">Eliminar lista</string>
+    <string name="msg_confirm_delete_playlist">¿Eliminar la lista \"%s\"?</string>
+    <string name="lbl_remove_from_playlist">Quitar de la lista</string>
+
+    <!-- Reproductor Online Expandido -->
+    <string name="lbl_playing_online">Reproducción Online</string>
+    <string name="lbl_details">Detalles</string>
+    <string name="lbl_song_info">Detalles de la pista</string>
+    <string name="lbl_source">Fuente</string>
+    <string name="lbl_codec">Formato</string>
+    <string name="lbl_channel">Canal / Creador</string>
+    <string name="lbl_saved_location_info">Guardado en: Música/Novaura/%s</string>
+
+    <!-- Filtros de Búsqueda -->
+    <string name="filter_type_all">Todo</string>
+    <string name="filter_type_songs">Canciones</string>
+    <string name="filter_type_playlists">Playlists</string>
+    <string name="filter_dur_any">Cualquier duración</string>
+    <string name="filter_dur_short">&lt; 4 min</string>
+    <string name="filter_dur_medium">4 - 10 min</string>
+    <string name="filter_dur_long">&gt; 10 min</string>
+    <string name="filter_sort_relevance">Relevancia</string>
+    <string name="filter_sort_views">Más vistas</string>
 </resources>
 

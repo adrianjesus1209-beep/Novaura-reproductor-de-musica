@@ -130,6 +130,12 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
 
             val sanitizedTitle = song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
             val sanitizedArtist = song.artist.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
+            val folderName =
+                if (sanitizedArtist.isNotEmpty() && sanitizedArtist != "Artista desconocido") {
+                    "$sanitizedArtist - $sanitizedTitle"
+                } else {
+                    sanitizedTitle
+                }
             val displayName =
                 if (sanitizedArtist.isNotEmpty() && sanitizedArtist != "Artista desconocido") {
                     "$sanitizedArtist - $sanitizedTitle.$extension"
@@ -148,17 +154,17 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                 val body = response.body ?: return@withContext null
                 val contentLength = body.contentLength()
 
+                val resultUri: Uri?
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val relativePath = "${Environment.DIRECTORY_MUSIC}/Novaura/$folderName"
                     val contentValues =
                         ContentValues().apply {
                             put(MediaStore.Audio.Media.DISPLAY_NAME, displayName)
                             put(MediaStore.Audio.Media.TITLE, song.title)
                             put(MediaStore.Audio.Media.ARTIST, song.artist)
                             put(MediaStore.Audio.Media.MIME_TYPE, mimeType)
-                            put(
-                                MediaStore.Audio.Media.RELATIVE_PATH,
-                                "${Environment.DIRECTORY_MUSIC}/Novaura",
-                            )
+                            put(MediaStore.Audio.Media.IS_MUSIC, 1)
+                            put(MediaStore.Audio.Media.RELATIVE_PATH, relativePath)
                             put(MediaStore.Audio.Media.IS_PENDING, 1)
                         }
 
@@ -176,15 +182,35 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                     contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
                     context.contentResolver.update(uri, contentValues, null, null)
 
+                    // Download thumbnail into cover.jpg inside the same folder so Auxio/Novaura
+                    // displays it
+                    downloadThumbnail(song.thumbnailUrl, relativePath)
+
+                    val physicalDir =
+                        File(
+                            Environment.getExternalStoragePublicDirectory(
+                                Environment.DIRECTORY_MUSIC
+                            ),
+                            "Novaura/$folderName",
+                        )
+                    val audioFile = File(physicalDir, displayName)
+                    val coverFile = File(physicalDir, "cover.jpg")
+                    MediaScannerConnection.scanFile(
+                        context,
+                        arrayOf(audioFile.absolutePath, coverFile.absolutePath),
+                        arrayOf(mimeType, "image/jpeg"),
+                        null,
+                    )
+
                     L.d("Song downloaded successfully via MediaStore to: $uri")
-                    uri
+                    resultUri = uri
                 } else {
                     val musicDir =
                         File(
                             Environment.getExternalStoragePublicDirectory(
                                 Environment.DIRECTORY_MUSIC
                             ),
-                            "Novaura",
+                            "Novaura/$folderName",
                         )
                     if (!musicDir.exists()) {
                         musicDir.mkdirs()
@@ -193,15 +219,18 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                     FileOutputStream(destFile).use { output ->
                         copyStreamWithProgress(body.byteStream(), output, contentLength, onProgress)
                     }
+                    downloadThumbnailLegacy(song.thumbnailUrl, musicDir)
+                    val coverFile = File(musicDir, "cover.jpg")
                     MediaScannerConnection.scanFile(
                         context,
-                        arrayOf(destFile.absolutePath),
-                        arrayOf(mimeType),
+                        arrayOf(destFile.absolutePath, coverFile.absolutePath),
+                        arrayOf(mimeType, "image/jpeg"),
                         null,
                     )
                     L.d("Song downloaded successfully to file: ${destFile.absolutePath}")
-                    Uri.fromFile(destFile)
+                    resultUri = Uri.fromFile(destFile)
                 }
+                resultUri
             } catch (e: Exception) {
                 L.e(e, "Exception during download of ${song.title}")
                 null
@@ -234,6 +263,51 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                 }
                 outStream.flush()
             }
+        }
+    }
+
+    private fun downloadThumbnail(thumbnailUrl: String?, relativePath: String) {
+        if (thumbnailUrl.isNullOrBlank()) return
+        try {
+            val req = Request.Builder().url(thumbnailUrl).build()
+            val resp = downloader.client.newCall(req).execute()
+            if (!resp.isSuccessful) return
+            val bytes = resp.body?.bytes() ?: return
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val cv =
+                    ContentValues().apply {
+                        put(MediaStore.Images.Media.DISPLAY_NAME, "cover.jpg")
+                        put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                        put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
+                        put(MediaStore.Images.Media.IS_PENDING, 1)
+                    }
+                val uri =
+                    context.contentResolver.insert(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        cv,
+                    ) ?: return
+                context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                cv.clear()
+                cv.put(MediaStore.Images.Media.IS_PENDING, 0)
+                context.contentResolver.update(uri, cv, null, null)
+            }
+        } catch (e: Exception) {
+            L.w(e, "Failed to save cover.jpg via MediaStore")
+        }
+    }
+
+    private fun downloadThumbnailLegacy(thumbnailUrl: String?, targetDir: File) {
+        if (thumbnailUrl.isNullOrBlank()) return
+        try {
+            val req = Request.Builder().url(thumbnailUrl).build()
+            val resp = downloader.client.newCall(req).execute()
+            if (!resp.isSuccessful) return
+            val bytes = resp.body?.bytes() ?: return
+            val coverFile = File(targetDir, "cover.jpg")
+            coverFile.writeBytes(bytes)
+        } catch (e: Exception) {
+            L.w(e, "Failed to save legacy cover.jpg")
         }
     }
 

@@ -35,6 +35,10 @@ import timber.log.Timber as L
 
 @Singleton
 class DownloadManager @Inject constructor(@ApplicationContext private val context: Context) {
+    // List of all download items in the queue/manager
+    private val _downloadItems = MutableStateFlow<List<DownloadItem>>(emptyList())
+    val downloadItems: StateFlow<List<DownloadItem>> = _downloadItems.asStateFlow()
+
     // Map of song webUrl -> current download progress percentage (0..100)
     private val _downloadProgress = MutableStateFlow<Map<String, Int>>(emptyMap())
     val downloadProgress: StateFlow<Map<String, Int>> = _downloadProgress.asStateFlow()
@@ -47,21 +51,136 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
     val events: SharedFlow<DownloadEvent> = _events.asSharedFlow()
 
     fun enqueueDownload(song: OnlineSong) {
-        if (_downloadProgress.value.containsKey(song.webUrl)) {
+        val existing = _downloadItems.value.find { it.song.webUrl == song.webUrl }
+        if (existing != null && existing.status == DownloadStatus.DOWNLOADING) {
             L.d("Download already in progress for: ${song.title}")
             return
         }
 
-        // Set initial 0% progress immediately
+        val newItem = DownloadItem(song = song, progress = 0, status = DownloadStatus.DOWNLOADING)
+        _downloadItems.value =
+            listOf(newItem) + _downloadItems.value.filter { it.song.webUrl != song.webUrl }
+
         _downloadProgress.value = _downloadProgress.value + (song.webUrl to 0)
-        _activeCount.value = _downloadProgress.value.size
+        _activeCount.value = countActive()
         _events.tryEmit(DownloadEvent.Started(song.title))
 
-        // Start background foreground service so it survives app minimization
+        startServiceWithAction(DownloadService.ACTION_ENQUEUE) {
+            putExtra(DownloadService.EXTRA_SONG, song)
+        }
+    }
+
+    fun pauseDownload(webUrl: String) {
+        val item = _downloadItems.value.find { it.song.webUrl == webUrl } ?: return
+        if (item.status != DownloadStatus.DOWNLOADING) return
+
+        _downloadItems.value =
+            _downloadItems.value.map {
+                if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.PAUSED) else it
+            }
+        _downloadProgress.value = _downloadProgress.value - webUrl
+        _activeCount.value = countActive()
+
+        startServiceWithAction(DownloadService.ACTION_PAUSE) {
+            putExtra(DownloadService.EXTRA_URL, webUrl)
+        }
+    }
+
+    fun resumeDownload(webUrl: String) {
+        val item = _downloadItems.value.find { it.song.webUrl == webUrl } ?: return
+        if (item.status != DownloadStatus.PAUSED && item.status != DownloadStatus.ERROR) return
+
+        _downloadItems.value =
+            _downloadItems.value.map {
+                if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.DOWNLOADING) else it
+            }
+        _downloadProgress.value = _downloadProgress.value + (webUrl to item.progress)
+        _activeCount.value = countActive()
+
+        startServiceWithAction(DownloadService.ACTION_ENQUEUE) {
+            putExtra(DownloadService.EXTRA_SONG, item.song)
+        }
+    }
+
+    fun cancelDownload(webUrl: String) {
+        val item = _downloadItems.value.find { it.song.webUrl == webUrl }
+        _downloadItems.value = _downloadItems.value.filter { it.song.webUrl != webUrl }
+        _downloadProgress.value = _downloadProgress.value - webUrl
+        _activeCount.value = countActive()
+
+        startServiceWithAction(DownloadService.ACTION_CANCEL) {
+            putExtra(DownloadService.EXTRA_URL, webUrl)
+        }
+    }
+
+    fun pauseAll() {
+        val downloading = _downloadItems.value.filter { it.status == DownloadStatus.DOWNLOADING }
+        for (item in downloading) {
+            pauseDownload(item.song.webUrl)
+        }
+    }
+
+    fun resumeAll() {
+        val paused = _downloadItems.value.filter { it.status == DownloadStatus.PAUSED }
+        for (item in paused) {
+            resumeDownload(item.song.webUrl)
+        }
+    }
+
+    fun cancelAll() {
+        val items = _downloadItems.value.toList()
+        for (item in items) {
+            cancelDownload(item.song.webUrl)
+        }
+    }
+
+    fun clearCompleted() {
+        _downloadItems.value =
+            _downloadItems.value.filter {
+                it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.PAUSED
+            }
+    }
+
+    internal fun updateProgress(webUrl: String, progressPercent: Int) {
+        _downloadProgress.value = _downloadProgress.value + (webUrl to progressPercent)
+        _downloadItems.value =
+            _downloadItems.value.map {
+                if (it.song.webUrl == webUrl)
+                    it.copy(progress = progressPercent, status = DownloadStatus.DOWNLOADING)
+                else it
+            }
+    }
+
+    internal fun onDownloadFinished(webUrl: String, success: Boolean, title: String) {
+        _downloadProgress.value = _downloadProgress.value - webUrl
+        _downloadItems.value =
+            _downloadItems.value.map {
+                if (it.song.webUrl == webUrl) {
+                    it.copy(
+                        progress = if (success) 100 else it.progress,
+                        status = if (success) DownloadStatus.COMPLETED else DownloadStatus.ERROR,
+                    )
+                } else {
+                    it
+                }
+            }
+        _activeCount.value = countActive()
+
+        if (success) {
+            _events.tryEmit(DownloadEvent.Success(title))
+        } else {
+            _events.tryEmit(DownloadEvent.Error(title))
+        }
+    }
+
+    private fun countActive(): Int =
+        _downloadItems.value.count { it.status == DownloadStatus.DOWNLOADING }
+
+    private fun startServiceWithAction(actionName: String, block: Intent.() -> Unit = {}) {
         val intent =
             Intent(context, DownloadService::class.java).apply {
-                action = DownloadService.ACTION_ENQUEUE
-                putExtra(DownloadService.EXTRA_SONG, song)
+                action = actionName
+                block()
             }
 
         try {
@@ -71,24 +190,7 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
                 context.startService(intent)
             }
         } catch (e: Exception) {
-            L.e(e, "Failed to start DownloadService for ${song.title}")
-            _downloadProgress.value = _downloadProgress.value - song.webUrl
-            _activeCount.value = _downloadProgress.value.size
-            _events.tryEmit(DownloadEvent.Error(song.title))
-        }
-    }
-
-    internal fun updateProgress(webUrl: String, progressPercent: Int) {
-        _downloadProgress.value = _downloadProgress.value + (webUrl to progressPercent)
-    }
-
-    internal fun onDownloadFinished(webUrl: String, success: Boolean, title: String) {
-        _downloadProgress.value = _downloadProgress.value - webUrl
-        _activeCount.value = _downloadProgress.value.size
-        if (success) {
-            _events.tryEmit(DownloadEvent.Success(title))
-        } else {
-            _events.tryEmit(DownloadEvent.Error(title))
+            L.e(e, "Failed to send action $actionName to DownloadService")
         }
     }
 }

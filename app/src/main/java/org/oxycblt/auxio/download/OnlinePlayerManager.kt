@@ -50,6 +50,8 @@ data class OnlinePlayerState(
     val isLoading: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
+    val hasNext: Boolean = false,
+    val hasPrevious: Boolean = false,
 )
 
 @Singleton
@@ -64,6 +66,9 @@ constructor(
     private var exoPlayer: ExoPlayer? = null
     private var positionJob: Job? = null
     private var streamExtractionJob: Job? = null
+
+    private val queue = mutableListOf<OnlineSong>()
+    private var currentIndex = -1
 
     private val _playerState = MutableStateFlow(OnlinePlayerState())
     val playerState: StateFlow<OnlinePlayerState> = _playerState.asStateFlow()
@@ -87,6 +92,15 @@ constructor(
         }
     }
 
+    fun playQueue(songs: List<OnlineSong>, startIndex: Int = 0) {
+        if (songs.isEmpty()) return
+        queue.clear()
+        queue.addAll(songs)
+        val validIndex = startIndex.coerceIn(0, songs.lastIndex)
+        currentIndex = validIndex
+        play(songs[validIndex])
+    }
+
     fun play(song: OnlineSong) {
         val current = _playerState.value
         if (current.song?.webUrl == song.webUrl) {
@@ -99,6 +113,16 @@ constructor(
             return
         }
 
+        // Update queue indexing if song is in queue
+        val foundIndex = queue.indexOfFirst { it.webUrl == song.webUrl }
+        if (foundIndex >= 0) {
+            currentIndex = foundIndex
+        } else {
+            queue.clear()
+            queue.add(song)
+            currentIndex = 0
+        }
+
         // New song to play
         streamExtractionJob?.cancel()
         positionJob?.cancel()
@@ -109,6 +133,8 @@ constructor(
                 isPlaying = false,
                 isLoading = true,
                 durationMs = song.durationSeconds * 1000L,
+                hasNext = currentIndex < queue.lastIndex,
+                hasPrevious = currentIndex > 0,
             )
 
         streamExtractionJob = scope.launch {
@@ -136,9 +162,27 @@ constructor(
                     isLoading = false,
                     durationMs =
                         if (player.duration > 0) player.duration else song.durationSeconds * 1000L,
+                    hasNext = currentIndex < queue.lastIndex,
+                    hasPrevious = currentIndex > 0,
                 )
 
             startPositionTracker()
+        }
+    }
+
+    fun playNext() {
+        if (currentIndex < queue.lastIndex) {
+            currentIndex++
+            play(queue[currentIndex])
+        }
+    }
+
+    fun playPrevious() {
+        if (currentIndex > 0) {
+            currentIndex--
+            play(queue[currentIndex])
+        } else if (_playerState.value.positionMs > 3000L) {
+            seekTo(0)
         }
     }
 
@@ -183,6 +227,8 @@ constructor(
                             durationMs = dur,
                             isPlaying = true,
                             isLoading = false,
+                            hasNext = currentIndex < queue.lastIndex,
+                            hasPrevious = currentIndex > 0,
                         )
                 }
                 delay(300)
@@ -219,12 +265,16 @@ constructor(
             }
             Player.STATE_ENDED -> {
                 positionJob?.cancel()
-                _playerState.value =
-                    _playerState.value.copy(
-                        isPlaying = false,
-                        isLoading = false,
-                        positionMs = _playerState.value.durationMs,
-                    )
+                if (currentIndex < queue.lastIndex) {
+                    playNext()
+                } else {
+                    _playerState.value =
+                        _playerState.value.copy(
+                            isPlaying = false,
+                            isLoading = false,
+                            positionMs = _playerState.value.durationMs,
+                        )
+                }
             }
             Player.STATE_IDLE -> {}
         }

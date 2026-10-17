@@ -588,6 +588,57 @@
     <string name="lbl_streaming">Streaming online</string>
     <string name="lbl_stream_error">Could not stream audio online</string>
     <string name="lbl_close">Close</string>
+
+    <!-- Download Queue & Manager -->
+    <string name="tab_search">Search</string>
+    <string name="tab_online_playlists">Online Playlists</string>
+    <string name="tab_downloads_queue">Downloads</string>
+    <string name="lbl_pause">Pause</string>
+    <string name="lbl_resume">Resume</string>
+    <string name="lbl_status_queued">Queued</string>
+    <string name="lbl_status_downloading">Downloading…</string>
+    <string name="lbl_status_paused">Paused</string>
+    <string name="lbl_status_completed">Completed</string>
+    <string name="lbl_status_error">Error</string>
+    <string name="lbl_pause_all">Pause all</string>
+    <string name="lbl_resume_all">Resume all</string>
+    <string name="lbl_cancel_all">Cancel all</string>
+    <string name="lbl_clear_completed">Clear completed</string>
+    <string name="lbl_no_active_downloads">No active downloads</string>
+    <string name="lbl_downloads_empty_desc">Songs you download will appear here with individual progress and controls.</string>
+
+    <!-- Online Playlists -->
+    <string name="lbl_create_online_playlist">New online playlist</string>
+    <string name="lbl_playlist_name_hint">Playlist name</string>
+    <string name="lbl_add_to_online_playlist">Add to online playlist</string>
+    <string name="lbl_no_online_playlists">No online playlists yet</string>
+    <string name="lbl_online_playlists_empty_desc">Create playlists with online songs to stream without downloading them.</string>
+    <string name="lbl_play_all">Play all</string>
+    <string name="lbl_song_added_to_playlist">Added to %s</string>
+    <string name="lbl_song_already_in_playlist">This song is already in the playlist</string>
+    <string name="lbl_delete_playlist">Delete playlist</string>
+    <string name="msg_confirm_delete_playlist">Delete playlist \"%s\"?</string>
+    <string name="lbl_remove_from_playlist">Remove from playlist</string>
+
+    <!-- Extended Online Player -->
+    <string name="lbl_playing_online">Online Playback</string>
+    <string name="lbl_details">Details</string>
+    <string name="lbl_song_info">Track details</string>
+    <string name="lbl_source">Source</string>
+    <string name="lbl_codec">Format</string>
+    <string name="lbl_channel">Channel / Uploader</string>
+    <string name="lbl_saved_location_info">Saved to: Music/Novaura/%s</string>
+
+    <!-- Search Filters -->
+    <string name="filter_type_all">All</string>
+    <string name="filter_type_songs">Songs</string>
+    <string name="filter_type_playlists">Playlists</string>
+    <string name="filter_dur_any">Any duration</string>
+    <string name="filter_dur_short">&lt; 4 min</string>
+    <string name="filter_dur_medium">4 - 10 min</string>
+    <string name="filter_dur_long">&gt; 10 min</string>
+    <string name="filter_sort_relevance">Relevance</string>
+    <string name="filter_sort_views">Most views</string>
 </resources>
 
 

@@ -26,8 +26,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber as L
 
@@ -39,6 +42,24 @@ sealed interface DownloadEvent {
     data class Error(val title: String) : DownloadEvent
 }
 
+enum class SearchTypeFilter {
+    ALL,
+    SONGS,
+    PLAYLISTS,
+}
+
+enum class SearchDurationFilter {
+    ANY,
+    SHORT,
+    MEDIUM,
+    LONG,
+}
+
+enum class SearchSortFilter {
+    RELEVANCE,
+    VIEWS,
+}
+
 @HiltViewModel
 class DownloadViewModel
 @Inject
@@ -46,6 +67,7 @@ constructor(
     private val downloadRepository: DownloadRepository,
     private val downloadManager: DownloadManager,
     private val onlinePlayerManager: OnlinePlayerManager,
+    private val onlinePlaylistManager: OnlinePlaylistManager,
 ) : ViewModel() {
 
     private val _searchResults = MutableStateFlow<List<OnlineSong>>(emptyList())
@@ -54,7 +76,45 @@ constructor(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    // Filters
+    val typeFilter = MutableStateFlow(SearchTypeFilter.ALL)
+    val durationFilter = MutableStateFlow(SearchDurationFilter.ANY)
+    val sortFilter = MutableStateFlow(SearchSortFilter.RELEVANCE)
+
+    val displayedResults: StateFlow<List<OnlineSong>> =
+        combine(_searchResults, typeFilter, durationFilter, sortFilter) { results, type, dur, sort
+                ->
+                var list = results
+
+                // Filter type
+                when (type) {
+                    SearchTypeFilter.SONGS -> list = list.filter { it.durationSeconds in 1..900 }
+                    SearchTypeFilter.PLAYLISTS -> list = list.filter { it.durationSeconds > 900 }
+                    SearchTypeFilter.ALL -> {}
+                }
+
+                // Filter duration
+                when (dur) {
+                    SearchDurationFilter.SHORT -> list = list.filter {
+                            it.durationSeconds in 1..240
+                        }
+                    SearchDurationFilter.MEDIUM -> list = list.filter {
+                            it.durationSeconds in 241..600
+                        }
+                    SearchDurationFilter.LONG -> list = list.filter { it.durationSeconds > 600 }
+                    SearchDurationFilter.ANY -> {}
+                }
+
+                // Sort
+                when (sort) {
+                    SearchSortFilter.RELEVANCE -> list
+                    SearchSortFilter.VIEWS -> list.sortedByDescending { it.durationSeconds }
+                }
+            }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     // Download state delegated to background DownloadManager
+    val downloadItems: StateFlow<List<DownloadItem>> = downloadManager.downloadItems
     val downloadProgress: StateFlow<Map<String, Int>> = downloadManager.downloadProgress
     val activeCount: StateFlow<Int> = downloadManager.activeCount
     val events: SharedFlow<DownloadEvent> = downloadManager.events
@@ -62,6 +122,9 @@ constructor(
     // Online audio streaming player state
     val playerState: StateFlow<OnlinePlayerState> = onlinePlayerManager.playerState
     val playerError: SharedFlow<String> = onlinePlayerManager.playerError
+
+    // Online Playlists
+    val onlinePlaylists: StateFlow<List<OnlinePlaylist>> = onlinePlaylistManager.playlists
 
     private var searchJob: Job? = null
 
@@ -91,8 +154,68 @@ constructor(
         downloadManager.enqueueDownload(song)
     }
 
+    fun pauseDownload(webUrl: String) {
+        downloadManager.pauseDownload(webUrl)
+    }
+
+    fun resumeDownload(webUrl: String) {
+        downloadManager.resumeDownload(webUrl)
+    }
+
+    fun cancelDownload(webUrl: String) {
+        downloadManager.cancelDownload(webUrl)
+    }
+
+    fun pauseAllDownloads() {
+        downloadManager.pauseAll()
+    }
+
+    fun resumeAllDownloads() {
+        downloadManager.resumeAll()
+    }
+
+    fun cancelAllDownloads() {
+        downloadManager.cancelAll()
+    }
+
+    fun clearCompletedDownloads() {
+        downloadManager.clearCompleted()
+    }
+
+    // --- Online Playlists Operations ---
+    fun createOnlinePlaylist(name: String): OnlinePlaylist =
+        onlinePlaylistManager.createPlaylist(name)
+
+    fun deleteOnlinePlaylist(id: String) {
+        onlinePlaylistManager.deletePlaylist(id)
+    }
+
+    fun renameOnlinePlaylist(id: String, newName: String) {
+        onlinePlaylistManager.renamePlaylist(id, newName)
+    }
+
+    fun addSongToPlaylist(playlistId: String, song: OnlineSong): Boolean =
+        onlinePlaylistManager.addSongToPlaylist(playlistId, song)
+
+    fun removeSongFromPlaylist(playlistId: String, songWebUrl: String) {
+        onlinePlaylistManager.removeSongFromPlaylist(playlistId, songWebUrl)
+    }
+
+    // --- Online Streaming Player Operations ---
     fun playOnline(song: OnlineSong) {
         onlinePlayerManager.play(song)
+    }
+
+    fun playQueue(songs: List<OnlineSong>, startIndex: Int = 0) {
+        onlinePlayerManager.playQueue(songs, startIndex)
+    }
+
+    fun playNextOnline() {
+        onlinePlayerManager.playNext()
+    }
+
+    fun playPrevOnline() {
+        onlinePlayerManager.playPrevious()
     }
 
     fun togglePlayPauseOnline() {

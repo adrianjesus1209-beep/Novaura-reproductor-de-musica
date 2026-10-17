@@ -64,31 +64,71 @@ class DownloadService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent == null || intent.action != ACTION_ENQUEUE) {
-            if (activeSongs.isEmpty()) {
-                stopSelf()
-            }
+        if (intent == null) {
+            if (activeSongs.isEmpty()) stopSelf()
             return START_NOT_STICKY
         }
 
-        @Suppress("DEPRECATION")
-        val song =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                intent.getSerializableExtra(EXTRA_SONG, OnlineSong::class.java)
-            } else {
-                intent.getSerializableExtra(EXTRA_SONG) as? OnlineSong
-            }
+        when (intent.action) {
+            ACTION_ENQUEUE -> {
+                @Suppress("DEPRECATION")
+                val song =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getSerializableExtra(EXTRA_SONG, OnlineSong::class.java)
+                    } else {
+                        intent.getSerializableExtra(EXTRA_SONG) as? OnlineSong
+                    }
 
-        if (song == null) {
-            L.w("DownloadService received null song")
-            if (activeSongs.isEmpty()) {
-                stopSelf()
+                if (song != null) {
+                    startDownloading(song)
+                } else if (activeSongs.isEmpty()) {
+                    stopSelf()
+                }
             }
-            return START_NOT_STICKY
+            ACTION_PAUSE -> {
+                val url = intent.getStringExtra(EXTRA_URL).orEmpty()
+                pauseDownload(url)
+            }
+            ACTION_CANCEL -> {
+                val url = intent.getStringExtra(EXTRA_URL).orEmpty()
+                cancelDownload(url)
+            }
+            ACTION_CANCEL_ALL -> {
+                cancelAllDownloads()
+            }
+            else -> {
+                if (activeSongs.isEmpty()) stopSelf()
+            }
         }
 
-        startDownloading(song)
         return START_NOT_STICKY
+    }
+
+    private fun pauseDownload(url: String) {
+        val job = activeJobs.remove(url)
+        job?.cancel()
+        activeSongs.remove(url)
+        activeProgress.remove(url)
+        checkAllDownloadsFinished()
+    }
+
+    private fun cancelDownload(url: String) {
+        val job = activeJobs.remove(url)
+        job?.cancel()
+        activeSongs.remove(url)
+        activeProgress.remove(url)
+        checkAllDownloadsFinished()
+    }
+
+    private fun cancelAllDownloads() {
+        for ((_, job) in activeJobs) {
+            job.cancel()
+        }
+        activeJobs.clear()
+        activeSongs.clear()
+        activeProgress.clear()
+        stopForeground(STOP_FOREGROUND_DETACH)
+        stopSelf()
     }
 
     private fun startDownloading(song: OnlineSong) {
@@ -126,7 +166,9 @@ class DownloadService : Service() {
             activeJobs.remove(song.webUrl)
 
             if (success) {
-                musicRepository.requestIndex(true)
+                // withCache = false forces a real storage scan so Novaura detects the new song and
+                // its cover.jpg immediately
+                musicRepository.requestIndex(false)
             }
 
             downloadManager.onDownloadFinished(song.webUrl, success, song.title)
@@ -265,7 +307,11 @@ class DownloadService : Service() {
 
     companion object {
         const val ACTION_ENQUEUE = "org.oxycblt.auxio.download.action.ENQUEUE"
+        const val ACTION_PAUSE = "org.oxycblt.auxio.download.action.PAUSE"
+        const val ACTION_CANCEL = "org.oxycblt.auxio.download.action.CANCEL"
+        const val ACTION_CANCEL_ALL = "org.oxycblt.auxio.download.action.CANCEL_ALL"
         const val EXTRA_SONG = "extra_song"
+        const val EXTRA_URL = "extra_url"
         const val NOTIFICATION_ID = 2026
         const val CHANNEL_ID = "novaura_downloads_channel"
     }

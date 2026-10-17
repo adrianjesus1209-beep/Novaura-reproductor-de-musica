@@ -65,11 +65,9 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/spacing_mid_medium"
         android:layout_marginEnd="@dimen/spacing_mid_medium"
-        android:ellipsize="end"
-        android:maxLines="1"
         android:textColor="@color/sel_selectable_text_primary"
         app:layout_constraintBottom_toTopOf="@+id/song_info"
-        app:layout_constraintEnd_toStartOf="@+id/download_container"
+        app:layout_constraintEnd_toStartOf="@+id/song_add_playlist_button"
         app:layout_constraintStart_toEndOf="@+id/thumbnail_container"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_chainStyle="packed"
@@ -85,10 +83,21 @@
         android:ellipsize="end"
         android:maxLines="1"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@+id/download_container"
+        app:layout_constraintEnd_toStartOf="@+id/song_add_playlist_button"
         app:layout_constraintStart_toEndOf="@+id/thumbnail_container"
         app:layout_constraintTop_toBottomOf="@+id/song_title"
         tools:text="Coldplay • 4:02" />
+
+    <org.oxycblt.auxio.ui.RippleFixMaterialButton
+        android:id="@+id/song_add_playlist_button"
+        style="@style/Widget.Auxio.Button.Icon.Small"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:contentDescription="@string/lbl_add_to_online_playlist"
+        app:icon="@drawable/ic_playlist_add_24"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/download_container"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <FrameLayout
         android:id="@+id/download_container"

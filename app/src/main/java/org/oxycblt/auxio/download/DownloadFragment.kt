@@ -27,17 +27,19 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.core.view.postDelayed
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.android.material.chip.Chip
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.tabs.TabLayout
 import com.google.android.material.transition.MaterialSharedAxis
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
@@ -57,13 +59,17 @@ import timber.log.Timber as L
 @AndroidEntryPoint
 class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
 
-    private val downloadModel: DownloadViewModel by viewModels()
+    private val downloadModel: DownloadViewModel by activityViewModels()
     private val playbackModel: PlaybackViewModel by activityViewModels()
+
     private lateinit var downloadAdapter: DownloadAdapter
+    private lateinit var playlistAdapter: OnlinePlaylistAdapter
+    private lateinit var queueAdapter: DownloadQueueAdapter
 
     private var imm: InputMethodManager? = null
     private var debounceJob: Job? = null
     private var launchedKeyboard = false
+
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             L.d("Notification permission granted: $granted")
@@ -85,18 +91,84 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
 
         imm = binding.context.getSystemServiceCompat(InputMethodManager::class)
 
-        // --- NAVIGATION ---
+        // --- TOOLBAR ---
         binding.downloadToolbar.setNavigationOnClickListener {
             hideKeyboard()
-            downloadModel.stopOnlinePlayback()
             findNavController().navigateUp()
         }
 
-        // --- ADAPTER ---
+        // --- TABS SETUP ---
+        setupTabs(binding)
+
+        // --- ADAPTERS SETUP ---
+        setupAdapters(binding)
+
+        // --- SEARCH INPUT & ACTIONS ---
+        setupSearch(binding)
+
+        // --- SUGGESTION CHIPS ---
+        setupSuggestionChips(binding)
+
+        // --- FILTER CHIPS ---
+        setupFilterChips(binding)
+
+        // --- ONLINE PLAYLISTS BUTTONS ---
+        binding.btnCreateOnlinePlaylist.setOnClickListener {
+            showCreatePlaylistPrompt()
+        }
+
+        // --- DOWNLOAD QUEUE BUTTONS ---
+        binding.btnPauseAll.setOnClickListener {
+            downloadModel.pauseAllDownloads()
+        }
+        binding.btnClearCompleted.setOnClickListener {
+            downloadModel.clearCompletedDownloads()
+        }
+
+        // --- MINI-PLAYER CONTROLS ---
+        setupMiniPlayer(binding)
+
+        // --- STATE OBSERVATIONS ---
+        observeViewModel(binding)
+    }
+
+    private fun setupTabs(binding: FragmentDownloadBinding) {
+        binding.downloadTabLayout.addOnTabSelectedListener(
+            object : TabLayout.OnTabSelectedListener {
+                override fun onTabSelected(tab: TabLayout.Tab?) {
+                    when (tab?.position) {
+                        0 -> {
+                            binding.layoutTabSearch.isVisible = true
+                            binding.layoutTabPlaylists.isVisible = false
+                            binding.layoutTabQueue.isVisible = false
+                        }
+                        1 -> {
+                            binding.layoutTabSearch.isVisible = false
+                            binding.layoutTabPlaylists.isVisible = true
+                            binding.layoutTabQueue.isVisible = false
+                            hideKeyboard()
+                        }
+                        2 -> {
+                            binding.layoutTabSearch.isVisible = false
+                            binding.layoutTabPlaylists.isVisible = false
+                            binding.layoutTabQueue.isVisible = true
+                            hideKeyboard()
+                        }
+                    }
+                }
+
+                override fun onTabUnselected(tab: TabLayout.Tab?) {}
+
+                override fun onTabReselected(tab: TabLayout.Tab?) {}
+            }
+        )
+    }
+
+    private fun setupAdapters(binding: FragmentDownloadBinding) {
+        // Search Results Adapter
         downloadAdapter =
             DownloadAdapter(
                 onPlayClick = { song ->
-                    // Pause local music playback so it doesn't play over online song
                     if (playbackModel.isPlaying.value) {
                         playbackModel.togglePlaying()
                     }
@@ -105,43 +177,87 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
                 onDownloadClick = { song ->
                     checkNotificationPermission()
                     downloadModel.download(song)
+                    context?.showToast(getString(R.string.lbl_download_started, song.title))
+                },
+                onAddToPlaylistClick = { song ->
+                    showAddToPlaylistDialog(song)
                 },
             )
-
         binding.downloadRecycler.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = downloadAdapter
         }
 
-        // --- SEARCH INPUT & ACTIONS ---
+        // Online Playlists Adapter
+        playlistAdapter =
+            OnlinePlaylistAdapter(
+                onPlaylistClick = { playlist ->
+                    showPlaylistDetailsDialog(playlist)
+                },
+                onPlayClick = { playlist ->
+                    if (playlist.songs.isNotEmpty()) {
+                        if (playbackModel.isPlaying.value) {
+                            playbackModel.togglePlaying()
+                        }
+                        downloadModel.playQueue(playlist.songs, 0)
+                        context?.showToast(getString(R.string.lbl_streaming))
+                    } else {
+                        context?.showToast(getString(R.string.lbl_no_download_results))
+                    }
+                },
+                onMenuClick = { playlist, anchorView ->
+                    showPlaylistMenu(playlist, anchorView)
+                },
+            )
+        binding.playlistsRecycler.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = playlistAdapter
+        }
+
+        // Download Queue Adapter
+        queueAdapter =
+            DownloadQueueAdapter(
+                onPauseResumeClick = { item ->
+                    if (item.status == DownloadStatus.DOWNLOADING) {
+                        downloadModel.pauseDownload(item.song.webUrl)
+                    } else {
+                        downloadModel.resumeDownload(item.song.webUrl)
+                    }
+                },
+                onCancelClick = { item ->
+                    downloadModel.cancelDownload(item.song.webUrl)
+                },
+            )
+        binding.downloadsQueueRecycler.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = queueAdapter
+        }
+    }
+
+    private fun setupSearch(binding: FragmentDownloadBinding) {
         binding.downloadSearchInput.apply {
             addTextChangedListener { editable ->
                 val query = editable?.toString()?.trim().orEmpty()
                 binding.downloadSearchClear.isVisible = query.isNotEmpty()
 
                 debounceJob?.cancel()
-                if (query.isBlank()) {
+                if (query.isEmpty()) {
                     downloadModel.search("")
-                    updateUiState(binding, isSearching = false, resultsCount = 0, query = "")
                 } else {
                     debounceJob =
                         viewLifecycleOwner.lifecycleScope.launch {
-                            delay(500)
+                            delay(600)
                             downloadModel.search(query)
                         }
                 }
             }
 
             setOnEditorActionListener { _, actionId, event ->
-                val isSearchAction =
+                if (
                     actionId == EditorInfo.IME_ACTION_SEARCH ||
-                        actionId == EditorInfo.IME_ACTION_DONE ||
-                        actionId == EditorInfo.IME_ACTION_GO ||
-                        (event != null &&
-                            event.keyCode == KeyEvent.KEYCODE_ENTER &&
+                        (event?.keyCode == KeyEvent.KEYCODE_ENTER &&
                             event.action == KeyEvent.ACTION_DOWN)
-
-                if (isSearchAction) {
+                ) {
                     performSearch(binding)
                     true
                 } else {
@@ -165,11 +281,88 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         binding.downloadSearchBtn.setOnClickListener {
             performSearch(binding)
         }
+    }
 
-        // --- SUGGESTION CHIPS ---
-        setupSuggestionChips(binding)
+    private fun setupSuggestionChips(binding: FragmentDownloadBinding) {
+        val chips =
+            listOf(
+                binding.chipSuggTop to "Top Éxitos",
+                binding.chipSuggRock to "Rock",
+                binding.chipSuggPop to "Pop en Español",
+                binding.chipSuggReggaeton to "Reggaeton",
+                binding.chipSuggLofi to "Lo-Fi Beats",
+                binding.chipSuggAnime to "Anime OST",
+                binding.chipSuggElectro to "Electrónica",
+                binding.chipSuggMetal to "Metal",
+                binding.chipSuggAcoustic to "Acústico",
+            )
 
-        // --- MINI-PLAYER CONTROLS ---
+        chips.forEach { (chip, genre) ->
+            chip.setOnClickListener {
+                binding.downloadSearchInput.setText(genre)
+                binding.downloadSearchInput.setSelection(genre.length)
+                debounceJob?.cancel()
+                hideKeyboard()
+                downloadModel.search(genre)
+            }
+        }
+    }
+
+    private fun setupFilterChips(binding: FragmentDownloadBinding) {
+        // Type filter chips
+        binding.chipFilterAll.setOnClickListener {
+            downloadModel.typeFilter.value = SearchTypeFilter.ALL
+            binding.chipFilterSongs.isChecked = false
+            binding.chipFilterPlaylists.isChecked = false
+        }
+        binding.chipFilterSongs.setOnClickListener {
+            downloadModel.typeFilter.value = SearchTypeFilter.SONGS
+            binding.chipFilterAll.isChecked = false
+            binding.chipFilterPlaylists.isChecked = false
+        }
+        binding.chipFilterPlaylists.setOnClickListener {
+            downloadModel.typeFilter.value = SearchTypeFilter.PLAYLISTS
+            binding.chipFilterAll.isChecked = false
+            binding.chipFilterSongs.isChecked = false
+        }
+
+        // Duration filter chips
+        binding.chipFilterShort.setOnClickListener {
+            val isChecked = binding.chipFilterShort.isChecked
+            downloadModel.durationFilter.value =
+                if (isChecked) SearchDurationFilter.SHORT else SearchDurationFilter.ANY
+            if (isChecked) {
+                binding.chipFilterMedium.isChecked = false
+                binding.chipFilterLong.isChecked = false
+            }
+        }
+        binding.chipFilterMedium.setOnClickListener {
+            val isChecked = binding.chipFilterMedium.isChecked
+            downloadModel.durationFilter.value =
+                if (isChecked) SearchDurationFilter.MEDIUM else SearchDurationFilter.ANY
+            if (isChecked) {
+                binding.chipFilterShort.isChecked = false
+                binding.chipFilterLong.isChecked = false
+            }
+        }
+        binding.chipFilterLong.setOnClickListener {
+            val isChecked = binding.chipFilterLong.isChecked
+            downloadModel.durationFilter.value =
+                if (isChecked) SearchDurationFilter.LONG else SearchDurationFilter.ANY
+            if (isChecked) {
+                binding.chipFilterShort.isChecked = false
+                binding.chipFilterMedium.isChecked = false
+            }
+        }
+    }
+
+    private fun setupMiniPlayer(binding: FragmentDownloadBinding) {
+        // Tapping card opens the rich OnlinePlayerBottomSheet!
+        binding.onlinePlayerTouchArea.setOnClickListener {
+            val sheet = OnlinePlayerBottomSheet()
+            sheet.show(parentFragmentManager, OnlinePlayerBottomSheet.TAG)
+        }
+
         binding.onlinePlayerPlayPause.setOnClickListener {
             if (!downloadModel.playerState.value.isPlaying && playbackModel.isPlaying.value) {
                 playbackModel.togglePlaying()
@@ -182,25 +375,29 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
             if (playingSong != null) {
                 checkNotificationPermission()
                 downloadModel.download(playingSong)
+                context?.showToast(getString(R.string.lbl_download_started, playingSong.title))
             }
         }
 
         binding.onlinePlayerClose.setOnClickListener {
             downloadModel.stopOnlinePlayback()
         }
+    }
 
-        // --- STATE OBSERVATIONS ---
+    private fun observeViewModel(binding: FragmentDownloadBinding) {
+        // Observe search loading
         viewLifecycleOwner.lifecycleScope.launch {
             downloadModel.isSearching.collectLatest { searching ->
                 binding.downloadSearchLoading.isVisible = searching
                 val query = binding.downloadSearchInput.text?.toString()?.trim().orEmpty()
-                val count = downloadModel.searchResults.value.size
+                val count = downloadModel.displayedResults.value.size
                 updateUiState(binding, isSearching = searching, resultsCount = count, query = query)
             }
         }
 
+        // Observe search results (filtered in real-time)
         viewLifecycleOwner.lifecycleScope.launch {
-            downloadModel.searchResults.collectLatest { results ->
+            downloadModel.displayedResults.collectLatest { results ->
                 downloadAdapter.submitList(results)
                 val query = binding.downloadSearchInput.text?.toString()?.trim().orEmpty()
                 val searching = downloadModel.isSearching.value
@@ -213,90 +410,255 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
             }
         }
 
+        // Observe download progress for search adapter
         viewLifecycleOwner.lifecycleScope.launch {
             downloadModel.downloadProgress.collectLatest { progressMap ->
                 downloadAdapter.updateProgress(progressMap)
             }
         }
 
+        // Observe player state for search adapter and mini-player
         viewLifecycleOwner.lifecycleScope.launch {
             downloadModel.playerState.collectLatest { playerState ->
                 downloadAdapter.updatePlayerState(playerState)
-                updateMiniPlayer(binding, playerState)
+                updateMiniPlayerUi(binding, playerState)
             }
         }
 
+        // Observe download items for the Downloads Queue
         viewLifecycleOwner.lifecycleScope.launch {
-            downloadModel.playerError.collectLatest { title ->
-                requireContext().showToast(getString(R.string.lbl_stream_error))
+            downloadModel.downloadItems.collectLatest { items ->
+                queueAdapter.submitList(items)
+                binding.downloadsEmptyState.isVisible = items.isEmpty()
+                binding.downloadsQueueRecycler.isVisible = items.isNotEmpty()
+
+                // Update tab badge with active downloading count
+                val activeCount = items.count { it.status == DownloadStatus.DOWNLOADING }
+                val queueTab = binding.downloadTabLayout.getTabAt(2)
+                if (queueTab != null) {
+                    if (activeCount > 0) {
+                        val badge = queueTab.orCreateBadge
+                        badge.number = activeCount
+                        badge.isVisible = true
+                    } else {
+                        queueTab.removeBadge()
+                    }
+                }
             }
         }
 
+        // Observe online playlists
+        viewLifecycleOwner.lifecycleScope.launch {
+            downloadModel.onlinePlaylists.collectLatest { playlists ->
+                playlistAdapter.submitList(playlists)
+                binding.playlistsEmptyState.isVisible = playlists.isEmpty()
+                binding.playlistsRecycler.isVisible = playlists.isNotEmpty()
+            }
+        }
+
+        // Observe download events
         viewLifecycleOwner.lifecycleScope.launch {
             downloadModel.events.collectLatest { event ->
                 when (event) {
                     is DownloadEvent.Started -> {
-                        requireContext()
-                            .showToast(getString(R.string.lbl_download_started, event.title))
+                        context?.showToast(getString(R.string.lbl_download_started, event.title))
                     }
                     is DownloadEvent.Success -> {
-                        requireContext()
-                            .showToast(getString(R.string.msg_download_success, event.title))
+                        context?.showToast(getString(R.string.msg_download_success, event.title))
                     }
                     is DownloadEvent.Error -> {
-                        requireContext()
-                            .showToast(getString(R.string.msg_download_error, event.title))
+                        context?.showToast(getString(R.string.msg_download_error, event.title))
                     }
                 }
             }
         }
     }
 
-    private fun updateMiniPlayer(
+    private fun updateMiniPlayerUi(
         binding: FragmentDownloadBinding,
-        playerState: OnlinePlayerState,
+        state: OnlinePlayerState,
     ) {
-        val song = playerState.song
-        if (song != null) {
-            binding.onlinePlayerCard.isVisible = true
-            binding.onlinePlayerTitle.text = song.title
-
-            val currentSec = playerState.positionMs / 1000L
-            val totalSec =
-                if (playerState.durationMs > 0) playerState.durationMs / 1000L
-                else song.durationSeconds
-
-            val timeProgress = "${formatSeconds(currentSec)} / ${formatSeconds(totalSec)}"
-            binding.onlinePlayerSubtitle.text = "${song.artist} • $timeProgress"
-            ThumbnailLoader.load(binding.onlinePlayerThumb, song.thumbnailUrl)
-
-            if (playerState.isLoading) {
-                binding.onlinePlayerLoading.isVisible = true
-                binding.onlinePlayerPlayPause.isVisible = false
-            } else {
-                binding.onlinePlayerLoading.isVisible = false
-                binding.onlinePlayerPlayPause.isVisible = true
-                binding.onlinePlayerPlayPause.setImageResource(
-                    if (playerState.isPlaying) R.drawable.ic_pause_24 else R.drawable.ic_play_24
-                )
-            }
-
-            val percent =
-                if (playerState.durationMs > 0) {
-                    ((playerState.positionMs * 100) / playerState.durationMs).toInt()
-                } else {
-                    0
-                }
-            binding.onlinePlayerProgress.progress = percent.coerceIn(0, 100)
-        } else {
+        val song = state.song
+        if (song == null) {
             binding.onlinePlayerCard.isVisible = false
+            return
+        }
+
+        binding.onlinePlayerCard.isVisible = true
+        binding.onlinePlayerTitle.text = song.title
+        ThumbnailLoader.load(binding.onlinePlayerThumb, song.thumbnailUrl)
+
+        binding.onlinePlayerLoading.isVisible = state.isLoading
+        binding.onlinePlayerPlayPause.isVisible = !state.isLoading
+
+        if (state.isPlaying) {
+            binding.onlinePlayerPlayPause.setImageResource(R.drawable.ic_pause_24)
+        } else {
+            binding.onlinePlayerPlayPause.setImageResource(R.drawable.ic_play_24)
+        }
+
+        val curSec = state.positionMs / 1000
+        val durSec = state.durationMs / 1000
+        binding.onlinePlayerSubtitle.text =
+            "${song.artist} • ${formatDuration(curSec)} / ${formatDuration(durSec)}"
+
+        if (state.durationMs > 0) {
+            val progress = ((state.positionMs * 100) / state.durationMs).toInt()
+            binding.onlinePlayerProgress.progress = progress
+        } else {
+            binding.onlinePlayerProgress.progress = 0
         }
     }
 
-    private fun formatSeconds(seconds: Long): String {
-        val m = seconds / 60
-        val s = seconds % 60
-        return String.format(Locale.getDefault(), "%d:%02d", m, s)
+    private fun updateUiState(
+        binding: FragmentDownloadBinding,
+        isSearching: Boolean,
+        resultsCount: Int,
+        query: String,
+    ) {
+        when {
+            isSearching -> {
+                binding.downloadRecycler.isVisible = false
+                binding.downloadSearchingState.isVisible = true
+                binding.downloadNoResultsState.isVisible = false
+                binding.downloadEmptyScroll.isVisible = false
+            }
+            resultsCount > 0 -> {
+                binding.downloadRecycler.isVisible = true
+                binding.downloadSearchingState.isVisible = false
+                binding.downloadNoResultsState.isVisible = false
+                binding.downloadEmptyScroll.isVisible = false
+            }
+            !isSearching && query.isNotEmpty() && resultsCount == 0 -> {
+                binding.downloadRecycler.isVisible = false
+                binding.downloadSearchingState.isVisible = false
+                binding.downloadNoResultsState.isVisible = true
+                binding.downloadEmptyScroll.isVisible = false
+            }
+            else -> {
+                binding.downloadRecycler.isVisible = false
+                binding.downloadSearchingState.isVisible = false
+                binding.downloadNoResultsState.isVisible = false
+                binding.downloadEmptyScroll.isVisible = true
+            }
+        }
+    }
+
+    private fun performSearch(binding: FragmentDownloadBinding) {
+        val query = binding.downloadSearchInput.text?.toString()?.trim().orEmpty()
+        if (query.isNotEmpty()) {
+            debounceJob?.cancel()
+            hideKeyboard()
+            downloadModel.search(query)
+        }
+    }
+
+    private fun showAddToPlaylistDialog(song: OnlineSong) {
+        val playlists = downloadModel.onlinePlaylists.value
+
+        val items = mutableListOf<String>()
+        items.add("➕ ${getString(R.string.lbl_create_online_playlist)}")
+        items.addAll(playlists.map { it.name })
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.lbl_add_to_online_playlist)
+            .setItems(items.toTypedArray()) { _, which ->
+                if (which == 0) {
+                    showCreatePlaylistPrompt { newPlaylist ->
+                        downloadModel.addSongToPlaylist(newPlaylist.id, song)
+                        context?.showToast(
+                            getString(R.string.lbl_song_added_to_playlist, newPlaylist.name)
+                        )
+                    }
+                } else {
+                    val target = playlists[which - 1]
+                    val added = downloadModel.addSongToPlaylist(target.id, song)
+                    if (added) {
+                        context?.showToast(
+                            getString(R.string.lbl_song_added_to_playlist, target.name)
+                        )
+                    } else {
+                        context?.showToast(getString(R.string.lbl_song_already_in_playlist))
+                    }
+                }
+            }
+            .setNegativeButton(R.string.lbl_cancel, null)
+            .show()
+    }
+
+    private fun showCreatePlaylistPrompt(onCreated: ((OnlinePlaylist) -> Unit)? = null) {
+        val input =
+            EditText(requireContext()).apply {
+                hint = getString(R.string.lbl_playlist_name_hint)
+                setSingleLine()
+            }
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.lbl_create_online_playlist)
+            .setView(input)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val name = input.text?.toString()?.trim().orEmpty()
+                if (name.isNotEmpty()) {
+                    val created = downloadModel.createOnlinePlaylist(name)
+                    onCreated?.invoke(created)
+                }
+            }
+            .setNegativeButton(R.string.lbl_cancel, null)
+            .show()
+    }
+
+    private fun showPlaylistDetailsDialog(playlist: OnlinePlaylist) {
+        if (playlist.songs.isEmpty()) {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(playlist.name)
+                .setMessage("Esta lista está vacía. Añade canciones desde el buscador.")
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+            return
+        }
+
+        val titles = playlist.songs.map { "${it.title} - ${it.artist}" }.toTypedArray()
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(playlist.name)
+            .setItems(titles) { _, which ->
+                val song = playlist.songs[which]
+                if (playbackModel.isPlaying.value) {
+                    playbackModel.togglePlaying()
+                }
+                downloadModel.playQueue(playlist.songs, which)
+            }
+            .setPositiveButton(R.string.lbl_play_all) { _, _ ->
+                if (playbackModel.isPlaying.value) {
+                    playbackModel.togglePlaying()
+                }
+                downloadModel.playQueue(playlist.songs, 0)
+            }
+            .setNegativeButton(R.string.lbl_close, null)
+            .show()
+    }
+
+    private fun showPlaylistMenu(playlist: OnlinePlaylist, anchorView: View) {
+        val popup = PopupMenu(requireContext(), anchorView)
+        popup.menu.add(0, 1, 0, R.string.lbl_delete_playlist)
+
+        popup.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                1 -> {
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle(R.string.lbl_delete_playlist)
+                        .setMessage(getString(R.string.msg_confirm_delete_playlist, playlist.name))
+                        .setPositiveButton(R.string.lbl_delete) { _, _ ->
+                            downloadModel.deleteOnlinePlaylist(playlist.id)
+                        }
+                        .setNegativeButton(R.string.lbl_cancel, null)
+                        .show()
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
     }
 
     private fun checkNotificationPermission() {
@@ -312,67 +674,11 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         }
     }
 
-    private fun performSearch(binding: FragmentDownloadBinding) {
-        val query = binding.downloadSearchInput.text?.toString()?.trim().orEmpty()
-        if (query.isNotEmpty()) {
-            debounceJob?.cancel()
-            hideKeyboard()
-            downloadModel.search(query)
-        }
-    }
-
-    private fun setupSuggestionChips(binding: FragmentDownloadBinding) {
-        for (i in 0 until binding.downloadSuggestionsGroup.childCount) {
-            val child = binding.downloadSuggestionsGroup.getChildAt(i)
-            if (child is Chip) {
-                child.setOnClickListener {
-                    val query = child.text.toString()
-                    binding.downloadSearchInput.setText(query)
-                    binding.downloadSearchInput.setSelection(query.length)
-                    debounceJob?.cancel()
-                    hideKeyboard()
-                    downloadModel.search(query)
-                }
-            }
-        }
-    }
-
-    private fun updateUiState(
-        binding: FragmentDownloadBinding,
-        isSearching: Boolean,
-        resultsCount: Int,
-        query: String,
-    ) {
-        when {
-            // Actively searching with no current results: show spinner
-            isSearching && resultsCount == 0 -> {
-                binding.downloadRecycler.isVisible = false
-                binding.downloadSearchingState.isVisible = true
-                binding.downloadNoResultsState.isVisible = false
-                binding.downloadEmptyScroll.isVisible = false
-            }
-            // Results available: show list
-            resultsCount > 0 -> {
-                binding.downloadRecycler.isVisible = true
-                binding.downloadSearchingState.isVisible = false
-                binding.downloadNoResultsState.isVisible = false
-                binding.downloadEmptyScroll.isVisible = false
-            }
-            // Finished searching, query entered, but 0 results: show no results view
-            !isSearching && query.isNotEmpty() && resultsCount == 0 -> {
-                binding.downloadRecycler.isVisible = false
-                binding.downloadSearchingState.isVisible = false
-                binding.downloadNoResultsState.isVisible = true
-                binding.downloadEmptyScroll.isVisible = false
-            }
-            // Idle / empty search input: show suggestions and initial empty prompt
-            else -> {
-                binding.downloadRecycler.isVisible = false
-                binding.downloadSearchingState.isVisible = false
-                binding.downloadNoResultsState.isVisible = false
-                binding.downloadEmptyScroll.isVisible = true
-            }
-        }
+    private fun formatDuration(durationSeconds: Long): String {
+        if (durationSeconds <= 0) return "--:--"
+        val m = durationSeconds / 60
+        val s = durationSeconds % 60
+        return String.format(Locale.getDefault(), "%d:%02d", m, s)
     }
 
     private fun showKeyboard(view: View) {

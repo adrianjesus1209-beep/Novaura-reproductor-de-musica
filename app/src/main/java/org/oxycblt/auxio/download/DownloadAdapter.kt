@@ -31,6 +31,7 @@ import org.oxycblt.auxio.databinding.ItemDownloadSongBinding
 class DownloadAdapter(
     private val onPlayClick: (OnlineSong) -> Unit,
     private val onDownloadClick: (OnlineSong) -> Unit,
+    private val onAddToPlaylistClick: (OnlineSong) -> Unit,
 ) : ListAdapter<OnlineSong, DownloadAdapter.ViewHolder>(DiffCallback) {
 
     private var progressMap: Map<String, Int> = emptyMap()
@@ -139,6 +140,10 @@ class DownloadAdapter(
                 binding.songDownloadButton.setOnClickListener {
                     onDownloadClick(song)
                 }
+            }
+
+            binding.songAddPlaylistButton.setOnClickListener {
+                onAddToPlaylistClick(song)
             }
         }
     }
