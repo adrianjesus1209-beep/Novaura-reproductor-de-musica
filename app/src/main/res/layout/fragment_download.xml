@@ -149,162 +149,16 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Clean Single-Line Horizontal Scroll for Popular Suggestions -->
-            <HorizontalScrollView
-                android:id="@+id/scroll_suggestions"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:clipToPadding="false"
-                android:paddingHorizontal="16dp"
-                android:scrollbars="none"
-                app:layout_constraintTop_toBottomOf="@+id/download_search_bar_card">
-
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/chip_group_suggestions"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:singleLine="true">
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_sugg_top"
-                        style="@style/Widget.Material3.Chip.Assist"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🔥 Top Éxitos" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_sugg_rock"
-                        style="@style/Widget.Material3.Chip.Assist"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🎸 Rock" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_sugg_pop"
-                        style="@style/Widget.Material3.Chip.Assist"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="✨ Pop en Español" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_sugg_reggaeton"
-                        style="@style/Widget.Material3.Chip.Assist"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🌴 Reggaeton" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_sugg_lofi"
-                        style="@style/Widget.Material3.Chip.Assist"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="☕ Lo-Fi Beats" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_sugg_anime"
-                        style="@style/Widget.Material3.Chip.Assist"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🌸 Anime OST" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_sugg_electro"
-                        style="@style/Widget.Material3.Chip.Assist"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="⚡ Electrónica" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_sugg_metal"
-                        style="@style/Widget.Material3.Chip.Assist"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🤘 Metal" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_sugg_acoustic"
-                        style="@style/Widget.Material3.Chip.Assist"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="🌿 Acústico" />
-
-                </com.google.android.material.chip.ChipGroup>
-
-            </HorizontalScrollView>
-
-            <!-- Filter Chips Bar: Tipo & Duración -->
-            <HorizontalScrollView
-                android:id="@+id/scroll_filters"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToPadding="false"
-                android:paddingHorizontal="16dp"
-                android:scrollbars="none"
-                app:layout_constraintTop_toBottomOf="@+id/scroll_suggestions">
-
-                <com.google.android.material.chip.ChipGroup
-                    android:id="@+id/chip_group_filters"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:singleLine="true">
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_filter_all"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true"
-                        android:text="@string/filter_type_all" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_filter_songs"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/filter_type_songs" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_filter_playlists"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/filter_type_playlists" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_filter_short"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/filter_dur_short" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_filter_medium"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/filter_dur_medium" />
-
-                    <com.google.android.material.chip.Chip
-                        android:id="@+id/chip_filter_long"
-                        style="@style/Widget.Material3.Chip.Filter"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/filter_dur_long" />
-
-                </com.google.android.material.chip.ChipGroup>
-
-            </HorizontalScrollView>
-
             <!-- Search Results Recycler -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/download_recycler"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
+                android:layout_marginTop="8dp"
                 android:clipToPadding="false"
                 android:paddingBottom="96dp"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/scroll_filters"
+                app:layout_constraintTop_toBottomOf="@+id/download_search_bar_card"
                 tools:listitem="@layout/item_download_song" />
 
             <!-- Empty Search State -->
@@ -312,10 +166,11 @@
                 android:id="@+id/download_empty_scroll"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
+                android:layout_marginTop="8dp"
                 android:fillViewport="true"
                 android:visibility="gone"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/scroll_filters">
+                app:layout_constraintTop_toBottomOf="@+id/download_search_bar_card">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -350,12 +205,13 @@
                 android:id="@+id/download_no_results_state"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
+                android:layout_marginTop="8dp"
                 android:gravity="center"
                 android:orientation="vertical"
                 android:padding="32dp"
                 android:visibility="gone"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/scroll_filters">
+                app:layout_constraintTop_toBottomOf="@+id/download_search_bar_card">
 
                 <ImageView
                     android:layout_width="64dp"
@@ -390,12 +246,13 @@
                 android:id="@+id/download_searching_state"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
+                android:layout_marginTop="8dp"
                 android:gravity="center"
                 android:orientation="vertical"
                 android:padding="32dp"
                 android:visibility="gone"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/scroll_filters">
+                app:layout_constraintTop_toBottomOf="@+id/download_search_bar_card">
 
                 <com.google.android.material.progressindicator.CircularProgressIndicator
                     android:layout_width="wrap_content"

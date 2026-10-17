@@ -106,12 +106,6 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         // --- SEARCH INPUT & ACTIONS ---
         setupSearch(binding)
 
-        // --- SUGGESTION CHIPS ---
-        setupSuggestionChips(binding)
-
-        // --- FILTER CHIPS ---
-        setupFilterChips(binding)
-
         // --- ONLINE PLAYLISTS BUTTONS ---
         binding.btnCreateOnlinePlaylist.setOnClickListener {
             showCreatePlaylistPrompt()
@@ -280,79 +274,6 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
 
         binding.downloadSearchBtn.setOnClickListener {
             performSearch(binding)
-        }
-    }
-
-    private fun setupSuggestionChips(binding: FragmentDownloadBinding) {
-        val chips =
-            listOf(
-                binding.chipSuggTop to "Top Éxitos",
-                binding.chipSuggRock to "Rock",
-                binding.chipSuggPop to "Pop en Español",
-                binding.chipSuggReggaeton to "Reggaeton",
-                binding.chipSuggLofi to "Lo-Fi Beats",
-                binding.chipSuggAnime to "Anime OST",
-                binding.chipSuggElectro to "Electrónica",
-                binding.chipSuggMetal to "Metal",
-                binding.chipSuggAcoustic to "Acústico",
-            )
-
-        chips.forEach { (chip, genre) ->
-            chip.setOnClickListener {
-                binding.downloadSearchInput.setText(genre)
-                binding.downloadSearchInput.setSelection(genre.length)
-                debounceJob?.cancel()
-                hideKeyboard()
-                downloadModel.search(genre)
-            }
-        }
-    }
-
-    private fun setupFilterChips(binding: FragmentDownloadBinding) {
-        // Type filter chips
-        binding.chipFilterAll.setOnClickListener {
-            downloadModel.typeFilter.value = SearchTypeFilter.ALL
-            binding.chipFilterSongs.isChecked = false
-            binding.chipFilterPlaylists.isChecked = false
-        }
-        binding.chipFilterSongs.setOnClickListener {
-            downloadModel.typeFilter.value = SearchTypeFilter.SONGS
-            binding.chipFilterAll.isChecked = false
-            binding.chipFilterPlaylists.isChecked = false
-        }
-        binding.chipFilterPlaylists.setOnClickListener {
-            downloadModel.typeFilter.value = SearchTypeFilter.PLAYLISTS
-            binding.chipFilterAll.isChecked = false
-            binding.chipFilterSongs.isChecked = false
-        }
-
-        // Duration filter chips
-        binding.chipFilterShort.setOnClickListener {
-            val isChecked = binding.chipFilterShort.isChecked
-            downloadModel.durationFilter.value =
-                if (isChecked) SearchDurationFilter.SHORT else SearchDurationFilter.ANY
-            if (isChecked) {
-                binding.chipFilterMedium.isChecked = false
-                binding.chipFilterLong.isChecked = false
-            }
-        }
-        binding.chipFilterMedium.setOnClickListener {
-            val isChecked = binding.chipFilterMedium.isChecked
-            downloadModel.durationFilter.value =
-                if (isChecked) SearchDurationFilter.MEDIUM else SearchDurationFilter.ANY
-            if (isChecked) {
-                binding.chipFilterShort.isChecked = false
-                binding.chipFilterLong.isChecked = false
-            }
-        }
-        binding.chipFilterLong.setOnClickListener {
-            val isChecked = binding.chipFilterLong.isChecked
-            downloadModel.durationFilter.value =
-                if (isChecked) SearchDurationFilter.LONG else SearchDurationFilter.ANY
-            if (isChecked) {
-                binding.chipFilterShort.isChecked = false
-                binding.chipFilterMedium.isChecked = false
-            }
         }
     }
 
