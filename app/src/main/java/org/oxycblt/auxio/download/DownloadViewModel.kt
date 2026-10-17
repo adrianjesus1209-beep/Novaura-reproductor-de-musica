@@ -34,6 +34,8 @@ import org.oxycblt.auxio.music.MusicRepository
 import timber.log.Timber as L
 
 sealed interface DownloadEvent {
+    data class Started(val title: String) : DownloadEvent
+
     data class Success(val title: String) : DownloadEvent
 
     data class Error(val title: String) : DownloadEvent
@@ -60,23 +62,28 @@ constructor(
     private val _events = MutableSharedFlow<DownloadEvent>()
     val events: SharedFlow<DownloadEvent> = _events.asSharedFlow()
 
+    private var searchJob: kotlinx.coroutines.Job? = null
+
     fun search(query: String) {
+        searchJob?.cancel()
         if (query.isBlank()) {
             _searchResults.value = emptyList()
+            _isSearching.value = false
             return
         }
-        viewModelScope.launch(Dispatchers.IO) {
-            _isSearching.value = true
-            try {
-                val results = downloadRepository.search(query)
-                _searchResults.value = results
-            } catch (e: Exception) {
-                L.e(e, "Error searching: $query")
-                _searchResults.value = emptyList()
-            } finally {
-                _isSearching.value = false
+        searchJob =
+            viewModelScope.launch(Dispatchers.IO) {
+                _isSearching.value = true
+                try {
+                    val results = downloadRepository.search(query)
+                    _searchResults.value = results
+                } catch (e: Exception) {
+                    L.e(e, "Error searching: $query")
+                    _searchResults.value = emptyList()
+                } finally {
+                    _isSearching.value = false
+                }
             }
-        }
     }
 
     fun download(song: OnlineSong) {
@@ -87,6 +94,7 @@ constructor(
 
         viewModelScope.launch(Dispatchers.IO) {
             _downloadProgress.value = _downloadProgress.value + (song.webUrl to 0)
+            _events.emit(DownloadEvent.Started(song.title))
             try {
                 val resultUri =
                     downloadRepository.downloadSong(song) { percent ->

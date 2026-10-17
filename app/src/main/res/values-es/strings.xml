@@ -425,10 +425,15 @@
     <!-- Función de descarga -->
     <string name="lbl_download">Descargar</string>
     <string name="lbl_download_music">Descargar música</string>
-    <string name="lbl_search_online_hint">Buscar canciones, artistas para descargar...</string>
-    <string name="lbl_no_download_results">No se encontraron canciones</string>
-    <string name="lbl_download_empty_prompt">Busca cualquier canción para descargarla gratis y sin anuncios</string>
-    <string name="msg_download_success">Se descargó %s</string>
+    <string name="lbl_search_online_hint">Buscar canciones o artistas...</string>
+    <string name="lbl_no_download_results">No se encontraron resultados</string>
+    <string name="lbl_download_empty_prompt">Descarga cualquier música gratis y sin anuncios</string>
+    <string name="lbl_download_searching">Buscando en la red...</string>
+    <string name="lbl_download_suggestions">Sugerencias populares:</string>
+    <string name="lbl_download_clear">Limpiar</string>
+    <string name="lbl_download_started">Descargando %s...</string>
+    <string name="lbl_try_different_search">Prueba buscando con otro nombre o artista</string>
+    <string name="msg_download_success">¡Descarga completa! %s</string>
     <string name="msg_download_error">Error al descargar %s</string>
     <string name="lbl_downloaded">Descargada</string>
 </resources>

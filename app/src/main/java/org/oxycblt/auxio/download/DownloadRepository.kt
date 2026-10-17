@@ -123,7 +123,7 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
     ): Uri? =
         withContext(Dispatchers.IO) {
             val audioStream = extractAudioStreamUrl(song.webUrl) ?: return@withContext null
-            val streamUrl = audioStream.content ?: return@withContext null
+            val streamUrl = audioStream.content
             val extension =
                 if (audioStream.format?.name.equals("m4a", ignoreCase = true)) "m4a" else "opus"
             val mimeType = if (extension == "m4a") "audio/mp4" else "audio/ogg"
