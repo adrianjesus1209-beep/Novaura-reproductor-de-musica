@@ -103,6 +103,12 @@
             </intent-filter>
         </service>
 
+        <!-- Service for persistent background downloads with ongoing notifications -->
+        <service
+            android:name=".download.DownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- Service for AppCompat automatic per-app locale persistence -->
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"

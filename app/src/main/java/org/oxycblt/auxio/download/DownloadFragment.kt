@@ -18,15 +18,21 @@
  
 package org.oxycblt.auxio.download
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.core.view.postDelayed
 import androidx.core.widget.addTextChangedListener
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -34,25 +40,34 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.chip.Chip
 import com.google.android.material.transition.MaterialSharedAxis
 import dagger.hilt.android.AndroidEntryPoint
+import java.util.Locale
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentDownloadBinding
+import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.ui.ViewBindingFragment
 import org.oxycblt.auxio.util.context
 import org.oxycblt.auxio.util.getSystemServiceCompat
 import org.oxycblt.auxio.util.showToast
+import timber.log.Timber as L
 
 @AndroidEntryPoint
 class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
 
     private val downloadModel: DownloadViewModel by viewModels()
+    private val playbackModel: PlaybackViewModel by activityViewModels()
     private lateinit var downloadAdapter: DownloadAdapter
+
     private var imm: InputMethodManager? = null
     private var debounceJob: Job? = null
     private var launchedKeyboard = false
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            L.d("Notification permission granted: $granted")
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,13 +88,25 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         // --- NAVIGATION ---
         binding.downloadToolbar.setNavigationOnClickListener {
             hideKeyboard()
+            downloadModel.stopOnlinePlayback()
             findNavController().navigateUp()
         }
 
         // --- ADAPTER ---
-        downloadAdapter = DownloadAdapter { song ->
-            downloadModel.download(song)
-        }
+        downloadAdapter =
+            DownloadAdapter(
+                onPlayClick = { song ->
+                    // Pause local music playback so it doesn't play over online song
+                    if (playbackModel.isPlaying.value) {
+                        playbackModel.togglePlaying()
+                    }
+                    downloadModel.playOnline(song)
+                },
+                onDownloadClick = { song ->
+                    checkNotificationPermission()
+                    downloadModel.download(song)
+                },
+            )
 
         binding.downloadRecycler.apply {
             layoutManager = LinearLayoutManager(requireContext())
@@ -142,6 +169,26 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         // --- SUGGESTION CHIPS ---
         setupSuggestionChips(binding)
 
+        // --- MINI-PLAYER CONTROLS ---
+        binding.onlinePlayerPlayPause.setOnClickListener {
+            if (!downloadModel.playerState.value.isPlaying && playbackModel.isPlaying.value) {
+                playbackModel.togglePlaying()
+            }
+            downloadModel.togglePlayPauseOnline()
+        }
+
+        binding.onlinePlayerDownload.setOnClickListener {
+            val playingSong = downloadModel.playerState.value.song
+            if (playingSong != null) {
+                checkNotificationPermission()
+                downloadModel.download(playingSong)
+            }
+        }
+
+        binding.onlinePlayerClose.setOnClickListener {
+            downloadModel.stopOnlinePlayback()
+        }
+
         // --- STATE OBSERVATIONS ---
         viewLifecycleOwner.lifecycleScope.launch {
             downloadModel.isSearching.collectLatest { searching ->
@@ -173,6 +220,19 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
+            downloadModel.playerState.collectLatest { playerState ->
+                downloadAdapter.updatePlayerState(playerState)
+                updateMiniPlayer(binding, playerState)
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            downloadModel.playerError.collectLatest { title ->
+                requireContext().showToast(getString(R.string.lbl_stream_error))
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
             downloadModel.events.collectLatest { event ->
                 when (event) {
                     is DownloadEvent.Started -> {
@@ -188,6 +248,66 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
                             .showToast(getString(R.string.msg_download_error, event.title))
                     }
                 }
+            }
+        }
+    }
+
+    private fun updateMiniPlayer(
+        binding: FragmentDownloadBinding,
+        playerState: OnlinePlayerState,
+    ) {
+        val song = playerState.song
+        if (song != null) {
+            binding.onlinePlayerCard.isVisible = true
+            binding.onlinePlayerTitle.text = song.title
+
+            val currentSec = playerState.positionMs / 1000L
+            val totalSec =
+                if (playerState.durationMs > 0) playerState.durationMs / 1000L
+                else song.durationSeconds
+
+            val timeProgress = "${formatSeconds(currentSec)} / ${formatSeconds(totalSec)}"
+            binding.onlinePlayerSubtitle.text = "${song.artist} • $timeProgress"
+            ThumbnailLoader.load(binding.onlinePlayerThumb, song.thumbnailUrl)
+
+            if (playerState.isLoading) {
+                binding.onlinePlayerLoading.isVisible = true
+                binding.onlinePlayerPlayPause.isVisible = false
+            } else {
+                binding.onlinePlayerLoading.isVisible = false
+                binding.onlinePlayerPlayPause.isVisible = true
+                binding.onlinePlayerPlayPause.setImageResource(
+                    if (playerState.isPlaying) R.drawable.ic_pause_24 else R.drawable.ic_play_24
+                )
+            }
+
+            val percent =
+                if (playerState.durationMs > 0) {
+                    ((playerState.positionMs * 100) / playerState.durationMs).toInt()
+                } else {
+                    0
+                }
+            binding.onlinePlayerProgress.progress = percent.coerceIn(0, 100)
+        } else {
+            binding.onlinePlayerCard.isVisible = false
+        }
+    }
+
+    private fun formatSeconds(seconds: Long): String {
+        val m = seconds / 60
+        val s = seconds % 60
+        return String.format(Locale.getDefault(), "%d:%02d", m, s)
+    }
+
+    private fun checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (
+                ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.POST_NOTIFICATIONS,
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
     }
@@ -269,5 +389,12 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         if (token != null) {
             imm?.hideSoftInputFromWindow(token, InputMethodManager.HIDE_NOT_ALWAYS)
         }
+    }
+
+    override fun onDestroyBinding(binding: FragmentDownloadBinding) {
+        super.onDestroyBinding(binding)
+        debounceJob?.cancel()
+        debounceJob = null
+        imm = null
     }
 }

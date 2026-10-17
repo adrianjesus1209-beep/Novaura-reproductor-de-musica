@@ -21,17 +21,21 @@ package org.oxycblt.auxio.download
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.ItemDownloadSongBinding
 
-class DownloadAdapter(private val onDownloadClick: (OnlineSong) -> Unit) :
-    ListAdapter<OnlineSong, DownloadAdapter.ViewHolder>(DiffCallback) {
+class DownloadAdapter(
+    private val onPlayClick: (OnlineSong) -> Unit,
+    private val onDownloadClick: (OnlineSong) -> Unit,
+) : ListAdapter<OnlineSong, DownloadAdapter.ViewHolder>(DiffCallback) {
 
     private var progressMap: Map<String, Int> = emptyMap()
     private val completedUrls = mutableSetOf<String>()
+    private var currentPlayerState = OnlinePlayerState()
 
     fun updateProgress(map: Map<String, Int>) {
         progressMap = map
@@ -41,6 +45,23 @@ class DownloadAdapter(private val onDownloadClick: (OnlineSong) -> Unit) :
     fun markCompleted(url: String) {
         completedUrls.add(url)
         notifyDataSetChanged()
+    }
+
+    fun updatePlayerState(state: OnlinePlayerState) {
+        val previousSong = currentPlayerState.song
+        val newSong = state.song
+        currentPlayerState = state
+
+        if (previousSong?.webUrl != newSong?.webUrl) {
+            notifyDataSetChanged()
+        } else {
+            // Rebind the item that is actively playing
+            currentList
+                .indexOfFirst { it.webUrl == state.song?.webUrl }
+                .let { idx ->
+                    if (idx != -1) notifyItemChanged(idx)
+                }
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -65,6 +86,33 @@ class DownloadAdapter(private val onDownloadClick: (OnlineSong) -> Unit) :
             binding.songInfo.text = "${song.artist} • ${song.durationText}"
             ThumbnailLoader.load(binding.songThumbnail, song.thumbnailUrl)
 
+            // Playback state indicator on thumbnail
+            val isCurrentSong = currentPlayerState.song?.webUrl == song.webUrl
+            if (isCurrentSong) {
+                binding.playbackOverlay.isVisible = true
+                if (currentPlayerState.isLoading) {
+                    binding.playbackLoading.isVisible = true
+                    binding.playbackIndicator.isVisible = false
+                } else {
+                    binding.playbackLoading.isVisible = false
+                    binding.playbackIndicator.isVisible = true
+                    binding.playbackIndicator.setImageResource(
+                        if (currentPlayerState.isPlaying) R.drawable.ic_pause_24
+                        else R.drawable.ic_play_24
+                    )
+                }
+            } else {
+                binding.playbackOverlay.isVisible = false
+                binding.playbackLoading.isVisible = false
+                binding.playbackIndicator.isVisible = false
+            }
+
+            // Click entire item to stream/play online
+            binding.root.setOnClickListener {
+                onPlayClick(song)
+            }
+
+            // Download state
             val isDownloading = progressMap.containsKey(song.webUrl)
             val isCompleted = completedUrls.contains(song.webUrl)
 

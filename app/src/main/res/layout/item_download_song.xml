@@ -5,21 +5,58 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/ui_item_bg"
+    android:clickable="true"
+    android:focusable="true"
     android:paddingStart="@dimen/spacing_medium"
     android:paddingTop="@dimen/spacing_mid_medium"
     android:paddingEnd="@dimen/spacing_mid_medium"
     android:paddingBottom="@dimen/spacing_mid_medium">
 
-    <com.google.android.material.imageview.ShapeableImageView
-        android:id="@+id/song_thumbnail"
+    <FrameLayout
+        android:id="@+id/thumbnail_container"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:scaleType="centerCrop"
-        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:src="@tools:sample/avatars" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/song_thumbnail"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
+            tools:src="@tools:sample/avatars" />
+
+        <View
+            android:id="@+id/playback_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#70000000"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/playback_indicator"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/lbl_play_online"
+            android:src="@drawable/ic_play_24"
+            android:visibility="gone"
+            app:tint="@android:color/white" />
+
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:id="@+id/playback_loading"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:indeterminate="true"
+            android:visibility="gone"
+            app:indicatorColor="@android:color/white"
+            app:indicatorSize="24dp"
+            app:trackThickness="2.5dp" />
+
+    </FrameLayout>
 
     <TextView
         android:id="@+id/song_title"
@@ -33,7 +70,7 @@
         android:textColor="@color/sel_selectable_text_primary"
         app:layout_constraintBottom_toTopOf="@+id/song_info"
         app:layout_constraintEnd_toStartOf="@+id/download_container"
-        app:layout_constraintStart_toEndOf="@+id/song_thumbnail"
+        app:layout_constraintStart_toEndOf="@+id/thumbnail_container"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_chainStyle="packed"
         tools:text="Viva La Vida" />
@@ -49,7 +86,7 @@
         android:maxLines="1"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/download_container"
-        app:layout_constraintStart_toEndOf="@+id/song_thumbnail"
+        app:layout_constraintStart_toEndOf="@+id/thumbnail_container"
         app:layout_constraintTop_toBottomOf="@+id/song_title"
         tools:text="Coldplay • 4:02" />
 
@@ -67,6 +104,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
+            android:contentDescription="@string/lbl_download"
             app:icon="@drawable/ic_download_24" />
 
         <com.google.android.material.progressindicator.CircularProgressIndicator

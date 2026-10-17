@@ -436,5 +436,15 @@
     <string name="msg_download_success">¡Descarga completa! %s</string>
     <string name="msg_download_error">Error al descargar %s</string>
     <string name="lbl_downloaded">Descargada</string>
+    <string name="notif_download_channel_name">Descargas</string>
+    <string name="notif_download_channel_desc">Notificaciones de descarga de música</string>
+    <string name="notif_downloading_single">Descargando: %s</string>
+    <string name="notif_downloading_multiple">Descargando %d canciones</string>
+    <string name="notif_download_complete">Descarga completada</string>
+    <string name="notif_download_all_complete">Todas las canciones se han descargado con éxito</string>
+    <string name="lbl_play_online">Reproducir</string>
+    <string name="lbl_streaming">Reproduciendo en línea</string>
+    <string name="lbl_stream_error">No se pudo reproducir el audio en línea</string>
+    <string name="lbl_close">Cerrar</string>
 </resources>
 

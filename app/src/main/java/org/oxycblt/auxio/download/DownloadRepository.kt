@@ -50,7 +50,7 @@ data class OnlineSong(
     val durationSeconds: Long,
     val thumbnailUrl: String?,
     val webUrl: String,
-)
+) : java.io.Serializable
 
 sealed interface DownloadState {
     data object Idle : DownloadState

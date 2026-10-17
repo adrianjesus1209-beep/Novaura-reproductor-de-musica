@@ -23,14 +23,12 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import org.oxycblt.auxio.music.MusicRepository
 import timber.log.Timber as L
 
 sealed interface DownloadEvent {
@@ -46,7 +44,8 @@ class DownloadViewModel
 @Inject
 constructor(
     private val downloadRepository: DownloadRepository,
-    private val musicRepository: MusicRepository,
+    private val downloadManager: DownloadManager,
+    private val onlinePlayerManager: OnlinePlayerManager,
 ) : ViewModel() {
 
     private val _searchResults = MutableStateFlow<List<OnlineSong>>(emptyList())
@@ -55,14 +54,16 @@ constructor(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
-    // Map of online song webUrl -> download progress percentage (0..100)
-    private val _downloadProgress = MutableStateFlow<Map<String, Int>>(emptyMap())
-    val downloadProgress: StateFlow<Map<String, Int>> = _downloadProgress.asStateFlow()
+    // Download state delegated to background DownloadManager
+    val downloadProgress: StateFlow<Map<String, Int>> = downloadManager.downloadProgress
+    val activeCount: StateFlow<Int> = downloadManager.activeCount
+    val events: SharedFlow<DownloadEvent> = downloadManager.events
 
-    private val _events = MutableSharedFlow<DownloadEvent>()
-    val events: SharedFlow<DownloadEvent> = _events.asSharedFlow()
+    // Online audio streaming player state
+    val playerState: StateFlow<OnlinePlayerState> = onlinePlayerManager.playerState
+    val playerError: SharedFlow<String> = onlinePlayerManager.playerError
 
-    private var searchJob: kotlinx.coroutines.Job? = null
+    private var searchJob: Job? = null
 
     fun search(query: String) {
         searchJob?.cancel()
@@ -87,33 +88,31 @@ constructor(
     }
 
     fun download(song: OnlineSong) {
-        if (_downloadProgress.value.containsKey(song.webUrl)) {
-            // Already downloading
-            return
-        }
+        downloadManager.enqueueDownload(song)
+    }
 
-        viewModelScope.launch(Dispatchers.IO) {
-            _downloadProgress.value = _downloadProgress.value + (song.webUrl to 0)
-            _events.emit(DownloadEvent.Started(song.title))
-            try {
-                val resultUri =
-                    downloadRepository.downloadSong(song) { percent ->
-                        _downloadProgress.value = _downloadProgress.value + (song.webUrl to percent)
-                    }
+    fun playOnline(song: OnlineSong) {
+        onlinePlayerManager.play(song)
+    }
 
-                if (resultUri != null) {
-                    _events.emit(DownloadEvent.Success(song.title))
-                    // Request library reindex so the new song shows up immediately in the player
-                    musicRepository.requestIndex(true)
-                } else {
-                    _events.emit(DownloadEvent.Error(song.title))
-                }
-            } catch (e: Exception) {
-                L.e(e, "Error downloading ${song.title}")
-                _events.emit(DownloadEvent.Error(song.title))
-            } finally {
-                _downloadProgress.value = _downloadProgress.value - song.webUrl
-            }
+    fun togglePlayPauseOnline() {
+        if (onlinePlayerManager.playerState.value.isPlaying) {
+            onlinePlayerManager.pause()
+        } else {
+            onlinePlayerManager.resume()
         }
+    }
+
+    fun stopOnlinePlayback() {
+        onlinePlayerManager.stop()
+    }
+
+    fun seekOnline(positionMs: Long) {
+        onlinePlayerManager.seekTo(positionMs)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        onlinePlayerManager.stop()
     }
 }
