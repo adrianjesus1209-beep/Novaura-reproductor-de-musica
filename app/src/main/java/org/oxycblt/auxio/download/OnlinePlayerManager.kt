@@ -52,6 +52,8 @@ data class OnlinePlayerState(
     val durationMs: Long = 0L,
     val hasNext: Boolean = false,
     val hasPrevious: Boolean = false,
+    val isShuffle: Boolean = false,
+    val isRepeat: Boolean = false,
 )
 
 @Singleton
@@ -170,9 +172,33 @@ constructor(
         }
     }
 
+    private var isShuffle = false
+    private var isRepeat = false
+
+    fun toggleShuffle(): Boolean {
+        isShuffle = !isShuffle
+        _playerState.value = _playerState.value.copy(isShuffle = isShuffle)
+        return isShuffle
+    }
+
+    fun toggleRepeat(): Boolean {
+        isRepeat = !isRepeat
+        _playerState.value = _playerState.value.copy(isRepeat = isRepeat)
+        return isRepeat
+    }
+
     fun playNext() {
-        if (currentIndex < queue.lastIndex) {
+        if (queue.isEmpty()) return
+        if (isShuffle && queue.size > 1) {
+            val candidates = queue.indices.filter { it != currentIndex }
+            val nextIndex = candidates.randomOrNull() ?: currentIndex
+            currentIndex = nextIndex
+            play(queue[currentIndex])
+        } else if (currentIndex < queue.lastIndex) {
             currentIndex++
+            play(queue[currentIndex])
+        } else if (isRepeat) {
+            currentIndex = 0
             play(queue[currentIndex])
         }
     }
@@ -183,6 +209,9 @@ constructor(
             play(queue[currentIndex])
         } else if (_playerState.value.positionMs > 3000L) {
             seekTo(0)
+        } else if (isRepeat && queue.isNotEmpty()) {
+            currentIndex = queue.lastIndex
+            play(queue[currentIndex])
         }
     }
 
@@ -201,15 +230,17 @@ constructor(
 
     fun seekTo(positionMs: Long) {
         val player = exoPlayer ?: return
-        player.seekTo(positionMs)
-        _playerState.value = _playerState.value.copy(positionMs = positionMs)
+        val dur = if (player.duration > 0) player.duration else _playerState.value.durationMs
+        val safePos = positionMs.coerceIn(0L, dur.coerceAtLeast(0L))
+        player.seekTo(safePos)
+        _playerState.value = _playerState.value.copy(positionMs = safePos)
     }
 
     fun stop() {
         streamExtractionJob?.cancel()
         positionJob?.cancel()
         exoPlayer?.stop()
-        _playerState.value = OnlinePlayerState()
+        _playerState.value = OnlinePlayerState(isShuffle = isShuffle, isRepeat = isRepeat)
     }
 
     private fun startPositionTracker() {
@@ -265,7 +296,10 @@ constructor(
             }
             Player.STATE_ENDED -> {
                 positionJob?.cancel()
-                if (currentIndex < queue.lastIndex) {
+                if (isRepeat && queue.size == 1) {
+                    seekTo(0)
+                    resume()
+                } else if (currentIndex < queue.lastIndex || (isRepeat && queue.isNotEmpty())) {
                     playNext()
                 } else {
                     _playerState.value =

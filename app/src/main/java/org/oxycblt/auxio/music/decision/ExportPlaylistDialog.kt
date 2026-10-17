@@ -64,11 +64,8 @@ class ExportPlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistExp
     override fun onCreateBinding(inflater: LayoutInflater) =
         DialogPlaylistExportBinding.inflate(inflater)
 
-    override fun onBindingCreated(
-        binding: DialogPlaylistExportBinding,
-        savedInstanceState: Bundle?,
-    ) {
-        // --- UI SETUP ---
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         createDocumentLauncher =
             registerForActivityResult(ActivityResultContracts.CreateDocument(M3U.MIME_TYPE)) { uri
                 ->
@@ -88,7 +85,13 @@ class ExportPlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistExp
                 musicModel.exportPlaylist(playlist, uri, pickerModel.currentExportConfig.value)
                 findNavController().navigateUp()
             }
+    }
 
+    override fun onBindingCreated(
+        binding: DialogPlaylistExportBinding,
+        savedInstanceState: Bundle?,
+    ) {
+        // --- UI SETUP ---
         binding.exportRelativePaths.setOnClickListener { updatePathStyle(absolute = false) }
         binding.exportAbsolutePaths.setOnClickListener { updatePathStyle(absolute = true) }
 

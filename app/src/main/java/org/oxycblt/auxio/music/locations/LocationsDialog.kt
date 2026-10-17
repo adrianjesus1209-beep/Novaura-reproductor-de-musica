@@ -100,10 +100,8 @@ class LocationsDialog : ViewBindingMaterialDialogFragment<DialogMusicLocationsBi
             .setPositiveButton(R.string.lbl_save) { _, _ -> saveChanges() }
     }
 
-    override fun onBindingCreated(
-        binding: DialogMusicLocationsBinding,
-        savedInstanceState: Bundle?,
-    ) {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         openDocumentTreeLauncher =
             registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
                 addDocumentTreeUriToDirs(uri, false)
@@ -122,9 +120,17 @@ class LocationsDialog : ViewBindingMaterialDialogFragment<DialogMusicLocationsBi
                 if (isGranted && !permissionGrantedInSession) {
                     permissionGrantedInSession = true
                 }
-                updateModeUI(binding)
-                updateSaveButtonState()
+                binding?.let {
+                    updateModeUI(it)
+                    updateSaveButtonState()
+                }
             }
+    }
+
+    override fun onBindingCreated(
+        binding: DialogMusicLocationsBinding,
+        savedInstanceState: Bundle?,
+    ) {
 
         binding.locationsIncludeRecycler.apply {
             adapter = includeLocationAdapter

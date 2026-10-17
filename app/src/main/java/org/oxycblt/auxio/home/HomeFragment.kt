@@ -123,23 +123,11 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         returnTransition = MaterialSharedAxis(MaterialSharedAxis.Z, false)
         exitTransition = MaterialSharedAxis(MaterialSharedAxis.Z, true)
         reenterTransition = MaterialSharedAxis(MaterialSharedAxis.Z, false)
-    }
 
-    override fun onCreateBinding(inflater: LayoutInflater) = FragmentHomeBinding.inflate(inflater)
-
-    override fun getSelectionToolbar(binding: FragmentHomeBinding) = binding.homeSelectionToolbar
-
-    @SuppressLint("ClickableViewAccessibility")
-    override fun onBindingCreated(binding: FragmentHomeBinding, savedInstanceState: Bundle?) {
-        super.onBindingCreated(binding, savedInstanceState)
-
-        // Have to set up the permission launcher before the view is shown
         storagePermissionLauncher =
             registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
                 pendingPermissionRescan = false
                 if (isGranted) {
-                    // The system callback confirmed the grant: update the app state reactively on
-                    // the main thread and start scanning right away, without requiring a restart.
                     L.d("[PERMISSIONS_DEBUG] RESULT=GRANTED")
                     if (homeModel.empty.value) {
                         musicModel.refresh()
@@ -160,6 +148,15 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                 L.d("Received playlist URI $uri")
                 musicModel.importPlaylist(uri, pendingImportTarget)
             }
+    }
+
+    override fun onCreateBinding(inflater: LayoutInflater) = FragmentHomeBinding.inflate(inflater)
+
+    override fun getSelectionToolbar(binding: FragmentHomeBinding) = binding.homeSelectionToolbar
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onBindingCreated(binding: FragmentHomeBinding, savedInstanceState: Bundle?) {
+        super.onBindingCreated(binding, savedInstanceState)
 
         // --- UI SETUP ---
 

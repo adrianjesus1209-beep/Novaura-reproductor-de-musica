@@ -442,6 +442,7 @@
     <string name="notif_downloading_multiple">Descargando %d canciones</string>
     <string name="notif_download_complete">Descarga completada</string>
     <string name="notif_download_all_complete">Todas las canciones se han descargado con éxito</string>
+    <string name="notif_downloads_paused">Descargas en pausa</string>
     <string name="lbl_play_online">Reproducir</string>
     <string name="lbl_streaming">Reproduciendo en línea</string>
     <string name="lbl_stream_error">No se pudo reproducir el audio en línea</string>

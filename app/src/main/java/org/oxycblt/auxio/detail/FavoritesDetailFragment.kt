@@ -44,9 +44,12 @@ import org.oxycblt.auxio.list.menu.Menu
 import org.oxycblt.auxio.list.recycler.SongViewHolder
 import org.oxycblt.auxio.music.FavoritesManager
 import org.oxycblt.auxio.music.MusicViewModel
+import org.oxycblt.auxio.music.PlaylistDecision
+import org.oxycblt.auxio.music.PlaylistMessage
 import org.oxycblt.auxio.music.SongDecision
 import org.oxycblt.auxio.music.SongMessage
 import org.oxycblt.auxio.playback.PlaySong
+import org.oxycblt.auxio.playback.PlaybackDecision
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.formatDurationMs
 import org.oxycblt.auxio.util.collect
@@ -72,6 +75,7 @@ class FavoritesDetailFragment :
     override val listModel: ListViewModel by activityViewModels()
     override val musicModel: MusicViewModel by activityViewModels()
     override val playbackModel: PlaybackViewModel by activityViewModels()
+    private val detailModel: DetailViewModel by activityViewModels()
     @Inject lateinit var favoritesManager: FavoritesManager
 
     private val songAdapter = SongAdapter(this)
@@ -137,9 +141,13 @@ class FavoritesDetailFragment :
             songAdapter.setSelected(selection.filterIsInstanceTo(mutableSetOf()))
         }
 
+        collect(detailModel.toShow.flow, ::handleShow)
         collect(listModel.menu.flow, ::handleMenu)
+        collect(musicModel.playlistDecision.flow, ::handlePlaylistDecision)
+        collect(musicModel.playlistMessage.flow, ::handlePlaylistMessage)
         collect(musicModel.songDecision.flow, ::handleSongDecision)
         collect(musicModel.songMessage.flow, ::handleSongMessage)
+        collect(playbackModel.playbackDecision.flow, ::handlePlaybackDecision)
     }
 
     override fun onDestroyBinding(binding: FragmentDetailBinding) {
@@ -304,6 +312,68 @@ class FavoritesDetailFragment :
         if (message == null) return
         requireContext().showToast(message.stringRes)
         musicModel.songMessage.consume()
+    }
+
+    private fun handleShow(show: Show?) {
+        if (show == null) return
+        val directions =
+            when (show) {
+                is Show.SongDetails -> {
+                    FavoritesDetailFragmentDirections.showSong(show.song.uid)
+                }
+                is Show.SongAlbumDetails -> {
+                    FavoritesDetailFragmentDirections.showAlbum(show.song.album.uid)
+                }
+                is Show.AlbumDetails -> {
+                    FavoritesDetailFragmentDirections.showAlbum(show.album.uid)
+                }
+                is Show.ArtistDetails -> {
+                    FavoritesDetailFragmentDirections.showArtist(show.artist.uid)
+                }
+                is Show.SongArtistDecision -> {
+                    FavoritesDetailFragmentDirections.showArtistChoices(show.song.uid)
+                }
+                is Show.AlbumArtistDecision -> {
+                    FavoritesDetailFragmentDirections.showArtistChoices(show.album.uid)
+                }
+                else -> return
+            }
+        findNavController().navigateSafe(directions)
+    }
+
+    private fun handlePlaylistDecision(decision: PlaylistDecision?) {
+        if (decision == null) return
+        musicModel.playlistDecision.consume()
+        val directions =
+            when (decision) {
+                is PlaylistDecision.Add -> {
+                    FavoritesDetailFragmentDirections.addToPlaylist(
+                        decision.songs.map { it.uid }.toTypedArray()
+                    )
+                }
+                else -> return
+            }
+        findNavController().navigateSafe(directions)
+    }
+
+    private fun handlePlaylistMessage(message: PlaylistMessage?) {
+        if (message == null) return
+        requireContext().showToast(message.stringRes)
+        musicModel.playlistMessage.consume()
+    }
+
+    private fun handlePlaybackDecision(decision: PlaybackDecision?) {
+        if (decision == null) return
+        val directions =
+            when (decision) {
+                is PlaybackDecision.PlayFromArtist -> {
+                    FavoritesDetailFragmentDirections.playFromArtist(decision.song.uid)
+                }
+                is PlaybackDecision.PlayFromGenre -> {
+                    FavoritesDetailFragmentDirections.playFromGenre(decision.song.uid)
+                }
+            }
+        findNavController().navigateSafe(directions)
     }
 
     private class SongAdapter(private val listener: SelectableListListener<Song>) :

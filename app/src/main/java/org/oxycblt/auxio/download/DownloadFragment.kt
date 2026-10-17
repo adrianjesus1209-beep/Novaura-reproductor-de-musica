@@ -357,10 +357,9 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
     }
 
     private fun setupMiniPlayer(binding: FragmentDownloadBinding) {
-        // Tapping card opens the rich OnlinePlayerBottomSheet!
         binding.onlinePlayerTouchArea.setOnClickListener {
             val sheet = OnlinePlayerBottomSheet()
-            sheet.show(parentFragmentManager, OnlinePlayerBottomSheet.TAG)
+            sheet.show(childFragmentManager, OnlinePlayerBottomSheet.TAG)
         }
 
         binding.onlinePlayerPlayPause.setOnClickListener {

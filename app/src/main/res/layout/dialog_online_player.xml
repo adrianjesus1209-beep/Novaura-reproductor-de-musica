@@ -3,9 +3,23 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="?attr/colorSurface"
-    android:paddingBottom="24dp">
+    android:layout_height="match_parent"
+    android:background="#121212">
+
+    <!-- Ambient Blurred Background -->
+    <ImageView
+        android:id="@+id/online_player_blur_bg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0.25"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop" />
+
+    <View
+        android:id="@+id/online_player_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/ui_player_scrim" />
 
     <!-- Top Drag Handle -->
     <com.google.android.material.bottomsheet.BottomSheetDragHandleView
@@ -14,226 +28,361 @@
         android:layout_height="wrap_content"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Header Toolbar -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/online_player_close_btn"
-        style="@style/Widget.Material3.Button.IconButton"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginStart="8dp"
-        app:icon="@drawable/ic_down_24"
-        app:iconGravity="textStart"
-        app:iconPadding="0dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/online_player_drag_handle" />
+    <!-- Top Bar Navigation & Actions (Matching Local Player) -->
+    <LinearLayout
+        android:id="@+id/online_player_top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        app:layout_constraintTop_toBottomOf="@+id/online_player_drag_handle">
 
-    <TextView
-        android:id="@+id/online_player_header_title"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:text="@string/lbl_playing_online"
-        android:textAppearance="?attr/textAppearanceTitleMedium"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toBottomOf="@+id/online_player_close_btn"
-        app:layout_constraintEnd_toStartOf="@+id/online_player_info_btn"
-        app:layout_constraintStart_toEndOf="@+id/online_player_close_btn"
-        app:layout_constraintTop_toTopOf="@+id/online_player_close_btn" />
+        <ImageView
+            android:id="@+id/online_player_close_btn"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/lbl_close"
+            android:focusable="true"
+            android:padding="10dp"
+            android:src="@drawable/ic_down_24"
+            app:tint="@android:color/white" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/online_player_info_btn"
-        style="@style/Widget.Material3.Button.IconButton"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginEnd="8dp"
-        app:icon="@drawable/ic_details_24"
-        app:iconGravity="textStart"
-        app:iconPadding="0dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/online_player_drag_handle" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
 
-    <!-- Large Rounded Cover Art -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/online_player_cover_card"
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-bold"
+                android:letterSpacing="0.04"
+                android:text="@string/lbl_playback"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/online_player_header_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="@string/lbl_playing_online"
+                android:textColor="#A0FFFFFF"
+                android:textSize="11sp" />
+
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/online_player_info_btn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/lbl_details"
+            android:focusable="true"
+            android:padding="9dp"
+            android:src="@drawable/ic_details_24"
+            app:tint="@android:color/white" />
+
+        <ImageView
+            android:id="@+id/online_player_full_download_btn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/lbl_download"
+            android:focusable="true"
+            android:padding="9dp"
+            android:src="@drawable/ic_download_24"
+            app:tint="@android:color/white" />
+
+        <ImageView
+            android:id="@+id/online_player_stop_btn"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/lbl_close"
+            android:focusable="true"
+            android:padding="10dp"
+            android:src="@drawable/ic_close_24"
+            app:tint="@android:color/white" />
+
+    </LinearLayout>
+
+    <!-- Large Rounded Cover Art with Floating Frosted Title Pill (Exact match to local player) -->
+    <FrameLayout
+        android:id="@+id/online_player_cover_wrapper"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginHorizontal="32dp"
-        android:layout_marginTop="12dp"
-        app:cardCornerRadius="24dp"
-        app:cardElevation="6dp"
+        android:layout_marginTop="8dp"
         app:layout_constraintDimensionRatio="1:1"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/online_player_close_btn"
-        app:strokeWidth="0dp">
+        app:layout_constraintTop_toBottomOf="@+id/online_player_top_bar"
+        app:layout_constraintBottom_toTopOf="@+id/online_player_seek_bar">
 
-        <ImageView
-            android:id="@+id/online_player_large_cover"
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/online_player_cover_card"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="?attr/colorSurfaceContainerHigh"
-            android:scaleType="centerCrop"
-            tools:src="@drawable/ic_song_48" />
+            app:cardCornerRadius="24dp"
+            app:cardElevation="10dp"
+            app:strokeWidth="0dp">
 
-        <ProgressBar
-            android:id="@+id/online_player_large_loading"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_gravity="center"
-            android:indeterminate="true"
-            android:visibility="gone" />
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
 
-    </com.google.android.material.card.MaterialCardView>
+                <ImageView
+                    android:id="@+id/online_player_large_cover"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="#202020"
+                    android:scaleType="centerCrop"
+                    tools:src="@drawable/ic_song_48" />
 
-    <!-- Title and Artist -->
-    <TextView
-        android:id="@+id/online_player_full_title"
-        android:layout_width="0dp"
+                <!-- Buffering indicator over artwork -->
+                <ProgressBar
+                    android:id="@+id/online_player_large_loading"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:layout_gravity="center"
+                    android:indeterminate="true"
+                    android:visibility="gone" />
+
+                <!-- Frosted Glass Pill with Song Title & Artist (Overlay at bottom of artwork) -->
+                <LinearLayout
+                    android:id="@+id/online_player_pill_info"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom"
+                    android:layout_margin="12dp"
+                    android:background="@drawable/ui_home_favorites_card_bg"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="10dp">
+
+                    <TextView
+                        android:id="@+id/online_player_full_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="marquee"
+                        android:focusable="true"
+                        android:focusableInTouchMode="true"
+                        android:fontFamily="sans-serif-black"
+                        android:gravity="center"
+                        android:marqueeRepeatLimit="marquee_forever"
+                        android:singleLine="true"
+                        android:textColor="@android:color/white"
+                        android:textSize="16sp"
+                        tools:text="86-Eighty-Six - Opening full [Sub Español]" />
+
+                    <TextView
+                        android:id="@+id/online_player_full_artist"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:ellipsize="end"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        android:maxLines="1"
+                        android:textColor="#B3FFFFFF"
+                        android:textSize="12sp"
+                        tools:text="KuroShiro" />
+
+                </LinearLayout>
+
+            </FrameLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+    </FrameLayout>
+
+    <!-- Waveform Seeker (Exact StyledSeekBar from Local Player) -->
+    <org.oxycblt.auxio.playback.ui.StyledSeekBar
+        android:id="@+id/online_player_seek_bar"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="24dp"
-        android:layout_marginTop="20dp"
-        android:ellipsize="marquee"
-        android:focusable="true"
-        android:focusableInTouchMode="true"
-        android:gravity="center"
-        android:marqueeRepeatLimit="marquee_forever"
-        android:singleLine="true"
-        android:textAppearance="?attr/textAppearanceTitleLarge"
-        android:textStyle="bold"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginTop="12dp"
+        app:layout_constraintBottom_toTopOf="@+id/online_player_controls_container"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/online_player_cover_card"
-        tools:text="Smells Like Teen Spirit" />
+        app:layout_constraintTop_toBottomOf="@+id/online_player_cover_wrapper" />
 
-    <TextView
-        android:id="@+id/online_player_full_artist"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="24dp"
-        android:layout_marginTop="4dp"
-        android:ellipsize="end"
-        android:gravity="center"
-        android:maxLines="1"
-        android:textAppearance="?attr/textAppearanceBodyLarge"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/online_player_full_title"
-        tools:text="Nirvana" />
-
-    <!-- Seek Slider -->
-    <com.google.android.material.slider.Slider
-        android:id="@+id/online_player_slider"
-        android:layout_width="0dp"
+    <!-- Main Playback Controls Container (Shuffle, Prev, Play/Pause, Next, Repeat) -->
+    <LinearLayout
+        android:id="@+id/online_player_controls_container"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
         android:layout_marginTop="8dp"
-        android:value="0"
-        android:valueFrom="0"
-        android:valueTo="100"
-        app:haloRadius="16dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/online_player_full_artist"
-        app:thumbRadius="6dp" />
-
-    <TextView
-        android:id="@+id/online_player_time_current"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:textAppearance="?attr/textAppearanceBodySmall"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/online_player_slider"
-        tools:text="0:00" />
-
-    <TextView
-        android:id="@+id/online_player_time_total"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="24dp"
-        android:textAppearance="?attr/textAppearanceBodySmall"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/online_player_slider"
-        tools:text="4:38" />
-
-    <!-- Playback Controls -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/online_player_prev_btn"
-        style="@style/Widget.Material3.Button.IconButton"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
-        app:icon="@drawable/ic_skip_prev_24"
-        app:iconGravity="textStart"
-        app:iconPadding="0dp"
-        app:iconSize="32dp"
-        app:layout_constraintBottom_toBottomOf="@+id/online_player_play_pause_fab"
-        app:layout_constraintEnd_toStartOf="@+id/online_player_play_pause_fab"
-        app:layout_constraintHorizontal_chainStyle="packed"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/online_player_play_pause_fab" />
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/online_player_play_pause_fab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="24dp"
-        android:layout_marginTop="16dp"
-        android:contentDescription="@string/lbl_play_online"
-        app:elevation="4dp"
-        app:fabCustomSize="64dp"
-        app:layout_constraintEnd_toStartOf="@+id/online_player_next_btn"
-        app:layout_constraintStart_toEndOf="@+id/online_player_prev_btn"
-        app:layout_constraintTop_toBottomOf="@+id/online_player_time_current"
-        app:srcCompat="@drawable/ic_play_24" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/online_player_next_btn"
-        style="@style/Widget.Material3.Button.IconButton"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
-        app:icon="@drawable/ic_skip_next_24"
-        app:iconGravity="textStart"
-        app:iconPadding="0dp"
-        app:iconSize="32dp"
-        app:layout_constraintBottom_toBottomOf="@+id/online_player_play_pause_fab"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/online_player_play_pause_fab"
-        app:layout_constraintTop_toTopOf="@+id/online_player_play_pause_fab" />
-
-    <!-- Actions Row: Download & Add to Online Playlist (NO FAVORITES) -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="24dp"
-        android:layout_marginTop="20dp"
         android:gravity="center"
         android:orientation="horizontal"
+        app:layout_constraintBottom_toTopOf="@+id/online_player_queue_preview"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/online_player_play_pause_fab">
+        app:layout_constraintTop_toBottomOf="@+id/online_player_seek_bar">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/online_player_full_download_btn"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1"
-            android:text="@string/lbl_download"
-            app:icon="@drawable/ic_download_24" />
+        <!-- Shuffle -->
+        <ImageView
+            android:id="@+id/online_player_shuffle_btn"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/desc_shuffle"
+            android:focusable="true"
+            android:padding="12dp"
+            android:src="@drawable/ic_shuffle_off_24"
+            app:tint="#88FFFFFF" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/online_player_full_playlist_btn"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
+        <!-- Previous -->
+        <ImageView
+            android:id="@+id/online_player_prev_btn"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
             android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/desc_skip_prev"
+            android:focusable="true"
+            android:padding="10dp"
+            android:src="@drawable/ic_skip_prev_24"
+            app:tint="@android:color/white" />
+
+        <!-- Play / Pause Circular FAB (Large centered circle) -->
+        <FrameLayout
+            android:layout_width="76dp"
+            android:layout_height="76dp"
+            android:layout_marginHorizontal="16dp">
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/online_player_play_pause_fab"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:contentDescription="@string/desc_play_pause"
+                app:backgroundTint="@android:color/white"
+                app:elevation="6dp"
+                app:fabCustomSize="68dp"
+                app:maxImageSize="34dp"
+                app:srcCompat="@drawable/ic_play_24"
+                app:tint="@android:color/black" />
+
+        </FrameLayout>
+
+        <!-- Next -->
+        <ImageView
+            android:id="@+id/online_player_next_btn"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:layout_marginEnd="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/desc_skip_next"
+            android:focusable="true"
+            android:padding="10dp"
+            android:src="@drawable/ic_skip_next_24"
+            app:tint="@android:color/white" />
+
+        <!-- Repeat -->
+        <ImageView
+            android:id="@+id/online_player_repeat_btn"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/desc_change_repeat"
+            android:focusable="true"
+            android:padding="12dp"
+            android:src="@drawable/ic_repeat_off_24"
+            app:tint="#88FFFFFF" />
+
+    </LinearLayout>
+
+    <!-- Bottom Queue / Track Preview Pill (Matching Local Player Queue Bar) -->
+    <LinearLayout
+        android:id="@+id/online_player_queue_preview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="24dp"
+        android:background="@drawable/ui_home_favorites_card_bg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="10dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/online_player_controls_container">
+
+        <!-- Animated Waveform indicator icon -->
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="10dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_song_24"
+            app:tint="?attr/colorPrimary" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/tab_online_playlists"
-            app:icon="@drawable/ic_playlist_add_24" />
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/online_player_bottom_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-bold"
+                android:maxLines="1"
+                android:textColor="@android:color/white"
+                android:textSize="13sp"
+                tools:text="86-Eighty-Six - Opening full [Sub Español]" />
+
+            <TextView
+                android:id="@+id/online_player_bottom_artist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif"
+                android:maxLines="1"
+                android:textColor="#A0FFFFFF"
+                android:textSize="11sp"
+                tools:text="KuroShiro • Online" />
+
+        </LinearLayout>
+
+        <!-- Add to Playlist button -->
+        <ImageView
+            android:id="@+id/online_player_full_playlist_btn"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/tab_online_playlists"
+            android:focusable="true"
+            android:padding="8dp"
+            android:src="@drawable/ic_playlist_add_24"
+            app:tint="@android:color/white" />
 
     </LinearLayout>
 

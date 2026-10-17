@@ -39,7 +39,6 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewbinding.ViewBinding
 import androidx.viewpager2.widget.ViewPager2
-import java.lang.IllegalArgumentException
 import java.lang.reflect.Field
 import org.oxycblt.auxio.R
 import org.oxycblt.musikr.MusicParent
@@ -199,10 +198,9 @@ fun ViewPager2.smoothScrollByPageTo(item: Int, durationMs: Int = 300) {
 fun NavController.navigateSafe(directions: NavDirections) =
     try {
         navigate(directions)
-    } catch (e: IllegalArgumentException) {
+    } catch (e: Exception) {
         // Nothing to do.
-        L.e("Could not navigate from this destination.")
-        L.e(e.stackTraceToString())
+        L.e(e, "Could not navigate from this destination: ${e.message}")
     }
 
 /**

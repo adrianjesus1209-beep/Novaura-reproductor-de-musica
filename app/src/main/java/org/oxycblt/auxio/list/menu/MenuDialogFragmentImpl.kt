@@ -43,6 +43,7 @@ import org.oxycblt.musikr.Artist
 import org.oxycblt.musikr.Genre
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
+import timber.log.Timber as L
 
 /**
  * [MenuDialogFragment] implementation for a [Song].
@@ -101,7 +102,7 @@ class SongMenuDialogFragment : MenuDialogFragment<Menu.ForSong>() {
                 EqualizerDialogFragment().show(parentFragmentManager, "equalizer")
             }
             R.id.action_delete -> musicModel.deleteSong(menu.song)
-            else -> error("Unexpected menu item selected $item")
+            else -> L.w("Unexpected menu item selected $item")
         }
     }
 }
@@ -150,7 +151,7 @@ class AlbumMenuDialogFragment : MenuDialogFragment<Menu.ForAlbum>() {
             R.id.action_artist_details -> detailModel.showArtist(menu.album)
             R.id.action_playlist_add -> musicModel.addToPlaylist(menu.album)
             R.id.action_share -> requireContext().share(menu.album)
-            else -> error("Unexpected menu item selected $item")
+            else -> L.w("Unexpected menu item selected $item")
         }
     }
 }
@@ -224,7 +225,7 @@ class ArtistMenuDialogFragment : MenuDialogFragment<Menu.ForArtist>() {
             }
             R.id.action_playlist_add -> musicModel.addToPlaylist(menu.artist)
             R.id.action_share -> requireContext().share(menu.artist)
-            else -> error("Unexpected menu item $item")
+            else -> L.w("Unexpected menu item $item")
         }
     }
 }
@@ -276,7 +277,7 @@ class GenreMenuDialogFragment : MenuDialogFragment<Menu.ForGenre>() {
             }
             R.id.action_playlist_add -> musicModel.addToPlaylist(menu.genre)
             R.id.action_share -> requireContext().share(menu.genre)
-            else -> error("Unexpected menu item $item")
+            else -> L.w("Unexpected menu item $item")
         }
     }
 }
@@ -346,7 +347,7 @@ class PlaylistMenuDialogFragment : MenuDialogFragment<Menu.ForPlaylist>() {
             R.id.action_export -> musicModel.exportPlaylist(menu.playlist)
             R.id.action_delete -> musicModel.deletePlaylist(menu.playlist)
             R.id.action_share -> requireContext().share(menu.playlist)
-            else -> error("Unexpected menu item $item")
+            else -> L.w("Unexpected menu item $item")
         }
     }
 }
@@ -408,7 +409,7 @@ class SelectionMenuDialogFragment : MenuDialogFragment<Menu.ForSelection>() {
             R.id.action_playlist_add -> musicModel.addToPlaylist(menu.songs)
             R.id.action_share -> requireContext().share(menu.songs)
             R.id.action_delete -> musicModel.deleteSongs(menu.songs)
-            else -> error("Unexpected menu item selected $item")
+            else -> L.w("Unexpected menu item selected $item")
         }
     }
 }

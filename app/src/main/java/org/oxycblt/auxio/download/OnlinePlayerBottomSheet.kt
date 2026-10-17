@@ -18,17 +18,21 @@
  
 package org.oxycblt.auxio.download
 
+import android.app.Dialog
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.FrameLayout
 import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.slider.Slider
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
 import kotlinx.coroutines.flow.collectLatest
@@ -36,10 +40,11 @@ import kotlinx.coroutines.launch
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.DialogOnlinePlayerBinding
 import org.oxycblt.auxio.playback.PlaybackViewModel
+import org.oxycblt.auxio.playback.ui.StyledSeekBar
 import org.oxycblt.auxio.util.showToast
 
 @AndroidEntryPoint
-class OnlinePlayerBottomSheet : BottomSheetDialogFragment() {
+class OnlinePlayerBottomSheet : BottomSheetDialogFragment(), StyledSeekBar.Listener {
 
     private var _binding: DialogOnlinePlayerBinding? = null
     private val binding
@@ -48,7 +53,21 @@ class OnlinePlayerBottomSheet : BottomSheetDialogFragment() {
     private val downloadModel: DownloadViewModel by activityViewModels()
     private val playbackModel: PlaybackViewModel by activityViewModels()
 
-    private var isUserTrackingSlider = false
+    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
+        val dialog = super.onCreateDialog(savedInstanceState) as BottomSheetDialog
+        dialog.setOnShowListener {
+            val bottomSheet =
+                dialog.findViewById<FrameLayout>(
+                    com.google.android.material.R.id.design_bottom_sheet
+                )
+            if (bottomSheet != null) {
+                val behavior = BottomSheetBehavior.from(bottomSheet)
+                behavior.state = BottomSheetBehavior.STATE_EXPANDED
+                behavior.skipCollapsed = true
+            }
+        }
+        return dialog
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -62,7 +81,14 @@ class OnlinePlayerBottomSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        binding.onlinePlayerSeekBar.listener = this
+
         binding.onlinePlayerCloseBtn.setOnClickListener {
+            dismiss()
+        }
+
+        binding.onlinePlayerStopBtn.setOnClickListener {
+            downloadModel.stopOnlinePlayback()
             dismiss()
         }
 
@@ -79,6 +105,16 @@ class OnlinePlayerBottomSheet : BottomSheetDialogFragment() {
 
         binding.onlinePlayerPrevBtn.setOnClickListener {
             downloadModel.playPrevOnline()
+        }
+
+        binding.onlinePlayerShuffleBtn.setOnClickListener {
+            val isShuffle = downloadModel.toggleShuffle()
+            updateShuffleState(isShuffle)
+        }
+
+        binding.onlinePlayerRepeatBtn.setOnClickListener {
+            val isRepeat = downloadModel.toggleRepeat()
+            updateRepeatState(isRepeat)
         }
 
         binding.onlinePlayerFullDownloadBtn.setOnClickListener {
@@ -103,20 +139,6 @@ class OnlinePlayerBottomSheet : BottomSheetDialogFragment() {
             }
         }
 
-        binding.onlinePlayerSlider.addOnSliderTouchListener(
-            object : Slider.OnSliderTouchListener {
-                override fun onStartTrackingTouch(slider: Slider) {
-                    isUserTrackingSlider = true
-                }
-
-                override fun onStopTrackingTouch(slider: Slider) {
-                    val targetMs = slider.value.toLong()
-                    downloadModel.seekOnline(targetMs)
-                    isUserTrackingSlider = false
-                }
-            }
-        )
-
         // Observe player state
         viewLifecycleOwner.lifecycleScope.launch {
             downloadModel.playerState.collectLatest { state ->
@@ -126,32 +148,69 @@ class OnlinePlayerBottomSheet : BottomSheetDialogFragment() {
                     return@collectLatest
                 }
 
+                // Title & Artist on artwork pill
                 binding.onlinePlayerFullTitle.text = song.title
                 binding.onlinePlayerFullArtist.text = song.artist
 
-                ThumbnailLoader.load(binding.onlinePlayerLargeCover, song.thumbnailUrl)
+                // Bottom preview bar
+                binding.onlinePlayerBottomTitle.text = song.title
+                binding.onlinePlayerBottomArtist.text = "${song.artist} • ${song.durationText}"
 
+                // Artwork and ambient blur
+                ThumbnailLoader.load(binding.onlinePlayerLargeCover, song.thumbnailUrl)
+                ThumbnailLoader.load(binding.onlinePlayerBlurBg, song.thumbnailUrl)
+
+                // Deterministic waveform pattern seed for this song
+                binding.onlinePlayerSeekBar.setSongSeed(song.webUrl.hashCode().toLong())
+
+                // Playback states & icons
                 binding.onlinePlayerLargeLoading.isVisible = state.isLoading
                 binding.onlinePlayerPlayPauseFab.setImageResource(
                     if (state.isPlaying) R.drawable.ic_pause_24 else R.drawable.ic_play_24
                 )
 
-                binding.onlinePlayerNextBtn.isEnabled = state.hasNext
-                binding.onlinePlayerPrevBtn.isEnabled = state.hasPrevious
+                // Shuffle & Repeat states
+                updateShuffleState(state.isShuffle)
+                updateRepeatState(state.isRepeat)
 
-                val duration = state.durationMs.coerceAtLeast(0L)
-                val position = state.positionMs.coerceIn(0L, duration)
+                // Previous & Next navigation controls
+                binding.onlinePlayerNextBtn.alpha =
+                    if (state.hasNext || state.isRepeat) 1.0f else 0.4f
+                binding.onlinePlayerPrevBtn.alpha =
+                    if (state.hasPrevious || state.isRepeat || state.positionMs > 3000L) 1.0f
+                    else 0.4f
 
-                binding.onlinePlayerTimeTotal.text = formatTime(duration)
-                binding.onlinePlayerTimeCurrent.text = formatTime(position)
+                // Duration & Position safely updated in deci-seconds (1/10s)
+                val durationMs = state.durationMs.coerceAtLeast(1000L)
+                val positionMs = state.positionMs.coerceIn(0L, durationMs)
 
-                if (!isUserTrackingSlider && duration > 0L) {
-                    binding.onlinePlayerSlider.valueTo = duration.toFloat()
-                    binding.onlinePlayerSlider.value =
-                        position.toFloat().coerceIn(0f, duration.toFloat())
-                }
+                binding.onlinePlayerSeekBar.durationDs = durationMs / 100L
+                binding.onlinePlayerSeekBar.positionDs = positionMs / 100L
             }
         }
+    }
+
+    override fun onSeekConfirmed(positionDs: Long) {
+        val positionMs = positionDs * 100L
+        downloadModel.seekOnline(positionMs)
+    }
+
+    private fun updateShuffleState(isShuffle: Boolean) {
+        val activeColor = Color.WHITE
+        val inactiveColor = Color.parseColor("#88FFFFFF")
+        binding.onlinePlayerShuffleBtn.setImageResource(
+            if (isShuffle) R.drawable.ic_shuffle_on_24 else R.drawable.ic_shuffle_off_24
+        )
+        binding.onlinePlayerShuffleBtn.setColorFilter(if (isShuffle) activeColor else inactiveColor)
+    }
+
+    private fun updateRepeatState(isRepeat: Boolean) {
+        val activeColor = Color.WHITE
+        val inactiveColor = Color.parseColor("#88FFFFFF")
+        binding.onlinePlayerRepeatBtn.setImageResource(
+            if (isRepeat) R.drawable.ic_repeat_on_24 else R.drawable.ic_repeat_off_24
+        )
+        binding.onlinePlayerRepeatBtn.setColorFilter(if (isRepeat) activeColor else inactiveColor)
     }
 
     private fun showTrackInfoDialog(song: OnlineSong) {

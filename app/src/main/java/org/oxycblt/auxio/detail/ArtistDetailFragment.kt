@@ -108,7 +108,7 @@ class ArtistDetailFragment : DetailFragment<Artist, Music>() {
         when (item) {
             is Album -> detailModel.showAlbum(item)
             is Song -> playbackModel.play(item, detailModel.playInArtistWith)
-            else -> error("Unexpected datatype: ${item::class.simpleName}")
+            else -> L.w("Unexpected datatype: ${item::class.simpleName}")
         }
     }
 
@@ -121,7 +121,7 @@ class ArtistDetailFragment : DetailFragment<Artist, Music>() {
         when (item) {
             is Song -> listModel.openMenu(R.menu.artist_song, item, detailModel.playInArtistWith)
             is Album -> listModel.openMenu(R.menu.artist_album, item)
-            else -> error("Unexpected datatype: ${item::class.simpleName}")
+            else -> L.w("Unexpected datatype: ${item::class.simpleName}")
         }
     }
 
@@ -247,7 +247,7 @@ class ArtistDetailFragment : DetailFragment<Artist, Music>() {
             }
             is Show.GenreDetails,
             is Show.PlaylistDetails -> {
-                error("Unexpected show command $show")
+                L.w("Ignoring unexpected show command $show")
             }
             null -> {}
         }
@@ -263,7 +263,10 @@ class ArtistDetailFragment : DetailFragment<Artist, Music>() {
                 is Menu.ForSelection ->
                     ArtistDetailFragmentDirections.openSelectionMenu(menu.parcel)
                 is Menu.ForGenre,
-                is Menu.ForPlaylist -> error("Unexpected menu $menu")
+                is Menu.ForPlaylist -> {
+                    L.w("Ignoring unexpected menu $menu")
+                    return
+                }
             }
         findNavController().navigateSafe(directions)
     }
@@ -294,7 +297,10 @@ class ArtistDetailFragment : DetailFragment<Artist, Music>() {
                 is PlaylistDecision.Import,
                 is PlaylistDecision.Rename,
                 is PlaylistDecision.Export,
-                is PlaylistDecision.Delete -> error("Unexpected playlist decision $decision")
+                is PlaylistDecision.Delete -> {
+                    L.w("Ignoring unexpected playlist decision $decision")
+                    return
+                }
             }
         findNavController().navigateSafe(directions)
     }
@@ -345,8 +351,10 @@ class ArtistDetailFragment : DetailFragment<Artist, Music>() {
         if (decision == null) return
         val directions =
             when (decision) {
-                is PlaybackDecision.PlayFromArtist ->
-                    error("Unexpected playback decision $decision")
+                is PlaybackDecision.PlayFromArtist -> {
+                    L.w("Ignoring unexpected playback decision $decision")
+                    return
+                }
                 is PlaybackDecision.PlayFromGenre -> {
                     L.d("Launching play from artist dialog for $decision")
                     ArtistDetailFragmentDirections.playFromGenre(decision.song.uid)

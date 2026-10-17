@@ -234,6 +234,10 @@ constructor(
         onlinePlayerManager.seekTo(positionMs)
     }
 
+    fun toggleShuffle(): Boolean = onlinePlayerManager.toggleShuffle()
+
+    fun toggleRepeat(): Boolean = onlinePlayerManager.toggleRepeat()
+
     override fun onCleared() {
         super.onCleared()
         onlinePlayerManager.stop()

@@ -95,17 +95,6 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
         returnTransition = MaterialSharedAxis(MaterialSharedAxis.Z, false)
         exitTransition = MaterialSharedAxis(MaterialSharedAxis.Z, true)
         reenterTransition = MaterialSharedAxis(MaterialSharedAxis.Z, false)
-    }
-
-    override fun onCreateBinding(inflater: LayoutInflater) = FragmentSearchBinding.inflate(inflater)
-
-    override fun getSelectionToolbar(binding: FragmentSearchBinding) =
-        binding.searchSelectionToolbar
-
-    override fun onBindingCreated(binding: FragmentSearchBinding, savedInstanceState: Bundle?) {
-        super.onBindingCreated(binding, savedInstanceState)
-
-        imm = binding.context.getSystemServiceCompat(InputMethodManager::class)
 
         getContentLauncher =
             registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -117,6 +106,17 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
                 L.d("Received playlist URI $uri")
                 musicModel.importPlaylist(uri, pendingImportTarget)
             }
+    }
+
+    override fun onCreateBinding(inflater: LayoutInflater) = FragmentSearchBinding.inflate(inflater)
+
+    override fun getSelectionToolbar(binding: FragmentSearchBinding) =
+        binding.searchSelectionToolbar
+
+    override fun onBindingCreated(binding: FragmentSearchBinding, savedInstanceState: Bundle?) {
+        super.onBindingCreated(binding, savedInstanceState)
+
+        imm = binding.context.getSystemServiceCompat(InputMethodManager::class)
 
         // --- UI SETUP ---
 
@@ -365,7 +365,8 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
                     )
                 }
                 is PlaylistDecision.New -> {
-                    error("Unexpected decision $decision")
+                    L.w("Ignoring unexpected decision $decision")
+                    return
                 }
             }
         findNavController().navigateSafe(directions)

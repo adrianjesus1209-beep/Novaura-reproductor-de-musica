@@ -89,11 +89,19 @@ class DownloadService : Service() {
                 val url = intent.getStringExtra(EXTRA_URL).orEmpty()
                 pauseDownload(url)
             }
+            ACTION_PAUSE_ALL -> {
+                downloadManager.pauseAll()
+                checkAllDownloadsFinished()
+            }
+            ACTION_RESUME_ALL -> {
+                downloadManager.resumeAll()
+            }
             ACTION_CANCEL -> {
                 val url = intent.getStringExtra(EXTRA_URL).orEmpty()
                 cancelDownload(url)
             }
             ACTION_CANCEL_ALL -> {
+                downloadManager.cancelAll()
                 cancelAllDownloads()
             }
             else -> {
@@ -180,10 +188,16 @@ class DownloadService : Service() {
 
     private fun checkAllDownloadsFinished() {
         if (activeSongs.isEmpty()) {
-            L.d("All background downloads completed")
-            showCompletedNotification()
-            stopForeground(STOP_FOREGROUND_DETACH)
-            stopSelf()
+            val hasPaused =
+                downloadManager.downloadItems.value.any { it.status == DownloadStatus.PAUSED }
+            if (hasPaused) {
+                notificationManager.notify(NOTIFICATION_ID, buildOngoingNotification())
+            } else {
+                L.d("All background downloads completed")
+                showCompletedNotification()
+                stopForeground(STOP_FOREGROUND_DETACH)
+                stopSelf()
+            }
         } else {
             postNotificationUpdate(force = true)
         }
@@ -198,7 +212,9 @@ class DownloadService : Service() {
     }
 
     private fun postNotificationUpdate(force: Boolean) {
-        if (activeSongs.isEmpty()) return
+        val hasPaused =
+            downloadManager.downloadItems.value.any { it.status == DownloadStatus.PAUSED }
+        if (activeSongs.isEmpty() && !hasPaused) return
         notificationManager.notify(NOTIFICATION_ID, buildOngoingNotification())
     }
 
@@ -211,8 +227,14 @@ class DownloadService : Service() {
                 0
             }
 
+        val hasPaused =
+            downloadManager.downloadItems.value.any { it.status == DownloadStatus.PAUSED }
+        val isPausedState = totalCount == 0 && hasPaused
+
         val title =
-            if (totalCount == 1) {
+            if (isPausedState) {
+                getString(R.string.notif_downloads_paused)
+            } else if (totalCount == 1) {
                 val song = activeSongs.values.firstOrNull()
                 val songTitle = song?.title ?: "Música"
                 getString(R.string.notif_downloading_single, songTitle)
@@ -221,7 +243,13 @@ class DownloadService : Service() {
             }
 
         val contentText =
-            if (totalCount == 1) {
+            if (isPausedState) {
+                val pausedCount =
+                    downloadManager.downloadItems.value.count { it.status == DownloadStatus.PAUSED }
+                getString(R.string.lbl_status_paused) +
+                    " • " +
+                    getString(R.string.notif_downloading_multiple, pausedCount)
+            } else if (totalCount == 1) {
                 "$avgProgress%"
             } else {
                 val songNames = activeSongs.values.joinToString(", ") { it.title }
@@ -241,16 +269,63 @@ class DownloadService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_download_24)
-            .setContentTitle(title)
-            .setContentText(contentText)
-            .setProgress(100, avgProgress, false)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+        val pauseOrResumeIntent =
+            Intent(this, DownloadService::class.java).apply {
+                action = if (isPausedState) ACTION_RESUME_ALL else ACTION_PAUSE_ALL
+            }
+        val pauseOrResumePendingIntent =
+            PendingIntent.getService(
+                this,
+                1,
+                pauseOrResumeIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val cancelIntent =
+            Intent(this, DownloadService::class.java).apply {
+                action = ACTION_CANCEL_ALL
+            }
+        val cancelPendingIntent =
+            PendingIntent.getService(
+                this,
+                2,
+                cancelIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val builder =
+            NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_download_24)
+                .setContentTitle(title)
+                .setContentText(contentText)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+
+        if (!isPausedState) {
+            builder.setProgress(100, avgProgress, false)
+            builder.addAction(
+                R.drawable.ic_pause_24,
+                getString(R.string.lbl_pause),
+                pauseOrResumePendingIntent,
+            )
+        } else {
+            builder.setProgress(0, 0, false)
+            builder.addAction(
+                R.drawable.ic_play_24,
+                getString(R.string.lbl_resume),
+                pauseOrResumePendingIntent,
+            )
+        }
+
+        builder.addAction(
+            R.drawable.ic_close_24,
+            getString(R.string.lbl_cancel),
+            cancelPendingIntent,
+        )
+
+        return builder.build()
     }
 
     private fun showCompletedNotification() {
@@ -308,6 +383,8 @@ class DownloadService : Service() {
     companion object {
         const val ACTION_ENQUEUE = "org.oxycblt.auxio.download.action.ENQUEUE"
         const val ACTION_PAUSE = "org.oxycblt.auxio.download.action.PAUSE"
+        const val ACTION_PAUSE_ALL = "org.oxycblt.auxio.download.action.PAUSE_ALL"
+        const val ACTION_RESUME_ALL = "org.oxycblt.auxio.download.action.RESUME_ALL"
         const val ACTION_CANCEL = "org.oxycblt.auxio.download.action.CANCEL"
         const val ACTION_CANCEL_ALL = "org.oxycblt.auxio.download.action.CANCEL_ALL"
         const val EXTRA_SONG = "extra_song"

@@ -77,11 +77,8 @@ class PlaylistDetailFragment :
 
     override fun getToolbarParent() = detailModel.currentPlaylist.value
 
-    override fun onBindingCreated(binding: FragmentDetailBinding, savedInstanceState: Bundle?) {
-        super.onBindingCreated(binding, savedInstanceState)
-
-        editNavigationListener = DialogAwareNavigationListener(detailModel::dropPlaylistEdit)
-
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         getContentLauncher =
             registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
                 if (uri == null) {
@@ -92,6 +89,12 @@ class PlaylistDetailFragment :
                 L.d("Received playlist URI $uri")
                 musicModel.importPlaylist(uri, pendingImportTarget)
             }
+    }
+
+    override fun onBindingCreated(binding: FragmentDetailBinding, savedInstanceState: Bundle?) {
+        super.onBindingCreated(binding, savedInstanceState)
+
+        editNavigationListener = DialogAwareNavigationListener(detailModel::dropPlaylistEdit)
 
         // --- UI SETUP ---
 
@@ -325,7 +328,7 @@ class PlaylistDetailFragment :
                 detailModel.toShow.consume()
             }
             is Show.GenreDetails -> {
-                error("Unexpected show command $show")
+                L.w("Ignoring unexpected show command $show")
             }
             null -> {}
         }
@@ -342,7 +345,10 @@ class PlaylistDetailFragment :
                     PlaylistDetailFragmentDirections.openSelectionMenu(menu.parcel)
                 is Menu.ForArtist,
                 is Menu.ForAlbum,
-                is Menu.ForGenre -> error("Unexpected menu $menu")
+                is Menu.ForGenre -> {
+                    L.w("Ignoring unexpected menu $menu")
+                    return
+                }
             }
         findNavController().navigateSafe(directions)
     }
@@ -394,7 +400,10 @@ class PlaylistDetailFragment :
                         decision.songs.map { it.uid }.toTypedArray()
                     )
                 }
-                is PlaylistDecision.New -> error("Unexpected playlist decision $decision")
+                is PlaylistDecision.New -> {
+                    L.w("Ignoring unexpected playlist decision $decision")
+                    return
+                }
             }
         findNavController().navigateSafe(directions)
     }

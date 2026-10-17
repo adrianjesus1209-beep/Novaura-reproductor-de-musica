@@ -584,6 +584,7 @@
     <string name="notif_downloading_multiple">Downloading %d songs</string>
     <string name="notif_download_complete">Download complete</string>
     <string name="notif_download_all_complete">All songs downloaded successfully</string>
+    <string name="notif_downloads_paused">Downloads paused</string>
     <string name="lbl_play_online">Play</string>
     <string name="lbl_streaming">Streaming online</string>
     <string name="lbl_stream_error">Could not stream audio online</string>
