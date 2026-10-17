@@ -9,6 +9,12 @@
         app:showAsAction="ifRoom" />
 
     <item
+        android:id="@+id/action_download"
+        android:icon="@drawable/ic_download_24"
+        android:title="@string/lbl_download_music"
+        app:showAsAction="ifRoom" />
+
+    <item
         android:id="@+id/action_sort"
         android:icon="@drawable/ic_sort_24"
         android:title="@string/lbl_sort"

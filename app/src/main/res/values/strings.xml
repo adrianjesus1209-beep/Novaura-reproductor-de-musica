@@ -564,6 +564,15 @@
     <string name="set_language_system">System default</string>
     <string name="set_language_spanish">Español</string>
     <string name="set_language_english">English</string>
+    <!-- Download feature -->
+    <string name="lbl_download">Download</string>
+    <string name="lbl_download_music">Download music</string>
+    <string name="lbl_search_online_hint">Search songs, artists to download...</string>
+    <string name="lbl_no_download_results">No songs found</string>
+    <string name="lbl_download_empty_prompt">Search any song to download it free and without ads</string>
+    <string name="msg_download_success">Downloaded %s</string>
+    <string name="msg_download_error">Error downloading %s</string>
+    <string name="lbl_downloaded">Downloaded</string>
 </resources>
 
 

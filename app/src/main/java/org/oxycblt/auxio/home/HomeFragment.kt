@@ -282,10 +282,15 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         }
 
         return when (item.itemId) {
-            // Handle main actions (Search, Settings, About)
+            // Handle main actions (Search, Download, Settings, About)
             R.id.action_search -> {
                 L.d("Navigating to search")
                 findNavController().navigateSafe(HomeFragmentDirections.search())
+                true
+            }
+            R.id.action_download -> {
+                L.d("Navigating to download")
+                findNavController().navigateSafe(HomeFragmentDirections.download())
                 true
             }
             R.id.action_settings -> {
@@ -335,6 +340,9 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
 
         binding.homeDashboard.dashboardSearchBar.setOnClickListener {
             findNavController().navigateSafe(HomeFragmentDirections.search())
+        }
+        binding.homeDashboard.dashboardDownloadBtn.setOnClickListener {
+            findNavController().navigateSafe(HomeFragmentDirections.download())
         }
         binding.homeDashboard.cardFavoritesAlbum.setOnClickListener {
             findNavController().navigateSafe(HomeFragmentDirections.showFavorites())

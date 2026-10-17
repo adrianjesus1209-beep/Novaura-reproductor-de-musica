@@ -27,34 +27,62 @@
             android:textColor="@android:color/white"
             android:textSize="28sp" />
 
-        <!-- Search Bar Pill -->
+        <!-- Search Bar & Download Button -->
         <LinearLayout
-            android:id="@+id/dashboard_search_bar"
             android:layout_width="match_parent"
-            android:layout_height="44dp"
+            android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="@drawable/ui_home_search_bg"
-            android:clickable="true"
-            android:focusable="true"
             android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp">
+            android:orientation="horizontal">
 
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:layout_marginEnd="10dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_search_24"
-                app:tint="#A0FFFFFF" />
+            <LinearLayout
+                android:id="@+id/dashboard_search_bar"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:background="@drawable/ui_home_search_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/lbl_search_hint"
-                android:textColor="#A0FFFFFF"
-                android:textSize="14sp" />
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginEnd="10dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_search_24"
+                    app:tint="#A0FFFFFF" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/lbl_search_hint"
+                    android:textColor="#A0FFFFFF"
+                    android:textSize="14sp" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/dashboard_download_btn"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/ui_home_search_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:contentDescription="@string/lbl_download_music"
+                    android:src="@drawable/ic_download_24"
+                    app:tint="?attr/colorPrimary" />
+
+            </LinearLayout>
 
         </LinearLayout>
 

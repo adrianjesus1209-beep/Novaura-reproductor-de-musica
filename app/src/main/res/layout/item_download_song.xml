@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/ui_item_bg"
+    android:paddingStart="@dimen/spacing_medium"
+    android:paddingTop="@dimen/spacing_mid_medium"
+    android:paddingEnd="@dimen/spacing_mid_medium"
+    android:paddingBottom="@dimen/spacing_mid_medium">
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/song_thumbnail"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:scaleType="centerCrop"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:src="@tools:sample/avatars" />
+
+    <TextView
+        android:id="@+id/song_title"
+        style="@style/Widget.Auxio.TextView.Item.Primary"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/spacing_mid_medium"
+        android:layout_marginEnd="@dimen/spacing_mid_medium"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/sel_selectable_text_primary"
+        app:layout_constraintBottom_toTopOf="@+id/song_info"
+        app:layout_constraintEnd_toStartOf="@+id/download_container"
+        app:layout_constraintStart_toEndOf="@+id/song_thumbnail"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_chainStyle="packed"
+        tools:text="Viva La Vida" />
+
+    <TextView
+        android:id="@+id/song_info"
+        style="@style/Widget.Auxio.TextView.Item.Secondary"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/spacing_mid_medium"
+        android:layout_marginEnd="@dimen/spacing_mid_medium"
+        android:ellipsize="end"
+        android:maxLines="1"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/download_container"
+        app:layout_constraintStart_toEndOf="@+id/song_thumbnail"
+        app:layout_constraintTop_toBottomOf="@+id/song_title"
+        tools:text="Coldplay • 4:02" />
+
+    <FrameLayout
+        android:id="@+id/download_container"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <org.oxycblt.auxio.ui.RippleFixMaterialButton
+            android:id="@+id/song_download_button"
+            style="@style/Widget.Auxio.Button.Icon.Small"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            app:icon="@drawable/ic_download_24" />
+
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:id="@+id/song_download_progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone"
+            app:indicatorSize="28dp"
+            app:trackThickness="3dp"
+            tools:visibility="visible" />
+
+    </FrameLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
