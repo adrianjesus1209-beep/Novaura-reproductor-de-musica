@@ -39,14 +39,10 @@ class BlurTransformation(
         get() = "BlurTransformation(radius=$radius,sampling=$sampling)"
 
     override suspend fun transform(input: Bitmap, size: Size): Bitmap {
-        val scaledWidth = max(1, (input.width * sampling).roundToInt())
-        val scaledHeight = max(1, (input.height * sampling).roundToInt())
-        val scaled = input.scale(scaledWidth, scaledHeight)
-        return stackBlur(scaled, radius)
+        return blur(input, radius, sampling)
     }
 
     private fun stackBlur(sentBitmap: Bitmap, radius: Int): Bitmap {
-        if (radius < 1) return sentBitmap
         val bitmap = sentBitmap.copy(sentBitmap.config ?: Bitmap.Config.ARGB_8888, true)
 
         val w = bitmap.width
@@ -285,5 +281,12 @@ class BlurTransformation(
 
     companion object {
         val DEFAULT = BlurTransformation()
+
+        fun blur(input: Bitmap, radius: Int = 22, sampling: Float = 0.2f): Bitmap {
+            val scaledWidth = max(1, (input.width * sampling).roundToInt())
+            val scaledHeight = max(1, (input.height * sampling).roundToInt())
+            val scaled = input.scale(scaledWidth, scaledHeight)
+            return DEFAULT.stackBlur(scaled, radius)
+        }
     }
 }

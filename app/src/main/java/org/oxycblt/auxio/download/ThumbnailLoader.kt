@@ -29,32 +29,54 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.oxycblt.auxio.R
+import org.oxycblt.auxio.image.coil.BlurTransformation
 
 object ThumbnailLoader {
     private val cache = LruCache<String, Bitmap>(60)
+    private val blurCache = LruCache<String, Bitmap>(30)
     private val client = OkHttpClient()
 
     fun load(imageView: ImageView, url: String?) {
+        load(imageView, null, url)
+    }
+
+    fun load(imageView: ImageView, blurView: ImageView?, url: String?) {
         if (url.isNullOrEmpty()) {
             imageView.tag = null
             imageView.setImageResource(R.drawable.ic_song_24)
-            return
-        }
-
-        if (imageView.tag == url && imageView.drawable != null) {
-            // Already displaying this exact image, skip reloading!
-            return
-        }
-
-        val cached = cache.get(url)
-        if (cached != null) {
-            imageView.tag = url
-            imageView.setImageBitmap(cached)
+            blurView?.tag = null
+            blurView?.setImageDrawable(null)
             return
         }
 
         imageView.tag = url
+        blurView?.tag = url
+
+        val cached = cache.get(url)
+        val cachedBlur = blurCache.get(url)
+
+        if (cached != null) {
+            imageView.setImageBitmap(cached)
+            if (blurView != null) {
+                if (cachedBlur != null) {
+                    blurView.setImageBitmap(cachedBlur)
+                } else {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val blurred = BlurTransformation.blur(cached, radius = 22, sampling = 0.2f)
+                        blurCache.put(url, blurred)
+                        withContext(Dispatchers.Main) {
+                            if (blurView.tag == url) {
+                                blurView.setImageBitmap(blurred)
+                            }
+                        }
+                    }
+                }
+            }
+            return
+        }
+
         imageView.setImageResource(R.drawable.ic_song_24)
+        blurView?.setImageDrawable(null)
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -65,9 +87,15 @@ object ThumbnailLoader {
                         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                         if (bitmap != null) {
                             cache.put(url, bitmap)
+                            val blurred =
+                                BlurTransformation.blur(bitmap, radius = 22, sampling = 0.2f)
+                            blurCache.put(url, blurred)
                             withContext(Dispatchers.Main) {
                                 if (imageView.tag == url) {
                                     imageView.setImageBitmap(bitmap)
+                                }
+                                if (blurView?.tag == url) {
+                                    blurView.setImageBitmap(blurred)
                                 }
                             }
                         }

@@ -19,6 +19,7 @@
 package org.oxycblt.auxio.download
 
 import android.graphics.Color
+import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -26,6 +27,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.EditText
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updatePadding
@@ -36,9 +38,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil3.ImageLoader
-import coil3.request.ImageRequest
 import coil3.request.target
-import coil3.request.transformations
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
@@ -48,7 +48,6 @@ import kotlinx.coroutines.launch
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.DialogOnlinePlayerBinding
 import org.oxycblt.auxio.databinding.ItemPlaybackTrackBinding
-import org.oxycblt.auxio.image.coil.BlurTransformation
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.ui.StyledSeekBar
 import org.oxycblt.auxio.util.getDimenPixels
@@ -211,14 +210,11 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
                     updateFavoriteIcon(isOnlineFavorite(song))
 
                     // Large Artwork and Ambient Background Blur
-                    ThumbnailLoader.load(binding.onlinePlayerLargeCover, song.thumbnailUrl)
-                    val request =
-                        ImageRequest.Builder(requireContext())
-                            .data(song.thumbnailUrl)
-                            .transformations(BlurTransformation.DEFAULT)
-                            .target(binding.playbackBlurBackground)
-                            .build()
-                    imageLoader.enqueue(request)
+                    ThumbnailLoader.load(
+                        binding.onlinePlayerLargeCover,
+                        binding.playbackBlurBackground,
+                        song.thumbnailUrl,
+                    )
 
                     // Deterministic waveform seed for StyledSeekBar
                     binding.onlinePlayerSeekBar.setSongSeed(song.webUrl.hashCode().toLong())
@@ -397,9 +393,14 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
         private var isPlaying = false
 
         fun submitQueue(queue: List<OnlineSong>, currentIndex: Int, playing: Boolean) {
+            val notifyNeeded = activeIndex != currentIndex || isPlaying != playing
             activeIndex = currentIndex
             isPlaying = playing
-            submitList(queue)
+            submitList(queue) {
+                if (notifyNeeded) {
+                    notifyDataSetChanged()
+                }
+            }
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -419,18 +420,29 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
                 trackDuration.text = song.durationText
                 trackDragHandle.isVisible = true
 
-                if (isCurrent && isPlaying) {
-                    trackEqualizerIcon.isVisible = true
+                val goldColor = ContextCompat.getColor(root.context, R.color.player_accent_gold)
+                val mutedColor = 0x80FFFFFF.toInt()
+                val anim = trackEqualizerIcon.drawable as? AnimationDrawable
+
+                if (isCurrent) {
                     trackNumber.isVisible = false
-                    trackName.setTextColor(Color.WHITE)
-                } else if (isCurrent) {
-                    trackEqualizerIcon.isVisible = false
-                    trackNumber.isVisible = true
-                    trackName.setTextColor(Color.WHITE)
+                    trackEqualizerIcon.isVisible = true
+                    if (isPlaying) {
+                        trackEqualizerIcon.setImageResource(R.drawable.ic_playing_indicator_24)
+                        val playingAnim = trackEqualizerIcon.drawable as? AnimationDrawable
+                        playingAnim?.start()
+                    } else {
+                        anim?.stop()
+                        trackEqualizerIcon.setImageResource(R.drawable.ic_paused_indicator_24)
+                    }
+                    trackName.setTextColor(goldColor)
+                    trackDuration.setTextColor(goldColor)
                 } else {
+                    anim?.stop()
                     trackEqualizerIcon.isVisible = false
                     trackNumber.isVisible = true
                     trackName.setTextColor(Color.WHITE)
+                    trackDuration.setTextColor(mutedColor)
                 }
 
                 root.setOnClickListener {

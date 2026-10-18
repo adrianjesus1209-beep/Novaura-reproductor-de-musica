@@ -21,22 +21,19 @@ package org.oxycblt.auxio.playback.ui.waveform
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
-import androidx.core.content.ContextCompat
 import kotlin.math.abs
 import kotlin.math.sin
-import org.oxycblt.auxio.R
 
 /**
- * A customized waveform seekbar view that renders musical amplitude bars with active/played bars in
- * gold accent and unplayed bars in translucent white.
- *
- * Amplitude bars are generated deterministically per-song using a seeded pseudo-random profile,
- * producing convincing peaks and valleys similar to a real audio waveform.
+ * A customized waveform seekbar view that renders musical amplitude bars with top bars and bottom
+ * reflection, animated smoothly using sub-pixel clipping and continuous 60fps tracking.
  */
 class WaveformSeekBarView
 @JvmOverloads
@@ -46,38 +43,56 @@ constructor(
     defStyleAttr: Int = 0,
 ) : View(context, attrs, defStyleAttr) {
 
-    private val activePaint =
+    private val topActivePaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = ContextCompat.getColor(context, R.color.player_accent_gold)
+            color = Color.WHITE
             style = Paint.Style.FILL
         }
 
-    private val inactivePaint =
+    private val bottomActivePaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0x40FFFFFF.toInt()
+            color = 0x80FFFFFF.toInt()
+            style = Paint.Style.FILL
+        }
+
+    private val topInactivePaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x55FFFFFF.toInt()
+            style = Paint.Style.FILL
+        }
+
+    private val bottomInactivePaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x20FFFFFF.toInt()
             style = Paint.Style.FILL
         }
 
     private val barRect = RectF()
-    private val barWidthDp = 2.5f
-    private val barGapDp = 1.5f
-    private val cornerRadiusDp = 1.5f
+    private val barWidthDp = 2.2f
+    private val barGapDp = 1.4f
+    private val cornerRadiusDp = 1.2f
+    private val baselineGapDp = 1.2f
 
     private var barWidthPx = 0f
     private var barGapPx = 0f
     private var cornerRadiusPx = 0f
+    private var baselineGapPx = 0f
 
     // Waveform amplitude profile, generated once per song
     private var amplitudeProfile: FloatArray = floatArrayOf()
     private var profileSeed: Long = 0L
 
-    var progress: Float = 0f
+    private var basePositionMs: Long = 0L
+    private var durationMs: Long = 1000L
+    private var lastPositionUpdateUptime: Long = 0L
+    private var currentRenderProgress: Float = 0f
+    private var isSeeking: Boolean = false
+
+    var isPlaying: Boolean = false
         set(value) {
-            val clamped = value.coerceIn(0f, 1f)
-            if (field != clamped) {
-                field = clamped
-                invalidate()
-            }
+            field = value
+            lastPositionUpdateUptime = SystemClock.uptimeMillis()
+            if (value) postInvalidateOnAnimation()
         }
 
     var audioLevel: Float = 0f
@@ -97,12 +112,13 @@ constructor(
         barWidthPx = barWidthDp * density
         barGapPx = barGapDp * density
         cornerRadiusPx = cornerRadiusDp * density
+        baselineGapPx = baselineGapDp * density
     }
 
     /**
-     * Updates the waveform profile for a new song. The [seed] should be derived from a stable song
-     * identifier (e.g. hashCode of uid or durationMs) so the same song always shows the same
-     * waveform pattern.
+     * Updates the waveform profile for a new song. The [seed] is derived from a stable song
+     * identifier (e.g. hashCode of webUrl or title) so the same song always shows the same waveform
+     * pattern.
      */
     fun setSongSeed(seed: Long) {
         if (profileSeed == seed && amplitudeProfile.isNotEmpty()) return
@@ -111,9 +127,18 @@ constructor(
         invalidate()
     }
 
+    fun setProgress(progressRatio: Float, currentPosMs: Long, totalDurationMs: Long) {
+        basePositionMs = currentPosMs
+        durationMs = totalDurationMs.coerceAtLeast(1000L)
+        lastPositionUpdateUptime = SystemClock.uptimeMillis()
+        if (!isSeeking) {
+            currentRenderProgress = progressRatio.coerceIn(0f, 1f)
+            invalidate()
+        }
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        // Regenerate if size changes (bar count changes)
         if (amplitudeProfile.isEmpty()) {
             amplitudeProfile = generateAmplitudeProfile(profileSeed, PROFILE_SIZE)
         }
@@ -125,39 +150,71 @@ constructor(
         val h = height.toFloat()
         if (w <= 0f || h <= 0f) return
 
+        // 60fps continuous sub-pixel progression during playback
+        if (isPlaying && !isSeeking && durationMs > 0) {
+            val now = SystemClock.uptimeMillis()
+            val elapsed = (now - lastPositionUpdateUptime).coerceAtLeast(0L)
+            val estimatedPosMs = (basePositionMs + elapsed).coerceAtMost(durationMs)
+            currentRenderProgress =
+                (estimatedPosMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+            postInvalidateOnAnimation()
+        }
+
         val totalBarWidth = barWidthPx + barGapPx
         val barCount = (w / totalBarWidth).toInt().coerceAtLeast(10)
-        val centerY = h / 2f
-        val maxAmplitude = (h / 2f) * 0.94f
-        val minAmplitude = (h / 2f) * 0.10f
+
+        // Baseline separating top audio bars from bottom reflection bars (at ~60% height)
+        val baselineY = h * 0.60f
+        val maxTopHeight = (baselineY - baselineGapPx - 2f).coerceAtLeast(1f)
+        val maxBottomHeight = (h - baselineY - baselineGapPx - 2f).coerceAtLeast(1f)
+        val minTopHeight = (maxTopHeight * 0.12f).coerceAtLeast(1.5f)
 
         val liveAudio = audioLevelProvider?.invoke()?.coerceIn(0f, 1f) ?: audioLevel
-        // Dynamic audio boost on bars
-        val boost = 1f + (liveAudio * 0.25f)
+        val boost = 1f + (liveAudio * 0.18f)
 
-        for (i in 0 until barCount) {
-            val barX = i * totalBarWidth + barGapPx / 2f
-            if (barX + barWidthPx > w) break
+        fun drawBars(topPaint: Paint, bottomPaint: Paint) {
+            for (i in 0 until barCount) {
+                val barX = i * totalBarWidth + barGapPx / 2f
+                if (barX + barWidthPx > w) break
 
-            val factor = sampleAmplitude(i, barCount)
-            val isPassed = (barX + barWidthPx / 2f) <= (progress * w)
+                val factor = sampleAmplitude(i, barCount)
+                val effectiveFactor = (factor * boost).coerceIn(0f, 1f)
+                val topHeight = minTopHeight + (maxTopHeight - minTopHeight) * effectiveFactor
+                val bottomHeight =
+                    (topHeight * 0.45f)
+                        .coerceAtMost(maxBottomHeight)
+                        .coerceAtLeast(minTopHeight * 0.45f)
 
-            val effectiveFactor = if (isPassed) (factor * boost).coerceAtMost(1f) else factor
-            val halfHeight = minAmplitude + (maxAmplitude - minAmplitude) * effectiveFactor
+                // Top bar (rises from baseline upwards)
+                barRect.set(
+                    barX,
+                    baselineY - baselineGapPx - topHeight,
+                    barX + barWidthPx,
+                    baselineY - baselineGapPx,
+                )
+                canvas.drawRoundRect(barRect, cornerRadiusPx, cornerRadiusPx, topPaint)
 
-            barRect.set(
-                barX,
-                centerY - halfHeight,
-                barX + barWidthPx,
-                centerY + halfHeight,
-            )
+                // Bottom reflection bar (drops from baseline downwards)
+                barRect.set(
+                    barX,
+                    baselineY + baselineGapPx,
+                    barX + barWidthPx,
+                    baselineY + baselineGapPx + bottomHeight,
+                )
+                canvas.drawRoundRect(barRect, cornerRadiusPx, cornerRadiusPx, bottomPaint)
+            }
+        }
 
-            canvas.drawRoundRect(
-                barRect,
-                cornerRadiusPx,
-                cornerRadiusPx,
-                if (isPassed) activePaint else inactivePaint,
-            )
+        // Pass 1: Draw all bars across full width in inactive paints
+        drawBars(topInactivePaint, bottomInactivePaint)
+
+        // Pass 2: Clip to exact progress pixel and draw active overlay
+        val progressPx = currentRenderProgress * w
+        if (progressPx > 0f) {
+            canvas.save()
+            canvas.clipRect(0f, 0f, progressPx, h)
+            drawBars(topActivePaint, bottomActivePaint)
+            canvas.restore()
         }
 
         if (audioLevelProvider != null && liveAudio > 0.02f) {
@@ -184,8 +241,8 @@ constructor(
 
         /**
          * Generates a fixed-length amplitude profile using layered pseudo-random harmonics, beat
-         * pulses, and musical section envelopes to produce realistic audio waveforms with clear
-         * peaks and valleys.
+         * pulses, and musical section envelopes matching the natural audio waveform look from
+         * Image 3.
          */
         fun generateAmplitudeProfile(seed: Long, size: Int): FloatArray {
             val profile = FloatArray(size)
@@ -197,7 +254,7 @@ constructor(
 
             val rawNoise = FloatArray(size) { nextFloat() }
 
-            // Narrow smoothing (window 1) to retain musical punch and sharp peaks
+            // Narrow smoothing to retain musical punch and sharp peaks
             val smoothedNoise = FloatArray(size)
             for (i in 0 until size) {
                 val p0 = rawNoise[(i - 1).coerceAtLeast(0)]
@@ -233,8 +290,6 @@ constructor(
                     0.30f * abs(sin(t * Math.PI.toFloat() * beatFrequency)) +
                         0.15f * abs(kotlin.math.cos(t * Math.PI.toFloat() * subBeatFrequency))
 
-                // Combine textured audio noise (45%), rhythmic pulse (25%), and section envelope
-                // (30%)
                 val combined =
                     smoothedNoise[i] * 0.45f + beatPulse * 0.25f + sectionEnvelope * 0.30f
                 profile[i] = combined.coerceIn(0.08f, 1f)
@@ -263,22 +318,29 @@ constructor(
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 parent?.requestDisallowInterceptTouchEvent(true)
-                progress = (event.x / w).coerceIn(0f, 1f)
+                isSeeking = true
+                currentRenderProgress = (event.x / w).coerceIn(0f, 1f)
                 listener?.onStartTrackingTouch()
-                listener?.onProgressChanged(progress, fromUser = true)
+                listener?.onProgressChanged(currentRenderProgress, fromUser = true)
+                invalidate()
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
-                progress = (event.x / w).coerceIn(0f, 1f)
-                listener?.onProgressChanged(progress, fromUser = true)
+                currentRenderProgress = (event.x / w).coerceIn(0f, 1f)
+                listener?.onProgressChanged(currentRenderProgress, fromUser = true)
+                invalidate()
                 return true
             }
             MotionEvent.ACTION_UP,
             MotionEvent.ACTION_CANCEL -> {
                 parent?.requestDisallowInterceptTouchEvent(false)
-                progress = (event.x / w).coerceIn(0f, 1f)
-                listener?.onProgressChanged(progress, fromUser = true)
-                listener?.onStopTrackingTouch(progress)
+                isSeeking = false
+                currentRenderProgress = (event.x / w).coerceIn(0f, 1f)
+                basePositionMs = (currentRenderProgress * durationMs).toLong()
+                lastPositionUpdateUptime = SystemClock.uptimeMillis()
+                listener?.onProgressChanged(currentRenderProgress, fromUser = true)
+                listener?.onStopTrackingTouch(currentRenderProgress)
+                invalidate()
                 return true
             }
         }
