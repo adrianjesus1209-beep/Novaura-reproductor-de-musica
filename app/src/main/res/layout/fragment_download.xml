@@ -460,7 +460,7 @@
             app:cardBackgroundColor="?attr/colorSurfaceContainerLow"
             app:cardElevation="6dp"
             app:strokeWidth="0dp"
-            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Auxio.PlaybackBar"
+            app:shapeAppearance="@style/ShapeAppearance.Auxio.PlaybackBar"
             android:clickable="true"
             android:focusable="true"
             android:visibility="gone"
@@ -479,11 +479,23 @@
                     style="@style/Widget.Auxio.Image.Small"
                     android:layout_margin="@dimen/spacing_small"
                     android:scaleType="centerCrop"
-                    app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium"
                     app:layout_constraintBottom_toTopOf="@+id/online_player_progress_container"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
                     tools:src="@tools:sample/avatars" />
+
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:id="@+id/online_player_loading"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:indeterminate="true"
+                    android:visibility="gone"
+                    app:indicatorSize="24dp"
+                    app:trackThickness="2.5dp"
+                    app:layout_constraintTop_toTopOf="@+id/online_player_thumb"
+                    app:layout_constraintBottom_toBottomOf="@+id/online_player_thumb"
+                    app:layout_constraintStart_toStartOf="@+id/online_player_thumb"
+                    app:layout_constraintEnd_toEndOf="@+id/online_player_thumb" />
 
                 <TextView
                     android:id="@+id/online_player_title"
@@ -549,30 +561,15 @@
                             app:strokeColor="@color/sel_checkable_outline"
                             tools:ignore="TouchTargetSizeCheck" />
 
-                        <FrameLayout
+                        <org.oxycblt.auxio.ui.RippleFixMaterialButton
+                            android:id="@+id/online_player_play_pause"
+                            style="@style/Widget.Auxio.Button.Playback.PlayPause"
                             android:layout_width="wrap_content"
-                            android:layout_height="wrap_content">
-
-                            <org.oxycblt.auxio.ui.RippleFixMaterialButton
-                                android:id="@+id/online_player_play_pause"
-                                style="@style/Widget.Auxio.Button.Playback.PlayPause"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:checkable="true"
-                                android:contentDescription="@string/desc_play_pause"
-                                app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Small"
-                                app:icon="@drawable/sel_playing_state_24" />
-
-                            <com.google.android.material.progressindicator.CircularProgressIndicator
-                                android:id="@+id/online_player_loading"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_gravity="center"
-                                android:indeterminate="true"
-                                android:visibility="gone"
-                                app:indicatorSize="24dp"
-                                app:trackThickness="2.5dp" />
-                        </FrameLayout>
+                            android:layout_height="wrap_content"
+                            android:checkable="true"
+                            android:contentDescription="@string/desc_play_pause"
+                            app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Small"
+                            app:icon="@drawable/sel_playing_state_24" />
 
                         <org.oxycblt.auxio.ui.RippleFixMaterialButton
                             android:id="@+id/online_player_next"

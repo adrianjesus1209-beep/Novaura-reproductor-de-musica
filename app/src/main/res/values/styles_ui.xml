@@ -507,7 +507,7 @@
         <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
     </style>
 
-    <style name="ShapeAppearanceOverlay.Auxio.PlaybackBar" parent="">
+    <style name="ShapeAppearance.Auxio.PlaybackBar" parent="ShapeAppearance.Material3.Corner.None">
         <item name="cornerSizeTopLeft">20dp</item>
         <item name="cornerSizeTopRight">20dp</item>
         <item name="cornerSizeBottomLeft">0dp</item>

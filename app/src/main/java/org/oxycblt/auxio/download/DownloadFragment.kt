@@ -94,7 +94,7 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
 
         binding.root.setOnApplyWindowInsetsListener { _, insets ->
             val systemBars = insets.systemBarInsetsCompat
-            binding.onlinePlayerCard.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+            this.binding?.onlinePlayerCard?.updateLayoutParams<ViewGroup.MarginLayoutParams> {
                 bottomMargin = systemBars.bottom
             }
             insets
@@ -432,8 +432,8 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         ThumbnailLoader.load(binding.onlinePlayerThumb, song.thumbnailUrl)
 
         binding.onlinePlayerLoading.isVisible = state.isLoading
-        binding.onlinePlayerPlayPause.isVisible = !state.isLoading
         binding.onlinePlayerPlayPause.isChecked = state.isPlaying
+        binding.onlinePlayerPlayPause.isEnabled = true
 
         val hasPrev = state.queueIndex > 0
         val hasNext = state.queueIndex < state.queue.size - 1
@@ -447,11 +447,15 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         binding.onlinePlayerSubtitle.text =
             "${song.artist} • ${formatDuration(curSec)} / ${formatDuration(durSec)}"
 
-        if (state.durationMs > 0) {
+        if (state.isLoading) {
+            binding.onlinePlayerProgress.isIndeterminate = true
+        } else if (state.durationMs > 0) {
+            binding.onlinePlayerProgress.isIndeterminate = false
             binding.onlinePlayerProgress.max = 1000
             val progress = ((state.positionMs * 1000) / state.durationMs).toInt().coerceIn(0, 1000)
             binding.onlinePlayerProgress.progress = progress
         } else {
+            binding.onlinePlayerProgress.isIndeterminate = false
             binding.onlinePlayerProgress.progress = 0
         }
     }
@@ -645,6 +649,7 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
 
     override fun onDestroyBinding(binding: FragmentDownloadBinding) {
         super.onDestroyBinding(binding)
+        binding.root.setOnApplyWindowInsetsListener(null)
         debounceJob?.cancel()
         debounceJob = null
         imm = null
