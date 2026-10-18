@@ -451,148 +451,178 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- ================= MINI-PLAYER CARD FLOTANTE INFERIOR ================= -->
+        <!-- ================= MINI-PLAYER DOCKED INFERIOR (MATCHING OFFLINE BAR) ================= -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/online_player_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:layout_marginHorizontal="12dp"
-            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="?attr/colorSurfaceContainerLow"
+            app:cardElevation="6dp"
+            app:strokeWidth="0dp"
+            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Auxio.PlaybackBar"
             android:clickable="true"
             android:focusable="true"
             android:visibility="gone"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="8dp"
-            app:strokeColor="?attr/colorOutlineVariant"
-            app:strokeWidth="1dp"
             tools:visibility="visible">
 
-            <FrameLayout
+            <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/online_player_touch_area"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="?attr/colorSurfaceContainerHigh">
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true">
 
-                <LinearLayout
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/online_player_thumb"
+                    style="@style/Widget.Auxio.Image.Small"
+                    android:layout_margin="@dimen/spacing_small"
+                    android:scaleType="centerCrop"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium"
+                    app:layout_constraintBottom_toTopOf="@+id/online_player_progress_container"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    tools:src="@tools:sample/avatars" />
+
+                <TextView
+                    android:id="@+id/online_player_title"
+                    style="@style/Widget.Auxio.TextView.Primary.Compact"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/spacing_small"
+                    android:layout_marginEnd="@dimen/spacing_tiny"
+                    android:ellipsize="marquee"
+                    android:marqueeRepeatLimit="marquee_forever"
+                    android:singleLine="true"
+                    app:layout_constraintBottom_toTopOf="@+id/online_player_subtitle"
+                    app:layout_constraintEnd_toStartOf="@+id/online_player_controls_wrapper"
+                    app:layout_constraintStart_toEndOf="@+id/online_player_thumb"
+                    app:layout_constraintTop_toTopOf="@+id/online_player_thumb"
+                    app:layout_constraintVertical_chainStyle="packed"
+                    tools:text="Song Name" />
+
+                <TextView
+                    android:id="@+id/online_player_subtitle"
+                    style="@style/Widget.Auxio.TextView.Secondary.Compact"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/spacing_small"
+                    android:layout_marginEnd="@dimen/spacing_tiny"
+                    android:ellipsize="marquee"
+                    android:marqueeRepeatLimit="marquee_forever"
+                    android:singleLine="true"
+                    app:layout_constraintBottom_toBottomOf="@+id/online_player_thumb"
+                    app:layout_constraintEnd_toStartOf="@+id/online_player_controls_wrapper"
+                    app:layout_constraintStart_toEndOf="@+id/online_player_thumb"
+                    app:layout_constraintTop_toBottomOf="@+id/online_player_title"
+                    tools:text="Artist Name" />
+
+                <org.oxycblt.auxio.playback.ui.ForcedLTRFrameLayout
+                    android:id="@+id/online_player_controls_wrapper"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/spacing_tiny"
+                    app:layout_constraintBottom_toTopOf="@+id/online_player_progress_container"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent">
+
+                    <com.google.android.material.button.MaterialButtonGroup
+                        android:id="@+id/online_player_controls_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:spacing="0dp"
+                        app:buttonSizeChange="@xml/safe_button_group_size_change">
+
+                        <org.oxycblt.auxio.ui.RippleFixMaterialButton
+                            android:id="@+id/online_player_prev"
+                            style="@style/Widget.Material3Expressive.Button.IconButton.Outlined"
+                            app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Small"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:contentDescription="@string/desc_skip_prev"
+                            app:backgroundTint="?attr/colorSurfaceContainerLow"
+                            app:icon="@drawable/ic_skip_prev_24"
+                            app:iconTint="@color/sel_checkable_icon"
+                            app:strokeColor="@color/sel_checkable_outline"
+                            tools:ignore="TouchTargetSizeCheck" />
+
+                        <FrameLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content">
+
+                            <org.oxycblt.auxio.ui.RippleFixMaterialButton
+                                android:id="@+id/online_player_play_pause"
+                                style="@style/Widget.Auxio.Button.Playback.PlayPause"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:checkable="true"
+                                android:contentDescription="@string/desc_play_pause"
+                                app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Small"
+                                app:icon="@drawable/sel_playing_state_24" />
+
+                            <com.google.android.material.progressindicator.CircularProgressIndicator
+                                android:id="@+id/online_player_loading"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="center"
+                                android:indeterminate="true"
+                                android:visibility="gone"
+                                app:indicatorSize="24dp"
+                                app:trackThickness="2.5dp" />
+                        </FrameLayout>
+
+                        <org.oxycblt.auxio.ui.RippleFixMaterialButton
+                            android:id="@+id/online_player_next"
+                            style="@style/Widget.Material3Expressive.Button.IconButton.Outlined"
+                            app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Small"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:contentDescription="@string/desc_skip_next"
+                            app:backgroundTint="?attr/colorSurfaceContainerLow"
+                            app:icon="@drawable/ic_skip_next_24"
+                            app:iconTint="@color/sel_checkable_icon"
+                            app:strokeColor="@color/sel_checkable_outline"
+                            tools:ignore="TouchTargetSizeCheck" />
+
+                        <org.oxycblt.auxio.ui.RippleFixMaterialButton
+                            android:id="@+id/online_player_close"
+                            style="@style/Widget.Material3Expressive.Button.IconButton"
+                            app:materialSizeOverlay="@style/SizeOverlay.Material3Expressive.Button.IconButton.Small"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:contentDescription="@string/desc_exit"
+                            app:backgroundTint="@android:color/transparent"
+                            app:icon="@drawable/ic_close_24"
+                            app:iconTint="?attr/colorOnSurfaceVariant"
+                            tools:ignore="TouchTargetSizeCheck" />
+
+                    </com.google.android.material.button.MaterialButtonGroup>
+
+                </org.oxycblt.auxio.playback.ui.ForcedLTRFrameLayout>
+
+                <org.oxycblt.auxio.playback.ui.ForcedLTRFrameLayout
+                    android:id="@+id/online_player_progress_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="10dp"
-                    android:paddingTop="8dp"
-                    android:paddingEnd="10dp"
-                    android:paddingBottom="10dp">
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent">
 
-                    <com.google.android.material.imageview.ShapeableImageView
-                        android:id="@+id/online_player_thumb"
-                        android:layout_width="44dp"
-                        android:layout_height="44dp"
-                        android:scaleType="centerCrop"
-                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small"
-                        tools:src="@tools:sample/avatars" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
+                    <com.google.android.material.progressindicator.LinearProgressIndicator
+                        android:id="@+id/online_player_progress"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:layout_marginEnd="6dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
+                        android:layout_gravity="center_vertical"
+                        android:layout_marginStart="@dimen/spacing_small"
+                        android:layout_marginEnd="@dimen/spacing_small"
+                        tools:progress="70" />
 
-                        <TextView
-                            android:id="@+id/online_player_title"
-                            style="@style/Widget.Auxio.TextView.Item.Primary"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:textSize="14sp"
-                            tools:text="Smells Like Teen Spirit" />
+                </org.oxycblt.auxio.playback.ui.ForcedLTRFrameLayout>
 
-                        <TextView
-                            android:id="@+id/online_player_subtitle"
-                            style="@style/Widget.Auxio.TextView.Item.Secondary"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:textSize="12sp"
-                            tools:text="Nirvana • 0:00 / 4:38" />
-
-                    </LinearLayout>
-
-                    <FrameLayout
-                        android:layout_width="38dp"
-                        android:layout_height="38dp"
-                        android:layout_marginEnd="2dp">
-
-                        <ImageView
-                            android:id="@+id/online_player_play_pause"
-                            android:layout_width="38dp"
-                            android:layout_height="38dp"
-                            android:background="?attr/selectableItemBackgroundBorderless"
-                            android:clickable="true"
-                            android:contentDescription="@string/lbl_play_online"
-                            android:focusable="true"
-                            android:padding="6dp"
-                            android:scaleType="centerInside"
-                            android:src="@drawable/ic_pause_24"
-                            app:tint="?attr/colorPrimary" />
-
-                        <com.google.android.material.progressindicator.CircularProgressIndicator
-                            android:id="@+id/online_player_loading"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="center"
-                            android:indeterminate="true"
-                            android:visibility="gone"
-                            app:indicatorSize="24dp"
-                            app:trackThickness="2.5dp" />
-
-                    </FrameLayout>
-
-                    <ImageView
-                        android:id="@+id/online_player_download"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:layout_marginEnd="2dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:clickable="true"
-                        android:contentDescription="@string/lbl_download"
-                        android:focusable="true"
-                        android:padding="7dp"
-                        android:scaleType="centerInside"
-                        android:src="@drawable/ic_download_24"
-                        app:tint="?attr/colorOnSurfaceVariant" />
-
-                    <ImageView
-                        android:id="@+id/online_player_close"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:clickable="true"
-                        android:contentDescription="@string/lbl_close"
-                        android:focusable="true"
-                        android:padding="8dp"
-                        android:scaleType="centerInside"
-                        android:src="@drawable/ic_close_24"
-                        app:tint="?attr/colorOnSurfaceVariant" />
-
-                </LinearLayout>
-
-                <com.google.android.material.progressindicator.LinearProgressIndicator
-                    android:id="@+id/online_player_progress"
-                    android:layout_width="match_parent"
-                    android:layout_height="2.5dp"
-                    android:layout_gravity="bottom"
-                    android:indeterminate="false"
-                    android:progress="0"
-                    app:indicatorColor="?attr/colorPrimary"
-                    app:trackColor="#20FFFFFF"
-                    app:trackThickness="2.5dp" />
-
-            </FrameLayout>
+            </androidx.constraintlayout.widget.ConstraintLayout>
 
         </com.google.android.material.card.MaterialCardView>
 

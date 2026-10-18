@@ -25,6 +25,7 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
@@ -33,6 +34,7 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.core.view.postDelayed
+import androidx.core.view.updateLayoutParams
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -54,6 +56,7 @@ import org.oxycblt.auxio.ui.ViewBindingFragment
 import org.oxycblt.auxio.util.context
 import org.oxycblt.auxio.util.getSystemServiceCompat
 import org.oxycblt.auxio.util.showToast
+import org.oxycblt.auxio.util.systemBarInsetsCompat
 import timber.log.Timber as L
 
 @AndroidEntryPoint
@@ -88,6 +91,14 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
 
     override fun onBindingCreated(binding: FragmentDownloadBinding, savedInstanceState: Bundle?) {
         super.onBindingCreated(binding, savedInstanceState)
+
+        binding.root.setOnApplyWindowInsetsListener { _, insets ->
+            val systemBars = insets.systemBarInsetsCompat
+            binding.onlinePlayerCard.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                bottomMargin = systemBars.bottom
+            }
+            insets
+        }
 
         imm = binding.context.getSystemServiceCompat(InputMethodManager::class)
 
@@ -278,9 +289,18 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
     }
 
     private fun setupMiniPlayer(binding: FragmentDownloadBinding) {
-        binding.onlinePlayerTouchArea.setOnClickListener {
-            val sheet = OnlinePlayerBottomSheet()
-            sheet.show(childFragmentManager, OnlinePlayerBottomSheet.TAG)
+        val openListener = View.OnClickListener { showOnlinePlayer() }
+        binding.onlinePlayerCard.setOnClickListener(openListener)
+        binding.onlinePlayerTouchArea.setOnClickListener(openListener)
+        binding.onlinePlayerThumb.setOnClickListener(openListener)
+        binding.onlinePlayerTitle.setOnClickListener(openListener)
+        binding.onlinePlayerSubtitle.setOnClickListener(openListener)
+
+        binding.onlinePlayerTitle.isSelected = true
+        binding.onlinePlayerSubtitle.isSelected = true
+
+        binding.onlinePlayerPrev.setOnClickListener {
+            downloadModel.playPrevOnline()
         }
 
         binding.onlinePlayerPlayPause.setOnClickListener {
@@ -290,17 +310,20 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
             downloadModel.togglePlayPauseOnline()
         }
 
-        binding.onlinePlayerDownload.setOnClickListener {
-            val playingSong = downloadModel.playerState.value.song
-            if (playingSong != null) {
-                checkNotificationPermission()
-                downloadModel.download(playingSong)
-                context?.showToast(getString(R.string.lbl_download_started, playingSong.title))
-            }
+        binding.onlinePlayerNext.setOnClickListener {
+            downloadModel.playNextOnline()
         }
 
         binding.onlinePlayerClose.setOnClickListener {
             downloadModel.stopOnlinePlayback()
+        }
+    }
+
+    private fun showOnlinePlayer() {
+        if (!isAdded) return
+        val existing = parentFragmentManager.findFragmentByTag(OnlinePlayerBottomSheet.TAG)
+        if (existing == null) {
+            OnlinePlayerBottomSheet().show(parentFragmentManager, OnlinePlayerBottomSheet.TAG)
         }
     }
 
@@ -410,12 +433,14 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
 
         binding.onlinePlayerLoading.isVisible = state.isLoading
         binding.onlinePlayerPlayPause.isVisible = !state.isLoading
+        binding.onlinePlayerPlayPause.isChecked = state.isPlaying
 
-        if (state.isPlaying) {
-            binding.onlinePlayerPlayPause.setImageResource(R.drawable.ic_pause_24)
-        } else {
-            binding.onlinePlayerPlayPause.setImageResource(R.drawable.ic_play_24)
-        }
+        val hasPrev = state.queueIndex > 0
+        val hasNext = state.queueIndex < state.queue.size - 1
+        binding.onlinePlayerPrev.isEnabled = hasPrev
+        binding.onlinePlayerPrev.alpha = if (hasPrev) 1.0f else 0.38f
+        binding.onlinePlayerNext.isEnabled = hasNext
+        binding.onlinePlayerNext.alpha = if (hasNext) 1.0f else 0.38f
 
         val curSec = state.positionMs / 1000
         val durSec = state.durationMs / 1000
@@ -423,7 +448,8 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
             "${song.artist} • ${formatDuration(curSec)} / ${formatDuration(durSec)}"
 
         if (state.durationMs > 0) {
-            val progress = ((state.positionMs * 100) / state.durationMs).toInt()
+            binding.onlinePlayerProgress.max = 1000
+            val progress = ((state.positionMs * 1000) / state.durationMs).toInt().coerceIn(0, 1000)
             binding.onlinePlayerProgress.progress = progress
         } else {
             binding.onlinePlayerProgress.progress = 0

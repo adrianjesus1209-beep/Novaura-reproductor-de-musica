@@ -114,4 +114,13 @@
         <item name="android:background">@drawable/ui_remote_fab_container_paused</item>
         <item name="android:tint">?attr/colorOnPrimary</item>
     </style>
+
+    <style name="Theme.Auxio.Playback.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@style/Animation.Auxio.BottomSheet.Dialog</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+    </style>
 </resources>

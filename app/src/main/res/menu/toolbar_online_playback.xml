@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_search"
+        android:icon="@drawable/ic_search_24"
+        android:title="@string/lbl_search"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_close_playback"
+        android:icon="@drawable/ic_close_24"
+        android:title="@string/desc_exit"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/action_online_download"
+        android:icon="@drawable/ic_download_24"
+        android:title="@string/lbl_download"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_online_playlist"
+        android:icon="@drawable/ic_playlist_add_24"
+        android:title="@string/lbl_add_to_online_playlist"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_online_info"
+        android:icon="@drawable/ic_details_24"
+        android:title="@string/lbl_details"
+        app:showAsAction="never" />
+</menu>

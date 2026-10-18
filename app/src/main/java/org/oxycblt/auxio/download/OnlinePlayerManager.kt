@@ -54,6 +54,8 @@ data class OnlinePlayerState(
     val hasPrevious: Boolean = false,
     val isShuffle: Boolean = false,
     val isRepeat: Boolean = false,
+    val queue: List<OnlineSong> = emptyList(),
+    val queueIndex: Int = -1,
 )
 
 @Singleton
@@ -137,6 +139,10 @@ constructor(
                 durationMs = song.durationSeconds * 1000L,
                 hasNext = currentIndex < queue.lastIndex,
                 hasPrevious = currentIndex > 0,
+                isShuffle = isShuffle,
+                isRepeat = isRepeat,
+                queue = queue.toList(),
+                queueIndex = currentIndex,
             )
 
         streamExtractionJob = scope.launch {
@@ -147,7 +153,13 @@ constructor(
 
             if (stream == null || stream.content.isBlank()) {
                 L.e("Failed to extract online stream for ${song.title}")
-                _playerState.value = OnlinePlayerState()
+                _playerState.value =
+                    OnlinePlayerState(
+                        isShuffle = isShuffle,
+                        isRepeat = isRepeat,
+                        queue = queue.toList(),
+                        queueIndex = currentIndex,
+                    )
                 _playerError.emit(song.title)
                 return@launch
             }
@@ -166,9 +178,18 @@ constructor(
                         if (player.duration > 0) player.duration else song.durationSeconds * 1000L,
                     hasNext = currentIndex < queue.lastIndex,
                     hasPrevious = currentIndex > 0,
+                    queue = queue.toList(),
+                    queueIndex = currentIndex,
                 )
 
             startPositionTracker()
+        }
+    }
+
+    fun playQueueIndex(index: Int) {
+        if (index in queue.indices) {
+            currentIndex = index
+            play(queue[index])
         }
     }
 

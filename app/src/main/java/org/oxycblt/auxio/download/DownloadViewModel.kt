@@ -210,6 +210,10 @@ constructor(
         onlinePlayerManager.playQueue(songs, startIndex)
     }
 
+    fun playQueueIndex(index: Int) {
+        onlinePlayerManager.playQueueIndex(index)
+    }
+
     fun playNextOnline() {
         onlinePlayerManager.playNext()
     }

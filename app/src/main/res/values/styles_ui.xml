@@ -506,5 +506,12 @@
         <item name="strokeWidth">2dp</item>
         <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
     </style>
+
+    <style name="ShapeAppearanceOverlay.Auxio.PlaybackBar" parent="">
+        <item name="cornerSizeTopLeft">20dp</item>
+        <item name="cornerSizeTopRight">20dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
+    </style>
 </resources>
 

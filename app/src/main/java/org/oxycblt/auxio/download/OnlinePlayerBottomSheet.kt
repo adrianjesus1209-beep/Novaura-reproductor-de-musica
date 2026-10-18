@@ -18,33 +18,45 @@
  
 package org.oxycblt.auxio.download
 
-import android.app.Dialog
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.EditText
-import android.widget.FrameLayout
+import androidx.core.view.WindowCompat
 import androidx.core.view.isVisible
+import androidx.core.view.updatePadding
+import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import coil3.ImageLoader
+import coil3.request.ImageRequest
+import coil3.request.target
+import coil3.request.transformations
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
+import javax.inject.Inject
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.DialogOnlinePlayerBinding
+import org.oxycblt.auxio.databinding.ItemPlaybackTrackBinding
+import org.oxycblt.auxio.image.coil.BlurTransformation
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.ui.StyledSeekBar
+import org.oxycblt.auxio.util.getDimenPixels
 import org.oxycblt.auxio.util.showToast
+import org.oxycblt.auxio.util.systemBarInsetsCompat
 
 @AndroidEntryPoint
-class OnlinePlayerBottomSheet : BottomSheetDialogFragment(), StyledSeekBar.Listener {
+class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
 
     private var _binding: DialogOnlinePlayerBinding? = null
     private val binding
@@ -53,20 +65,15 @@ class OnlinePlayerBottomSheet : BottomSheetDialogFragment(), StyledSeekBar.Liste
     private val downloadModel: DownloadViewModel by activityViewModels()
     private val playbackModel: PlaybackViewModel by activityViewModels()
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        val dialog = super.onCreateDialog(savedInstanceState) as BottomSheetDialog
-        dialog.setOnShowListener {
-            val bottomSheet =
-                dialog.findViewById<FrameLayout>(
-                    com.google.android.material.R.id.design_bottom_sheet
-                )
-            if (bottomSheet != null) {
-                val behavior = BottomSheetBehavior.from(bottomSheet)
-                behavior.state = BottomSheetBehavior.STATE_EXPANDED
-                behavior.skipCollapsed = true
-            }
-        }
-        return dialog
+    @Inject lateinit var imageLoader: ImageLoader
+
+    private val trackAdapter = OnlineTrackAdapter { index ->
+        downloadModel.playQueueIndex(index)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NORMAL, R.style.Theme_Auxio_Playback_Dialog)
     }
 
     override fun onCreateView(
@@ -78,105 +85,159 @@ class OnlinePlayerBottomSheet : BottomSheetDialogFragment(), StyledSeekBar.Liste
         return binding.root
     }
 
+    override fun onStart() {
+        super.onStart()
+        dialog?.window?.apply {
+            setLayout(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+            )
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            WindowCompat.setDecorFitsSystemWindows(this, false)
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // System Bars Insets matching PlaybackPanelFragment
+        binding.root.setOnApplyWindowInsetsListener { v, insets ->
+            val bars = insets.systemBarInsetsCompat
+            binding.onlinePlayerToolbar.updatePadding(top = bars.top)
+            val spacingLarge = v.context.getDimenPixels(R.dimen.spacing_large)
+            binding.onlinePlayerTracklist.updatePadding(bottom = bars.bottom + (spacingLarge * 3))
+            insets
+        }
+
         binding.onlinePlayerSeekBar.listener = this
+        binding.onlinePlayerTracklist.adapter = trackAdapter
 
-        binding.onlinePlayerCloseBtn.setOnClickListener {
-            dismiss()
+        // --- TOOLBAR NAVIGATION & MENU ---
+        binding.onlinePlayerToolbar.apply {
+            title = getString(R.string.lbl_playback)
+            subtitle = getString(R.string.lbl_all_songs)
+            setNavigationOnClickListener {
+                dismiss()
+            }
+            setOnMenuItemClickListener { menuItem ->
+                val song = downloadModel.playerState.value.song
+                when (menuItem.itemId) {
+                    R.id.action_search -> {
+                        dismiss()
+                        true
+                    }
+                    R.id.action_close_playback -> {
+                        downloadModel.stopOnlinePlayback()
+                        dismiss()
+                        true
+                    }
+                    R.id.action_online_download -> {
+                        if (song != null) {
+                            downloadModel.download(song)
+                            context?.showToast(getString(R.string.lbl_download_started, song.title))
+                        }
+                        true
+                    }
+                    R.id.action_online_playlist -> {
+                        if (song != null) {
+                            showAddToPlaylistDialog(song)
+                        }
+                        true
+                    }
+                    R.id.action_online_info -> {
+                        if (song != null) {
+                            showTrackInfoDialog(song)
+                        }
+                        true
+                    }
+                    else -> false
+                }
+            }
         }
 
-        binding.onlinePlayerStopBtn.setOnClickListener {
-            downloadModel.stopOnlinePlayback()
-            dismiss()
+        // --- FAVORITE HEART BUTTON ON COVER ---
+        binding.onlinePlayerFavorite.setOnClickListener {
+            val song = downloadModel.playerState.value.song ?: return@setOnClickListener
+            val isFav = toggleOnlineFavorite(song)
+            updateFavoriteIcon(isFav)
         }
 
-        binding.onlinePlayerPlayPauseFab.setOnClickListener {
+        // --- PLAYBACK CONTROLS ---
+        binding.onlinePlayerPlayPauseBtn.setOnClickListener {
             if (!downloadModel.playerState.value.isPlaying && playbackModel.isPlaying.value) {
                 playbackModel.togglePlaying()
             }
             downloadModel.togglePlayPauseOnline()
         }
 
-        binding.onlinePlayerNextBtn.setOnClickListener {
+        binding.onlinePlayerSkipNextBtn.setOnClickListener {
             downloadModel.playNextOnline()
         }
 
-        binding.onlinePlayerPrevBtn.setOnClickListener {
+        binding.onlinePlayerSkipPrevBtn.setOnClickListener {
             downloadModel.playPrevOnline()
         }
 
         binding.onlinePlayerShuffleBtn.setOnClickListener {
-            val isShuffle = downloadModel.toggleShuffle()
-            updateShuffleState(isShuffle)
+            downloadModel.toggleShuffle()
         }
 
         binding.onlinePlayerRepeatBtn.setOnClickListener {
-            val isRepeat = downloadModel.toggleRepeat()
-            updateRepeatState(isRepeat)
+            downloadModel.toggleRepeat()
         }
 
-        binding.onlinePlayerFullDownloadBtn.setOnClickListener {
-            val song = downloadModel.playerState.value.song
-            if (song != null) {
-                downloadModel.download(song)
-                context?.showToast(getString(R.string.lbl_download_started, song.title))
-            }
-        }
-
-        binding.onlinePlayerFullPlaylistBtn.setOnClickListener {
-            val song = downloadModel.playerState.value.song
-            if (song != null) {
-                showAddToPlaylistDialog(song)
-            }
-        }
-
-        binding.onlinePlayerInfoBtn.setOnClickListener {
-            val song = downloadModel.playerState.value.song
-            if (song != null) {
-                showTrackInfoDialog(song)
-            }
-        }
-
-        // Observe player state
+        // --- OBSERVE PLAYER STATE ---
         viewLifecycleOwner.lifecycleScope.launch {
             downloadModel.playerState.collectLatest { state ->
                 val song = state.song
                 if (song == null) {
-                    dismiss()
+                    if (!state.isLoading) {
+                        dismiss()
+                    }
                     return@collectLatest
                 }
 
-                // Title & Artist on artwork pill
+                // Subtitle in Toolbar
+                binding.onlinePlayerToolbar.title = getString(R.string.lbl_playback)
+                binding.onlinePlayerToolbar.subtitle = getString(R.string.lbl_all_songs)
+
+                // Song Title & Artist in Cover Badge
                 binding.onlinePlayerFullTitle.text = song.title
                 binding.onlinePlayerFullArtist.text = song.artist
+                binding.onlinePlayerFullTitle.isSelected = true
 
-                // Bottom preview bar
-                binding.onlinePlayerBottomTitle.text = song.title
-                binding.onlinePlayerBottomArtist.text = "${song.artist} • ${song.durationText}"
+                // Favorite icon state
+                updateFavoriteIcon(isOnlineFavorite(song))
 
-                // Artwork and ambient blur
+                // Large Artwork and Ambient Background Blur
                 ThumbnailLoader.load(binding.onlinePlayerLargeCover, song.thumbnailUrl)
-                ThumbnailLoader.load(binding.onlinePlayerBlurBg, song.thumbnailUrl)
+                val request =
+                    ImageRequest.Builder(requireContext())
+                        .data(song.thumbnailUrl)
+                        .transformations(BlurTransformation.DEFAULT)
+                        .target(binding.playbackBlurBackground)
+                        .build()
+                imageLoader.enqueue(request)
 
-                // Deterministic waveform pattern seed for this song
+                // Deterministic waveform seed for StyledSeekBar
                 binding.onlinePlayerSeekBar.setSongSeed(song.webUrl.hashCode().toLong())
 
                 // Playback states & icons
                 binding.onlinePlayerLargeLoading.isVisible = state.isLoading
-                binding.onlinePlayerPlayPauseFab.setImageResource(
-                    if (state.isPlaying) R.drawable.ic_pause_24 else R.drawable.ic_play_24
-                )
+                binding.onlinePlayerPlayPauseBtn.isChecked = state.isPlaying
+                binding.onlinePlayerSeekBar.setWaveEnabled(state.isPlaying)
 
                 // Shuffle & Repeat states
-                updateShuffleState(state.isShuffle)
-                updateRepeatState(state.isRepeat)
+                binding.onlinePlayerShuffleBtn.isChecked = state.isShuffle
+                binding.onlinePlayerRepeatBtn.isChecked = state.isRepeat
+                binding.onlinePlayerRepeatBtn.setIconResource(
+                    if (state.isRepeat) R.drawable.ic_repeat_on_24 else R.drawable.ic_repeat_off_24
+                )
 
                 // Previous & Next navigation controls
-                binding.onlinePlayerNextBtn.alpha =
+                binding.onlinePlayerSkipNextBtn.alpha =
                     if (state.hasNext || state.isRepeat) 1.0f else 0.4f
-                binding.onlinePlayerPrevBtn.alpha =
+                binding.onlinePlayerSkipPrevBtn.alpha =
                     if (state.hasPrevious || state.isRepeat || state.positionMs > 3000L) 1.0f
                     else 0.4f
 
@@ -186,6 +247,9 @@ class OnlinePlayerBottomSheet : BottomSheetDialogFragment(), StyledSeekBar.Liste
 
                 binding.onlinePlayerSeekBar.durationDs = durationMs / 100L
                 binding.onlinePlayerSeekBar.positionDs = positionMs / 100L
+
+                // Update queue tracklist
+                trackAdapter.submitQueue(state.queue, state.queueIndex, state.isPlaying)
             }
         }
     }
@@ -195,22 +259,38 @@ class OnlinePlayerBottomSheet : BottomSheetDialogFragment(), StyledSeekBar.Liste
         downloadModel.seekOnline(positionMs)
     }
 
-    private fun updateShuffleState(isShuffle: Boolean) {
-        val activeColor = Color.WHITE
-        val inactiveColor = Color.parseColor("#88FFFFFF")
-        binding.onlinePlayerShuffleBtn.setImageResource(
-            if (isShuffle) R.drawable.ic_shuffle_on_24 else R.drawable.ic_shuffle_off_24
-        )
-        binding.onlinePlayerShuffleBtn.setColorFilter(if (isShuffle) activeColor else inactiveColor)
+    private fun isOnlineFavorite(song: OnlineSong): Boolean {
+        val favPlaylist =
+            downloadModel.onlinePlaylists.value.firstOrNull {
+                it.name.equals("Favoritos", ignoreCase = true)
+            }
+        return favPlaylist?.songs?.any { it.webUrl == song.webUrl } == true
     }
 
-    private fun updateRepeatState(isRepeat: Boolean) {
-        val activeColor = Color.WHITE
-        val inactiveColor = Color.parseColor("#88FFFFFF")
-        binding.onlinePlayerRepeatBtn.setImageResource(
-            if (isRepeat) R.drawable.ic_repeat_on_24 else R.drawable.ic_repeat_off_24
+    private fun toggleOnlineFavorite(song: OnlineSong): Boolean {
+        var favPlaylist =
+            downloadModel.onlinePlaylists.value.firstOrNull {
+                it.name.equals("Favoritos", ignoreCase = true)
+            }
+        if (favPlaylist == null) {
+            favPlaylist = downloadModel.createOnlinePlaylist("Favoritos")
+        }
+        val isAlreadyFav = favPlaylist.songs.any { it.webUrl == song.webUrl }
+        return if (isAlreadyFav) {
+            downloadModel.removeSongFromPlaylist(favPlaylist.id, song.webUrl)
+            context?.showToast(getString(R.string.lng_favorite_removed))
+            false
+        } else {
+            downloadModel.addSongToPlaylist(favPlaylist.id, song)
+            context?.showToast(getString(R.string.lng_favorite_added))
+            true
+        }
+    }
+
+    private fun updateFavoriteIcon(isFavorite: Boolean) {
+        binding.onlinePlayerFavorite.setImageResource(
+            if (isFavorite) R.drawable.ic_favorite_24 else R.drawable.ic_favorite_border_24
         )
-        binding.onlinePlayerRepeatBtn.setColorFilter(if (isRepeat) activeColor else inactiveColor)
     }
 
     private fun showTrackInfoDialog(song: OnlineSong) {
@@ -299,5 +379,70 @@ class OnlinePlayerBottomSheet : BottomSheetDialogFragment(), StyledSeekBar.Liste
 
     companion object {
         const val TAG = "OnlinePlayerBottomSheet"
+    }
+
+    /**
+     * An adapter that renders online queue songs using the exact item_playback_track layout from
+     * offline mode.
+     */
+    private class OnlineTrackAdapter(private val onItemClick: (Int) -> Unit) :
+        ListAdapter<OnlineSong, OnlineTrackAdapter.ViewHolder>(DiffCallback) {
+
+        private var activeIndex = -1
+        private var isPlaying = false
+
+        fun submitQueue(queue: List<OnlineSong>, currentIndex: Int, playing: Boolean) {
+            activeIndex = currentIndex
+            isPlaying = playing
+            submitList(queue)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            val binding =
+                ItemPlaybackTrackBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+            return ViewHolder(binding)
+        }
+
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val song = getItem(position)
+            val isCurrent = position == activeIndex
+
+            holder.binding.apply {
+                trackNumber.text = "${position + 1}."
+                trackName.text = song.title
+                trackSubtitle.text = song.artist
+                trackDuration.text = song.durationText
+                trackDragHandle.isVisible = true
+
+                if (isCurrent && isPlaying) {
+                    trackEqualizerIcon.isVisible = true
+                    trackNumber.isVisible = false
+                    trackName.setTextColor(Color.WHITE)
+                } else if (isCurrent) {
+                    trackEqualizerIcon.isVisible = false
+                    trackNumber.isVisible = true
+                    trackName.setTextColor(Color.WHITE)
+                } else {
+                    trackEqualizerIcon.isVisible = false
+                    trackNumber.isVisible = true
+                    trackName.setTextColor(Color.WHITE)
+                }
+
+                root.setOnClickListener {
+                    onItemClick(position)
+                }
+            }
+        }
+
+        class ViewHolder(val binding: ItemPlaybackTrackBinding) :
+            RecyclerView.ViewHolder(binding.root)
+
+        object DiffCallback : DiffUtil.ItemCallback<OnlineSong>() {
+            override fun areItemsTheSame(oldItem: OnlineSong, newItem: OnlineSong): Boolean =
+                oldItem.webUrl == newItem.webUrl
+
+            override fun areContentsTheSame(oldItem: OnlineSong, newItem: OnlineSong): Boolean =
+                oldItem == newItem
+        }
     }
 }
