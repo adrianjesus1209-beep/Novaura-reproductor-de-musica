@@ -28,9 +28,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
+import androidx.navigation.fragment.findNavController
 import org.oxycblt.auxio.R
-import org.oxycblt.auxio.databinding.FragmentHomeListBinding
+import org.oxycblt.auxio.databinding.FragmentPlaylistListBinding
 import org.oxycblt.auxio.detail.DetailViewModel
+import org.oxycblt.auxio.home.HomeFragmentDirections
 import org.oxycblt.auxio.home.HomeViewModel
 import org.oxycblt.auxio.list.ListFragment
 import org.oxycblt.auxio.list.ListViewModel
@@ -44,6 +46,8 @@ import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.formatDurationMsPopup
 import org.oxycblt.auxio.util.collectImmediately
+import org.oxycblt.auxio.util.getPlural
+import org.oxycblt.auxio.util.navigateSafe
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.MusicParent
 import org.oxycblt.musikr.Playlist
@@ -51,12 +55,13 @@ import org.oxycblt.musikr.Song
 import timber.log.Timber as L
 
 /**
- * A [ListFragment] that shows a list of [Playlist]s.
+ * A [ListFragment] that shows a list of [Playlist]s with a pinned "Recently Added" button at the
+ * top.
  *
  * @author Alexander Capehart (OxygenCobalt)
  */
 class PlaylistListFragment :
-    ListFragment<Playlist, FragmentHomeListBinding>(),
+    ListFragment<Playlist, FragmentPlaylistListBinding>(),
     FastScrollRecyclerView.PopupProvider,
     FastScrollRecyclerView.Listener {
     private val homeModel: HomeViewModel by activityViewModels()
@@ -67,9 +72,12 @@ class PlaylistListFragment :
     private val playlistAdapter = PlaylistAdapter(this)
 
     override fun onCreateBinding(inflater: LayoutInflater) =
-        FragmentHomeListBinding.inflate(inflater)
+        FragmentPlaylistListBinding.inflate(inflater)
 
-    override fun onBindingCreated(binding: FragmentHomeListBinding, savedInstanceState: Bundle?) {
+    override fun onBindingCreated(
+        binding: FragmentPlaylistListBinding,
+        savedInstanceState: Bundle?,
+    ) {
         super.onBindingCreated(binding, savedInstanceState)
 
         binding.homeRecycler.apply {
@@ -77,6 +85,10 @@ class PlaylistListFragment :
             adapter = playlistAdapter
             popupProvider = this@PlaylistListFragment
             listener = this@PlaylistListFragment
+        }
+
+        binding.btnRecentlyAdded.setOnClickListener {
+            findNavController().navigateSafe(HomeFragmentDirections.showRecentlyAdded())
         }
 
         binding.homeNoMusicPlaceholder.apply {
@@ -92,6 +104,9 @@ class PlaylistListFragment :
             musicModel.indexingState,
             ::updateNoMusicIndicator,
         )
+        collectImmediately(homeModel.songList) {
+            updateRecentlyAddedCount(binding)
+        }
         collectImmediately(listModel.selected, ::updateSelection)
         collectImmediately(
             playbackModel.song,
@@ -101,7 +116,7 @@ class PlaylistListFragment :
         )
     }
 
-    override fun onDestroyBinding(binding: FragmentHomeListBinding) {
+    override fun onDestroyBinding(binding: FragmentPlaylistListBinding) {
         super.onDestroyBinding(binding)
         binding.homeRecycler.apply {
             adapter = null
@@ -115,12 +130,24 @@ class PlaylistListFragment :
         // Re-evaluate the no-music indicator so that permission changes (e.g. grants made
         // from the system settings) are reflected immediately.
         if (view != null) {
+            val binding = requireBinding()
             updateNoMusicIndicator(
                 homeModel.empty.value,
                 homeModel.playlistList.value,
                 musicModel.indexingState.value,
             )
+            updateRecentlyAddedCount(binding)
         }
+    }
+
+    private fun updateRecentlyAddedCount(binding: FragmentPlaylistListBinding) {
+        val songs = homeModel.songList.value
+        val novauraCount = songs.count {
+            it.path.components.toString().contains("Novaura", ignoreCase = true)
+        }
+        val count = if (novauraCount > 0) novauraCount else minOf(songs.size, 50)
+        binding.txtRecentlyAddedCount.text =
+            requireContext().getPlural(R.plurals.fmt_song_count, count)
     }
 
     override fun getPopupData(pos: Int): FastScrollRecyclerView.PopupProvider.PopupData? {

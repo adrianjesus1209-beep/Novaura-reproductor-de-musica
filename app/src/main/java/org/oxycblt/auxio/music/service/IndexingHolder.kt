@@ -135,13 +135,24 @@ private constructor(
         }
     }
 
-    override fun requestIndex(withCache: Boolean) {
-        L.d("Starting new indexing job (previous=${currentIndexJob?.hashCode()})")
+    override fun requestIndex(
+        withCache: Boolean,
+        forceStorageScan: Boolean,
+        silent: Boolean,
+    ) {
+        L.d(
+            "Starting new indexing job (previous=${currentIndexJob?.hashCode()}, cache=$withCache, forceScan=$forceStorageScan, silent=$silent)"
+        )
         // Cancel the previous music loading job.
         currentIndexJob?.cancel()
         // Start a new music loading job on a co-routine.
         currentIndexJob = indexScope.launch {
-            musicRepository.index(this@IndexingHolder, withCache)
+            musicRepository.index(
+                this@IndexingHolder,
+                withCache,
+                forceStorageScan,
+                silent,
+            )
         }
     }
 

@@ -640,6 +640,13 @@
     <string name="filter_dur_long">&gt; 10 min</string>
     <string name="filter_sort_relevance">Relevance</string>
     <string name="filter_sort_views">Most views</string>
+
+    <!-- Recently Added -->
+    <string name="lbl_recently_added">Recently added</string>
+    <string name="lbl_recently_added_subhead">Recently downloaded and added songs</string>
+    <string name="lbl_recently_added_empty">No recently added songs</string>
+    <string name="lbl_recently_added_empty_desc">Songs you download or add to your device will appear here.</string>
+    <string name="notif_download_single_complete_title">✓ Download complete - %s</string>
 </resources>
 
 

@@ -497,5 +497,12 @@
     <string name="filter_dur_long">&gt; 10 min</string>
     <string name="filter_sort_relevance">Relevancia</string>
     <string name="filter_sort_views">Más vistas</string>
+
+    <!-- Añadidas recientemente -->
+    <string name="lbl_recently_added">Añadidas recientemente</string>
+    <string name="lbl_recently_added_subhead">Músicas descargadas y añadidas recientemente</string>
+    <string name="lbl_recently_added_empty">No hay canciones añadidas recientemente</string>
+    <string name="lbl_recently_added_empty_desc">Las canciones que descargues o agregues a tu dispositivo aparecerán aquí.</string>
+    <string name="notif_download_single_complete_title">✓ Descarga completada - %s</string>
 </resources>
 

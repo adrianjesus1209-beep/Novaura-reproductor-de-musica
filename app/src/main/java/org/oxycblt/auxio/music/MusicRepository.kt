@@ -193,6 +193,9 @@ interface MusicRepository {
      */
     fun requestIndex(withCache: Boolean)
 
+    /** Request a music loading operation with optional silent execution and forced storage scan. */
+    fun requestIndex(withCache: Boolean, forceStorageScan: Boolean, silent: Boolean)
+
     /**
      * Load the music library. Any prior loads will be canceled.
      *
@@ -200,7 +203,12 @@ interface MusicRepository {
      * @param withCache Whether to load with the music cache or not.
      * @return The top-level music loading [Job] started.
      */
-    suspend fun index(worker: IndexingWorker, withCache: Boolean)
+    suspend fun index(
+        worker: IndexingWorker,
+        withCache: Boolean,
+        forceStorageScan: Boolean = false,
+        silent: Boolean = false,
+    )
 
     /** A listener for changes to the stored music information. */
     interface UpdateListener {
@@ -234,7 +242,11 @@ interface MusicRepository {
          *
          * @param withCache Whether to use the music cache when loading.
          */
-        fun requestIndex(withCache: Boolean)
+        fun requestIndex(
+            withCache: Boolean,
+            forceStorageScan: Boolean = false,
+            silent: Boolean = false,
+        )
     }
 }
 
@@ -441,14 +453,26 @@ constructor(
 
     @Synchronized
     override fun requestIndex(withCache: Boolean) {
-        L.d("Requesting index operation [cache=$withCache]")
-        indexingWorker?.requestIndex(withCache)
+        requestIndex(withCache, forceStorageScan = false, silent = false)
     }
 
-    override suspend fun index(worker: IndexingWorker, withCache: Boolean) {
-        L.d("Begin index [cache=$withCache]")
+    @Synchronized
+    override fun requestIndex(withCache: Boolean, forceStorageScan: Boolean, silent: Boolean) {
+        L.d(
+            "Requesting index operation [cache=$withCache, forceStorageScan=$forceStorageScan, silent=$silent]"
+        )
+        indexingWorker?.requestIndex(withCache, forceStorageScan, silent)
+    }
+
+    override suspend fun index(
+        worker: IndexingWorker,
+        withCache: Boolean,
+        forceStorageScan: Boolean,
+        silent: Boolean,
+    ) {
+        L.d("Begin index [cache=$withCache, forceStorageScan=$forceStorageScan, silent=$silent]")
         try {
-            indexImpl(withCache)
+            indexImpl(withCache, forceStorageScan, silent)
         } catch (e: CancellationException) {
             // Got cancelled, propagate upwards to top-level co-routine.
             L.d("Loading routine was cancelled")
@@ -457,11 +481,15 @@ constructor(
             // Music loading process failed due to something we have not handled.
             L.e("Music indexing failed")
             L.e(e.stackTraceToString())
-            emitIndexingCompletion(e)
+            emitIndexingCompletion(e, null, silent)
         }
     }
 
-    private suspend fun indexImpl(withCache: Boolean) {
+    private suspend fun indexImpl(
+        withCache: Boolean,
+        forceStorageScan: Boolean = false,
+        silent: Boolean = false,
+    ) {
         L.d("Index requested, initializing")
         // Obtain configuration information
         val separators = Separators.from(musicSettings.separators)
@@ -492,17 +520,23 @@ constructor(
         L.d("Running index...")
         val start = System.currentTimeMillis()
         val musikrInstance = Musikr.new(context, config)
+        val progressCallback: suspend (IndexingProgress) -> Unit =
+            if (silent) {
+                {}
+            } else {
+                { progress -> emitIndexingProgress(progress) }
+            }
         val result =
-            if (withCache && musicSettings.isInitialScanCompleted) {
+            if (withCache && !forceStorageScan && musicSettings.isInitialScanCompleted) {
                 L.d("Fast load directly from local cache database (no storage scan)...")
                 musikrInstance.runFromCache()
                     ?: run {
                         L.d("Local cache empty, performing storage scan...")
-                        musikrInstance.run(::emitIndexingProgress)
+                        musikrInstance.run(progressCallback)
                     }
             } else {
                 L.d("Performing storage scan...")
-                musikrInstance.run(::emitIndexingProgress)
+                musikrInstance.run(progressCallback)
             }
         L.d("Index finished in ${System.currentTimeMillis() - start}ms")
         // Music loading completed, update the revision right now so we re-use this work
@@ -517,6 +551,7 @@ constructor(
         // cleanup finishes.
         L.d("Emitting new library")
         emitLibrary(result.library)
+        emitIndexingCompletion(null, result.diagnostics, silent)
         // An empty library right after a fresh query almost always means MediaProvider has not
         // indexed the files yet, so give the platform a chance to catch up and re-read it.
         if (result.library.songs.isEmpty()) {
@@ -632,14 +667,19 @@ constructor(
     private suspend fun emitIndexingCompletion(
         error: Exception?,
         diagnostics: ScanReport? = null,
+        silent: Boolean = false,
     ) {
         yield()
         synchronized(this) {
-            previousCompletedState = IndexingState.Completed(error, diagnostics)
+            if (!silent) {
+                previousCompletedState = IndexingState.Completed(error, diagnostics)
+            }
             currentIndexingState = null
-            L.d("Dispatching completion state [error=$error]")
-            for (listener in indexingListeners) {
-                listener.onIndexingStateChanged()
+            L.d("Dispatching completion state [error=$error, silent=$silent]")
+            if (!silent) {
+                for (listener in indexingListeners) {
+                    listener.onIndexingStateChanged()
+                }
             }
         }
     }

@@ -87,18 +87,34 @@ class DownloadService : Service() {
             }
             ACTION_PAUSE -> {
                 val url = intent.getStringExtra(EXTRA_URL).orEmpty()
-                pauseDownload(url)
+                if (url.isNotEmpty()) {
+                    pauseSingleDownload(url)
+                } else {
+                    downloadManager.pauseAll()
+                    checkAllDownloadsFinished()
+                }
             }
             ACTION_PAUSE_ALL -> {
                 downloadManager.pauseAll()
                 checkAllDownloadsFinished()
+            }
+            ACTION_RESUME -> {
+                val url = intent.getStringExtra(EXTRA_URL).orEmpty()
+                if (url.isNotEmpty()) {
+                    downloadManager.resumeDownload(url)
+                }
             }
             ACTION_RESUME_ALL -> {
                 downloadManager.resumeAll()
             }
             ACTION_CANCEL -> {
                 val url = intent.getStringExtra(EXTRA_URL).orEmpty()
-                cancelDownload(url)
+                if (url.isNotEmpty()) {
+                    cancelSingleDownload(url)
+                } else {
+                    downloadManager.cancelAll()
+                    cancelAllDownloads()
+                }
             }
             ACTION_CANCEL_ALL -> {
                 downloadManager.cancelAll()
@@ -112,25 +128,30 @@ class DownloadService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun pauseDownload(url: String) {
+    private fun pauseSingleDownload(url: String) {
         val job = activeJobs.remove(url)
         job?.cancel()
         activeSongs.remove(url)
         activeProgress.remove(url)
+        notificationManager.cancel(getSongNotificationId(url))
+        downloadManager.setPausedFromService(url)
         checkAllDownloadsFinished()
     }
 
-    private fun cancelDownload(url: String) {
+    private fun cancelSingleDownload(url: String) {
         val job = activeJobs.remove(url)
         job?.cancel()
         activeSongs.remove(url)
         activeProgress.remove(url)
+        notificationManager.cancel(getSongNotificationId(url))
+        downloadManager.setCancelledFromService(url)
         checkAllDownloadsFinished()
     }
 
     private fun cancelAllDownloads() {
-        for ((_, job) in activeJobs) {
+        for ((url, job) in activeJobs) {
             job.cancel()
+            notificationManager.cancel(getSongNotificationId(url))
         }
         activeJobs.clear()
         activeSongs.clear()
@@ -147,8 +168,8 @@ class DownloadService : Service() {
         activeSongs[song.webUrl] = song
         activeProgress[song.webUrl] = 0
 
-        // Start foreground immediately with current state
-        val notification = buildOngoingNotification()
+        // Start or update foreground notification
+        val notification = buildPrimaryForegroundNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTIFICATION_ID,
@@ -158,6 +179,8 @@ class DownloadService : Service() {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+
+        postNotificationUpdate(force = true)
 
         val job = serviceScope.launch {
             L.d("Starting background download for: ${song.title}")
@@ -173,10 +196,20 @@ class DownloadService : Service() {
             activeProgress.remove(song.webUrl)
             activeJobs.remove(song.webUrl)
 
+            // Cancel the active progress notification
+            notificationManager.cancel(getSongNotificationId(song.webUrl))
+
             if (success) {
-                // withCache = false forces a real storage scan so Novaura detects the new song and
-                // its cover.jpg immediately
-                musicRepository.requestIndex(false)
+                // Show individual completed notification with checkmark
+                showIndividualCompletedNotification(song)
+
+                // Silent, incremental library index to detect new song and cover art without UI
+                // flicker
+                musicRepository.requestIndex(
+                    withCache = true,
+                    forceStorageScan = true,
+                    silent = true,
+                )
             }
 
             downloadManager.onDownloadFinished(song.webUrl, success, song.title)
@@ -191,10 +224,12 @@ class DownloadService : Service() {
             val hasPaused =
                 downloadManager.downloadItems.value.any { it.status == DownloadStatus.PAUSED }
             if (hasPaused) {
-                notificationManager.notify(NOTIFICATION_ID, buildOngoingNotification())
+                notificationManager.notify(
+                    NOTIFICATION_ID,
+                    buildPrimaryForegroundNotification(),
+                )
             } else {
                 L.d("All background downloads completed")
-                showCompletedNotification()
                 stopForeground(STOP_FOREGROUND_DETACH)
                 stopSelf()
             }
@@ -212,13 +247,122 @@ class DownloadService : Service() {
     }
 
     private fun postNotificationUpdate(force: Boolean) {
+        val totalCount = activeSongs.size
         val hasPaused =
             downloadManager.downloadItems.value.any { it.status == DownloadStatus.PAUSED }
-        if (activeSongs.isEmpty() && !hasPaused) return
-        notificationManager.notify(NOTIFICATION_ID, buildOngoingNotification())
+
+        if (totalCount == 0 && !hasPaused) return
+
+        if (totalCount == 1) {
+            // Exactly 1 song downloading: foreground notification is the song itself
+            val song = activeSongs.values.first()
+            val progress = activeProgress[song.webUrl] ?: 0
+            val notif = buildSongNotification(song, progress, isForeground = true)
+            notificationManager.notify(NOTIFICATION_ID, notif)
+            notificationManager.cancel(getSongNotificationId(song.webUrl))
+        } else if (totalCount > 1) {
+            // Multiple songs: foreground notification is the group summary
+            val summaryNotif = buildSummaryNotification()
+            notificationManager.notify(NOTIFICATION_ID, summaryNotif)
+
+            // And every active song has its own individual notification with Pause & Cancel
+            for ((url, song) in activeSongs) {
+                val progress = activeProgress[url] ?: 0
+                val songNotif = buildSongNotification(song, progress, isForeground = false)
+                notificationManager.notify(getSongNotificationId(url), songNotif)
+            }
+        } else if (hasPaused) {
+            notificationManager.notify(
+                NOTIFICATION_ID,
+                buildPrimaryForegroundNotification(),
+            )
+        }
     }
 
-    private fun buildOngoingNotification(): Notification {
+    private fun buildPrimaryForegroundNotification(): Notification {
+        return if (activeSongs.size == 1) {
+            val song = activeSongs.values.first()
+            val progress = activeProgress[song.webUrl] ?: 0
+            buildSongNotification(song, progress, isForeground = true)
+        } else {
+            buildSummaryNotification()
+        }
+    }
+
+    private fun buildSongNotification(
+        song: OnlineSong,
+        progress: Int,
+        isForeground: Boolean,
+    ): Notification {
+        val notifId = getSongNotificationId(song.webUrl)
+
+        val mainIntent =
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                this,
+                notifId,
+                mainIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val pauseIntent =
+            Intent(this, DownloadService::class.java).apply {
+                action = ACTION_PAUSE
+                putExtra(EXTRA_URL, song.webUrl)
+            }
+        val pausePendingIntent =
+            PendingIntent.getService(
+                this,
+                notifId * 2,
+                pauseIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val cancelIntent =
+            Intent(this, DownloadService::class.java).apply {
+                action = ACTION_CANCEL
+                putExtra(EXTRA_URL, song.webUrl)
+            }
+        val cancelPendingIntent =
+            PendingIntent.getService(
+                this,
+                notifId * 2 + 1,
+                cancelIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val builder =
+            NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_download_24)
+                .setContentTitle(song.title)
+                .setContentText("${song.artist} • $progress%")
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setContentIntent(pendingIntent)
+                .setProgress(100, progress, false)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .addAction(
+                    R.drawable.ic_pause_24,
+                    getString(R.string.lbl_pause),
+                    pausePendingIntent,
+                )
+                .addAction(
+                    R.drawable.ic_close_24,
+                    getString(R.string.lbl_cancel),
+                    cancelPendingIntent,
+                )
+
+        if (!isForeground) {
+            builder.setGroup(GROUP_KEY_DOWNLOADS)
+        }
+
+        return builder.build()
+    }
+
+    private fun buildSummaryNotification(): Notification {
         val totalCount = activeSongs.size
         val avgProgress =
             if (activeProgress.isNotEmpty()) {
@@ -234,10 +378,6 @@ class DownloadService : Service() {
         val title =
             if (isPausedState) {
                 getString(R.string.notif_downloads_paused)
-            } else if (totalCount == 1) {
-                val song = activeSongs.values.firstOrNull()
-                val songTitle = song?.title ?: "Música"
-                getString(R.string.notif_downloading_single, songTitle)
             } else {
                 getString(R.string.notif_downloading_multiple, totalCount)
             }
@@ -249,8 +389,6 @@ class DownloadService : Service() {
                 getString(R.string.lbl_status_paused) +
                     " • " +
                     getString(R.string.notif_downloading_multiple, pausedCount)
-            } else if (totalCount == 1) {
-                "$avgProgress%"
             } else {
                 val songNames = activeSongs.values.joinToString(", ") { it.title }
                 "${songNames.take(40)}... • $avgProgress%"
@@ -260,7 +398,6 @@ class DownloadService : Service() {
             Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
-
         val pendingIntent =
             PendingIntent.getActivity(
                 this,
@@ -302,6 +439,8 @@ class DownloadService : Service() {
                 .setOnlyAlertOnce(true)
                 .setContentIntent(pendingIntent)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setGroup(GROUP_KEY_DOWNLOADS)
+                .setGroupSummary(true)
 
         if (!isPausedState) {
             builder.setProgress(100, avgProgress, false)
@@ -328,25 +467,28 @@ class DownloadService : Service() {
         return builder.build()
     }
 
-    private fun showCompletedNotification() {
+    private fun showIndividualCompletedNotification(song: OnlineSong) {
+        val notifId = getCompletedNotificationId(song.webUrl)
+
         val mainIntent =
             Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
-
         val pendingIntent =
             PendingIntent.getActivity(
                 this,
-                0,
+                notifId,
                 mainIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 
+        val title = getString(R.string.notif_download_single_complete_title, song.title)
+
         val completionNotif =
             NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_download_24)
-                .setContentTitle(getString(R.string.notif_download_complete))
-                .setContentText(getString(R.string.notif_download_all_complete))
+                .setContentTitle(title)
+                .setContentText(song.artist)
                 .setProgress(0, 0, false)
                 .setOngoing(false)
                 .setAutoCancel(true)
@@ -354,7 +496,7 @@ class DownloadService : Service() {
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
 
-        notificationManager.notify(NOTIFICATION_ID, completionNotif)
+        notificationManager.notify(notifId, completionNotif)
     }
 
     private fun createNotificationChannel() {
@@ -384,6 +526,7 @@ class DownloadService : Service() {
         const val ACTION_ENQUEUE = "org.oxycblt.auxio.download.action.ENQUEUE"
         const val ACTION_PAUSE = "org.oxycblt.auxio.download.action.PAUSE"
         const val ACTION_PAUSE_ALL = "org.oxycblt.auxio.download.action.PAUSE_ALL"
+        const val ACTION_RESUME = "org.oxycblt.auxio.download.action.RESUME"
         const val ACTION_RESUME_ALL = "org.oxycblt.auxio.download.action.RESUME_ALL"
         const val ACTION_CANCEL = "org.oxycblt.auxio.download.action.CANCEL"
         const val ACTION_CANCEL_ALL = "org.oxycblt.auxio.download.action.CANCEL_ALL"
@@ -391,5 +534,16 @@ class DownloadService : Service() {
         const val EXTRA_URL = "extra_url"
         const val NOTIFICATION_ID = 2026
         const val CHANNEL_ID = "novaura_downloads_channel"
+        const val GROUP_KEY_DOWNLOADS = "org.oxycblt.auxio.DOWNLOADS_GROUP"
+
+        fun getSongNotificationId(url: String): Int {
+            val hash = url.hashCode() and 0x7FFFFFFF
+            return 10000 + (hash % 900000)
+        }
+
+        fun getCompletedNotificationId(url: String): Int {
+            val hash = url.hashCode() and 0x7FFFFFFF
+            return 1000000 + (hash % 900000)
+        }
     }
 }

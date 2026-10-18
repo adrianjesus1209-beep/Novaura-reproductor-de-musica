@@ -113,6 +113,23 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
         }
     }
 
+    internal fun setPausedFromService(webUrl: String) {
+        val item = _downloadItems.value.find { it.song.webUrl == webUrl } ?: return
+        if (item.status != DownloadStatus.DOWNLOADING) return
+        _downloadItems.value =
+            _downloadItems.value.map {
+                if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.PAUSED) else it
+            }
+        _downloadProgress.value = _downloadProgress.value - webUrl
+        _activeCount.value = countActive()
+    }
+
+    internal fun setCancelledFromService(webUrl: String) {
+        _downloadItems.value = _downloadItems.value.filter { it.song.webUrl != webUrl }
+        _downloadProgress.value = _downloadProgress.value - webUrl
+        _activeCount.value = countActive()
+    }
+
     fun pauseAll() {
         val downloading = _downloadItems.value.filter { it.status == DownloadStatus.DOWNLOADING }
         for (item in downloading) {

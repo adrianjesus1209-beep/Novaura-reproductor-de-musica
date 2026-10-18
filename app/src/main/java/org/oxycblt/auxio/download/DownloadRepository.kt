@@ -202,10 +202,6 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                     contentValues.put(MediaStore.Audio.Media.IS_PENDING, 0)
                     context.contentResolver.update(uri, contentValues, null, null)
 
-                    // Download thumbnail into cover.jpg inside the same folder so Auxio/Novaura
-                    // displays it
-                    downloadThumbnail(song.thumbnailUrl, relativePath)
-
                     val physicalDir =
                         File(
                             Environment.getExternalStoragePublicDirectory(
@@ -213,6 +209,14 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                             ),
                             "Novaura/$folderName",
                         )
+                    if (!physicalDir.exists()) {
+                        physicalDir.mkdirs()
+                    }
+
+                    // Download thumbnail into cover.jpg inside the same folder so Auxio/Novaura
+                    // displays it
+                    downloadThumbnail(song.thumbnailUrl, folderName, relativePath)
+
                     val audioFile = File(physicalDir, displayName)
                     val coverFile = File(physicalDir, "cover.jpg")
                     MediaScannerConnection.scanFile(
@@ -286,7 +290,11 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
         }
     }
 
-    private fun downloadThumbnail(thumbnailUrl: String?, relativePath: String) {
+    private fun downloadThumbnail(
+        thumbnailUrl: String?,
+        folderName: String,
+        relativePath: String,
+    ) {
         if (thumbnailUrl.isNullOrBlank()) return
         try {
             val req = Request.Builder().url(thumbnailUrl).build()
@@ -294,26 +302,47 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
             if (!resp.isSuccessful) return
             val bytes = resp.body?.bytes() ?: return
 
+            // 1. Direct file write to Music/Novaura/folderName/cover.jpg
+            val physicalDir =
+                File(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+                    "Novaura/$folderName",
+                )
+            if (!physicalDir.exists()) {
+                physicalDir.mkdirs()
+            }
+            val coverFile = File(physicalDir, "cover.jpg")
+            try {
+                coverFile.writeBytes(bytes)
+                L.d("cover.jpg written directly to ${coverFile.absolutePath}")
+            } catch (fe: Exception) {
+                L.w(fe, "Direct file write for cover.jpg failed")
+            }
+
+            // 2. On Android 10+ (Q+), also register via MediaStore.Files so system indexers see it
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val cv =
-                    ContentValues().apply {
-                        put(MediaStore.Images.Media.DISPLAY_NAME, "cover.jpg")
-                        put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-                        put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
-                        put(MediaStore.Images.Media.IS_PENDING, 1)
+                try {
+                    val cv =
+                        ContentValues().apply {
+                            put(MediaStore.MediaColumns.DISPLAY_NAME, "cover.jpg")
+                            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+                            put(MediaStore.MediaColumns.IS_PENDING, 0)
+                        }
+                    val uri =
+                        context.contentResolver.insert(
+                            MediaStore.Files.getContentUri("external"),
+                            cv,
+                        )
+                    if (uri != null) {
+                        context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
                     }
-                val uri =
-                    context.contentResolver.insert(
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                        cv,
-                    ) ?: return
-                context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
-                cv.clear()
-                cv.put(MediaStore.Images.Media.IS_PENDING, 0)
-                context.contentResolver.update(uri, cv, null, null)
+                } catch (me: Exception) {
+                    L.w(me, "Failed to insert cover.jpg via MediaStore.Files")
+                }
             }
         } catch (e: Exception) {
-            L.w(e, "Failed to save cover.jpg via MediaStore")
+            L.w(e, "Failed to download thumbnail")
         }
     }
 
