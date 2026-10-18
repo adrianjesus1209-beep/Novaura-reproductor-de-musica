@@ -193,13 +193,7 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
         // --- OBSERVE PLAYER STATE ---
         viewLifecycleOwner.lifecycleScope.launch {
             downloadModel.playerState.collectLatest { state ->
-                val song = state.song
-                if (song == null) {
-                    if (!state.isLoading) {
-                        dismiss()
-                    }
-                    return@collectLatest
-                }
+                val song = state.song ?: return@collectLatest
 
                 if (lastSongUrl != song.webUrl) {
                     lastSongUrl = song.webUrl
@@ -440,7 +434,10 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
                 }
 
                 root.setOnClickListener {
-                    onItemClick(position)
+                    val pos = holder.bindingAdapterPosition
+                    if (pos != RecyclerView.NO_POSITION) {
+                        onItemClick(pos)
+                    }
                 }
             }
         }

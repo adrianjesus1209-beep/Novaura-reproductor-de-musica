@@ -154,11 +154,9 @@ constructor(
             if (stream == null || stream.content.isBlank()) {
                 L.e("Failed to extract online stream for ${song.title}")
                 _playerState.value =
-                    OnlinePlayerState(
-                        isShuffle = isShuffle,
-                        isRepeat = isRepeat,
-                        queue = queue.toList(),
-                        queueIndex = currentIndex,
+                    _playerState.value.copy(
+                        isPlaying = false,
+                        isLoading = false,
                     )
                 _playerError.emit(song.title)
                 return@launch
@@ -283,7 +281,7 @@ constructor(
                             hasPrevious = currentIndex > 0,
                         )
                 }
-                delay(300)
+                delay(100)
             }
         }
     }
@@ -338,7 +336,14 @@ constructor(
     override fun onPlayerError(error: PlaybackException) {
         L.e(error, "Online player error: ${error.message}")
         val songTitle = _playerState.value.song?.title.orEmpty()
-        stop()
+        streamExtractionJob?.cancel()
+        positionJob?.cancel()
+        exoPlayer?.stop()
+        _playerState.value =
+            _playerState.value.copy(
+                isPlaying = false,
+                isLoading = false,
+            )
         if (songTitle.isNotEmpty()) {
             scope.launch { _playerError.emit(songTitle) }
         }

@@ -38,7 +38,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.ServiceList
-import org.schabi.newpipe.extractor.stream.AudioStream
+import org.schabi.newpipe.extractor.stream.Stream
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import timber.log.Timber as L
 
@@ -99,18 +99,27 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
             }
         }
 
-    suspend fun extractAudioStreamUrl(webUrl: String): AudioStream? =
+    suspend fun extractAudioStreamUrl(webUrl: String): Stream? =
         withContext(Dispatchers.IO) {
             try {
-                val streamExtractor = ServiceList.YouTube.getStreamExtractor(webUrl)
+                val fullUrl =
+                    if (webUrl.startsWith("http://") || webUrl.startsWith("https://")) {
+                        webUrl
+                    } else {
+                        "https://www.youtube.com$webUrl"
+                    }
+                val streamExtractor = ServiceList.YouTube.getStreamExtractor(fullUrl)
                 streamExtractor.fetchPage()
-                val audioStreams = streamExtractor.audioStreams ?: return@withContext null
+                val audioStreams = streamExtractor.audioStreams.orEmpty()
                 // Prefer M4A / AAC with good bitrate, or highest bitrate audio stream
-                audioStreams
-                    .filter { it.format?.name.equals("m4a", ignoreCase = true) }
-                    .maxByOrNull { it.averageBitrate }
-                    ?: audioStreams.maxByOrNull { it.averageBitrate }
-                    ?: audioStreams.firstOrNull()
+                val selectedAudio =
+                    audioStreams
+                        .filter { it.format?.name.equals("m4a", ignoreCase = true) }
+                        .maxByOrNull { it.averageBitrate }
+                        ?: audioStreams.maxByOrNull { it.averageBitrate }
+                        ?: audioStreams.firstOrNull()
+
+                selectedAudio ?: streamExtractor.videoStreams?.firstOrNull()
             } catch (e: Exception) {
                 L.e(e, "Failed to extract audio stream for: $webUrl")
                 null
@@ -125,8 +134,19 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
             val audioStream = extractAudioStreamUrl(song.webUrl) ?: return@withContext null
             val streamUrl = audioStream.content
             val extension =
-                if (audioStream.format?.name.equals("m4a", ignoreCase = true)) "m4a" else "opus"
-            val mimeType = if (extension == "m4a") "audio/mp4" else "audio/ogg"
+                if (audioStream.format?.name.equals("m4a", ignoreCase = true)) {
+                    "m4a"
+                } else if (audioStream.format?.name.equals("mp4", ignoreCase = true)) {
+                    "mp4"
+                } else {
+                    "opus"
+                }
+            val mimeType =
+                when (extension) {
+                    "m4a",
+                    "mp4" -> "audio/mp4"
+                    else -> "audio/ogg"
+                }
 
             val sanitizedTitle = song.title.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()
             val sanitizedArtist = song.artist.replace(Regex("[\\\\/:*?\"<>|]"), "_").trim()

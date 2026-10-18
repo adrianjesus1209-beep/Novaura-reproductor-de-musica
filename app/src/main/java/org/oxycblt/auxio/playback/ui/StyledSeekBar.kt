@@ -20,103 +20,102 @@ package org.oxycblt.auxio.playback.ui
 
 import android.content.Context
 import android.util.AttributeSet
+import com.google.android.material.slider.Slider
 import kotlin.math.max
 import org.oxycblt.auxio.databinding.ViewSeekBarBinding
 import org.oxycblt.auxio.playback.formatDurationDs
-import org.oxycblt.auxio.playback.ui.waveform.WaveformSeekBarView
 import org.oxycblt.auxio.util.inflater
 
 /**
- * A seekbar that displays audio waveform progress and formatted timestamps on the sides, replacing
- * the flat linear slider.
+ * A wrapper around [Slider] that shows position and duration values and sanitizes input to reduce
+ * crashes from invalid values.
+ *
+ * @author Alexander Capehart (OxygenCobalt)
  */
 class StyledSeekBar
 @JvmOverloads
 constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
-    ForcedLTRFrameLayout(context, attrs, defStyleAttr), WaveformSeekBarView.OnSeekListener {
+    ForcedLTRFrameLayout(context, attrs, defStyleAttr),
+    Slider.OnSliderTouchListener,
+    Slider.OnChangeListener {
     private val binding = ViewSeekBarBinding.inflate(context.inflater, this, true)
-    private var internalPositionDs: Long = 0L
-    private var internalDurationDs: Long = 1L
-    private var isSeeking = false
 
     init {
-        binding.seekBarWaveform.listener = this
+        binding.seekBarSlider.addOnSliderTouchListener(this)
+        binding.seekBarSlider.addOnChangeListener(this)
     }
 
     /** Enables/disables wavy active-track rendering to match playback state. */
     fun setWaveEnabled(enabled: Boolean) {
-        // Maintained for compatibility with playback state callers
+        binding.seekBarSlider.setWaveEnabled(enabled)
     }
 
     /**
-     * Sets a deterministic seed for the waveform profile based on the current song. Call this
-     * whenever the song changes so the waveform pattern reflects the song identity.
+     * Sets the source of the current audio level, in the range 0..1. The slider samples this on
+     * each drawn frame rather than being pushed to.
      */
-    fun setSongSeed(seed: Long) {
-        binding.seekBarWaveform.setSongSeed(seed)
-    }
-
-    /** Sets the source of the current audio level, in the range 0..1. */
     fun setAudioLevelProvider(provider: (() -> Float)?) {
-        binding.seekBarWaveform.audioLevelProvider = provider
+        binding.seekBarSlider.audioLevelProvider = provider
     }
 
     /** Sets the source of the current audio reactivity strength, from 0 to 1. */
     fun setAudioReactivityProvider(provider: (() -> Float)?) {
-        // Maintained for compatibility
+        binding.seekBarSlider.audioReactivityProvider = provider
+    }
+
+    /** Maintained for compatibility with online player calls. */
+    fun setSongSeed(seed: Long) {
+        // No-op for WavySlider
     }
 
     /** The current [Listener] attached to this instance. */
     var listener: Listener? = null
 
-    /** The current position, in deci-seconds (1/10th of a second). */
+    /**
+     * The current position, in deci-seconds (1/10th of a second). This is the current value of the
+     * SeekBar and is indicated by the start TextView in the layout.
+     */
     var positionDs: Long
-        get() = internalPositionDs
+        get() = binding.seekBarSlider.value.toLong()
         set(value) {
             val from = max(value, 0)
-            if (from <= internalDurationDs && !isSeeking) {
-                internalPositionDs = from
-                val progress =
-                    if (internalDurationDs > 0) from.toFloat() / internalDurationDs else 0f
-                binding.seekBarWaveform.progress = progress
-                binding.seekBarPosition.text = from.formatDurationDs(true)
+            if (!isActivated) {
+                val clamped =
+                    from
+                        .toFloat()
+                        .coerceIn(binding.seekBarSlider.valueFrom, binding.seekBarSlider.valueTo)
+                binding.seekBarSlider.value = clamped
+                binding.seekBarPosition.text = clamped.toLong().formatDurationDs(true)
             }
         }
 
-    /** The current duration, in deci-seconds (1/10th of a second). */
+    /**
+     * The current duration, in deci-seconds (1/10th of a second). This is the end value of the
+     * SeekBar and is indicated by the end TextView in the layout.
+     */
     var durationDs: Long
-        get() = internalDurationDs
+        get() = binding.seekBarSlider.valueTo.toLong()
         set(value) {
             val to = max(value, 1)
-            internalDurationDs = to
             isEnabled = value > 0
-            binding.seekBarWaveform.isEnabled = isEnabled
-            if (internalPositionDs > to) {
-                internalPositionDs = to
+            if (binding.seekBarSlider.value > to) {
+                binding.seekBarSlider.value = to.toFloat()
             }
-            val progress = if (to > 0) internalPositionDs.toFloat() / to else 0f
-            binding.seekBarWaveform.progress = progress
+            binding.seekBarSlider.valueTo = to.toFloat()
             binding.seekBarDuration.text = value.formatDurationDs(false)
         }
 
-    override fun onStartTrackingTouch() {
-        isSeeking = true
+    override fun onStartTrackingTouch(slider: Slider) {
         isActivated = true
     }
 
-    override fun onProgressChanged(progress: Float, fromUser: Boolean) {
-        if (fromUser) {
-            val currentPos = (progress * internalDurationDs).toLong()
-            binding.seekBarPosition.text = currentPos.formatDurationDs(true)
-        }
+    override fun onStopTrackingTouch(slider: Slider) {
+        isActivated = false
+        listener?.onSeekConfirmed(slider.value.toLong())
     }
 
-    override fun onStopTrackingTouch(progress: Float) {
-        isSeeking = false
-        isActivated = false
-        val finalPos = (progress * internalDurationDs).toLong()
-        internalPositionDs = finalPos
-        listener?.onSeekConfirmed(finalPos)
+    override fun onValueChange(slider: Slider, value: Float, fromUser: Boolean) {
+        binding.seekBarPosition.text = value.toLong().formatDurationDs(true)
     }
 
     /** A listener for SeekBar interactions. */
