@@ -109,6 +109,15 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
 
         imm = binding.context.getSystemServiceCompat(InputMethodManager::class)
 
+        // --- APPBAR SETUP ---
+        binding.downloadAppbar.apply {
+            isLiftOnScroll = false
+            setLiftable(false)
+            isLifted = false
+            elevation = 0f
+            stateListAnimator = null
+        }
+
         // --- TOOLBAR ---
         binding.downloadToolbar.setNavigationOnClickListener {
             hideKeyboard()
