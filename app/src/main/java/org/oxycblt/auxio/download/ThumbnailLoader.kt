@@ -36,18 +36,25 @@ object ThumbnailLoader {
 
     fun load(imageView: ImageView, url: String?) {
         if (url.isNullOrEmpty()) {
+            imageView.tag = null
             imageView.setImageResource(R.drawable.ic_song_24)
+            return
+        }
+
+        if (imageView.tag == url && imageView.drawable != null) {
+            // Already displaying this exact image, skip reloading!
             return
         }
 
         val cached = cache.get(url)
         if (cached != null) {
+            imageView.tag = url
             imageView.setImageBitmap(cached)
             return
         }
 
-        imageView.setImageResource(R.drawable.ic_song_24)
         imageView.tag = url
+        imageView.setImageResource(R.drawable.ic_song_24)
 
         CoroutineScope(Dispatchers.IO).launch {
             try {

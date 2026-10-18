@@ -40,6 +40,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.SimpleItemAnimator
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.transition.MaterialSharedAxis
@@ -72,6 +73,12 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
     private var imm: InputMethodManager? = null
     private var debounceJob: Job? = null
     private var launchedKeyboard = false
+
+    private var lastMiniPlayerSongUrl: String? = null
+    private var lastMiniPlayerIsLoading: Boolean? = null
+    private var lastMiniPlayerIsPlaying: Boolean? = null
+    private var lastMiniPlayerHasPrev: Boolean? = null
+    private var lastMiniPlayerHasNext: Boolean? = null
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -191,6 +198,7 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         binding.downloadRecycler.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = downloadAdapter
+            (itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
         }
 
         // Online Playlists Adapter
@@ -423,40 +431,71 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
     ) {
         val song = state.song
         if (song == null) {
-            binding.onlinePlayerCard.isVisible = false
+            if (binding.onlinePlayerCard.isVisible) {
+                binding.onlinePlayerCard.isVisible = false
+            }
+            lastMiniPlayerSongUrl = null
+            lastMiniPlayerIsLoading = null
+            lastMiniPlayerIsPlaying = null
+            lastMiniPlayerHasPrev = null
+            lastMiniPlayerHasNext = null
             return
         }
 
-        binding.onlinePlayerCard.isVisible = true
-        binding.onlinePlayerTitle.text = song.title
-        ThumbnailLoader.load(binding.onlinePlayerThumb, song.thumbnailUrl)
+        if (!binding.onlinePlayerCard.isVisible) {
+            binding.onlinePlayerCard.isVisible = true
+        }
 
-        binding.onlinePlayerLoading.isVisible = state.isLoading
-        binding.onlinePlayerPlayPause.isChecked = state.isPlaying
-        binding.onlinePlayerPlayPause.isEnabled = true
+        // Only update song metadata and thumbnail when the song actually changes!
+        if (lastMiniPlayerSongUrl != song.webUrl) {
+            lastMiniPlayerSongUrl = song.webUrl
+            if (binding.onlinePlayerTitle.text != song.title) {
+                binding.onlinePlayerTitle.text = song.title
+                binding.onlinePlayerTitle.isSelected = true
+            }
+            if (binding.onlinePlayerSubtitle.text != song.artist) {
+                binding.onlinePlayerSubtitle.text = song.artist
+                binding.onlinePlayerSubtitle.isSelected = true
+            }
+            ThumbnailLoader.load(binding.onlinePlayerThumb, song.thumbnailUrl)
+        }
+
+        // Only update buttons and loading state when their values actually change!
+        if (lastMiniPlayerIsLoading != state.isLoading) {
+            lastMiniPlayerIsLoading = state.isLoading
+            binding.onlinePlayerLoading.isVisible = state.isLoading
+            binding.onlinePlayerProgress.isIndeterminate = state.isLoading
+        }
+
+        if (lastMiniPlayerIsPlaying != state.isPlaying) {
+            lastMiniPlayerIsPlaying = state.isPlaying
+            binding.onlinePlayerPlayPause.isChecked = state.isPlaying
+        }
 
         val hasPrev = state.queueIndex > 0
+        if (lastMiniPlayerHasPrev != hasPrev) {
+            lastMiniPlayerHasPrev = hasPrev
+            binding.onlinePlayerPrev.isEnabled = hasPrev
+            binding.onlinePlayerPrev.alpha = if (hasPrev) 1.0f else 0.38f
+        }
+
         val hasNext = state.queueIndex < state.queue.size - 1
-        binding.onlinePlayerPrev.isEnabled = hasPrev
-        binding.onlinePlayerPrev.alpha = if (hasPrev) 1.0f else 0.38f
-        binding.onlinePlayerNext.isEnabled = hasNext
-        binding.onlinePlayerNext.alpha = if (hasNext) 1.0f else 0.38f
+        if (lastMiniPlayerHasNext != hasNext) {
+            lastMiniPlayerHasNext = hasNext
+            binding.onlinePlayerNext.isEnabled = hasNext
+            binding.onlinePlayerNext.alpha = if (hasNext) 1.0f else 0.38f
+        }
 
-        val curSec = state.positionMs / 1000
-        val durSec = state.durationMs / 1000
-        binding.onlinePlayerSubtitle.text =
-            "${song.artist} • ${formatDuration(curSec)} / ${formatDuration(durSec)}"
-
-        if (state.isLoading) {
-            binding.onlinePlayerProgress.isIndeterminate = true
-        } else if (state.durationMs > 0) {
-            binding.onlinePlayerProgress.isIndeterminate = false
-            binding.onlinePlayerProgress.max = 1000
-            val progress = ((state.positionMs * 1000) / state.durationMs).toInt().coerceIn(0, 1000)
-            binding.onlinePlayerProgress.progress = progress
-        } else {
-            binding.onlinePlayerProgress.isIndeterminate = false
-            binding.onlinePlayerProgress.progress = 0
+        // Only the progress bar tracks positionMs smoothly
+        if (!state.isLoading) {
+            if (state.durationMs > 0) {
+                binding.onlinePlayerProgress.max = 1000
+                val progress =
+                    ((state.positionMs * 1000) / state.durationMs).toInt().coerceIn(0, 1000)
+                binding.onlinePlayerProgress.progress = progress
+            } else {
+                binding.onlinePlayerProgress.progress = 0
+            }
         }
     }
 

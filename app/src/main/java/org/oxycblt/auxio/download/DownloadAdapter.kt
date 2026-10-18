@@ -37,31 +37,64 @@ class DownloadAdapter(
     private var progressMap: Map<String, Int> = emptyMap()
     private val completedUrls = mutableSetOf<String>()
     private var currentPlayerState = OnlinePlayerState()
+    private var currentPlayingUrl: String? = null
+    private var currentIsPlaying: Boolean = false
+    private var currentIsLoading: Boolean = false
 
     fun updateProgress(map: Map<String, Int>) {
+        val oldMap = progressMap
         progressMap = map
-        notifyDataSetChanged()
+        for ((url, prog) in map) {
+            if (oldMap[url] != prog) {
+                val idx = currentList.indexOfFirst { it.webUrl == url }
+                if (idx != -1) notifyItemChanged(idx, PAYLOAD_DOWNLOAD_PROGRESS)
+            }
+        }
+        for (url in oldMap.keys) {
+            if (!map.containsKey(url)) {
+                val idx = currentList.indexOfFirst { it.webUrl == url }
+                if (idx != -1) notifyItemChanged(idx, PAYLOAD_DOWNLOAD_PROGRESS)
+            }
+        }
     }
 
     fun markCompleted(url: String) {
         completedUrls.add(url)
-        notifyDataSetChanged()
+        val idx = currentList.indexOfFirst { it.webUrl == url }
+        if (idx != -1) notifyItemChanged(idx, PAYLOAD_DOWNLOAD_PROGRESS)
     }
 
     fun updatePlayerState(state: OnlinePlayerState) {
-        val previousSong = currentPlayerState.song
-        val newSong = state.song
+        val newUrl = state.song?.webUrl
+        val newIsPlaying = state.isPlaying
+        val newIsLoading = state.isLoading
+
+        val songChanged = currentPlayingUrl != newUrl
+        val stateChanged = currentIsPlaying != newIsPlaying || currentIsLoading != newIsLoading
+
+        if (!songChanged && !stateChanged) {
+            // Only position changed - do NOT notify or rebind list items!
+            return
+        }
+
+        val oldUrl = currentPlayingUrl
+        currentPlayingUrl = newUrl
+        currentIsPlaying = newIsPlaying
+        currentIsLoading = newIsLoading
         currentPlayerState = state
 
-        if (previousSong?.webUrl != newSong?.webUrl) {
-            notifyDataSetChanged()
-        } else {
-            // Rebind the item that is actively playing
-            currentList
-                .indexOfFirst { it.webUrl == state.song?.webUrl }
-                .let { idx ->
-                    if (idx != -1) notifyItemChanged(idx)
-                }
+        if (songChanged) {
+            if (oldUrl != null) {
+                val oldIdx = currentList.indexOfFirst { it.webUrl == oldUrl }
+                if (oldIdx != -1) notifyItemChanged(oldIdx, PAYLOAD_PLAYBACK_STATE)
+            }
+            if (newUrl != null) {
+                val newIdx = currentList.indexOfFirst { it.webUrl == newUrl }
+                if (newIdx != -1) notifyItemChanged(newIdx, PAYLOAD_PLAYBACK_STATE)
+            }
+        } else if (newUrl != null) {
+            val idx = currentList.indexOfFirst { it.webUrl == newUrl }
+            if (idx != -1) notifyItemChanged(idx, PAYLOAD_PLAYBACK_STATE)
         }
     }
 
@@ -79,6 +112,20 @@ class DownloadAdapter(
         holder.bind(getItem(position))
     }
 
+    override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isNotEmpty()) {
+            val song = getItem(position)
+            if (payloads.contains(PAYLOAD_PLAYBACK_STATE)) {
+                holder.bindPlaybackState(song)
+            }
+            if (payloads.contains(PAYLOAD_DOWNLOAD_PROGRESS)) {
+                holder.bindDownloadState(song)
+            }
+        } else {
+            super.onBindViewHolder(holder, position, payloads)
+        }
+    }
+
     inner class ViewHolder(private val binding: ItemDownloadSongBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
@@ -87,19 +134,30 @@ class DownloadAdapter(
             binding.songInfo.text = "${song.artist} • ${song.durationText}"
             ThumbnailLoader.load(binding.songThumbnail, song.thumbnailUrl)
 
-            // Playback state indicator on thumbnail
-            val isCurrentSong = currentPlayerState.song?.webUrl == song.webUrl
+            bindPlaybackState(song)
+            bindDownloadState(song)
+
+            binding.root.setOnClickListener {
+                onPlayClick(song)
+            }
+
+            binding.songAddPlaylistButton.setOnClickListener {
+                onAddToPlaylistClick(song)
+            }
+        }
+
+        fun bindPlaybackState(song: OnlineSong) {
+            val isCurrentSong = currentPlayingUrl == song.webUrl
             if (isCurrentSong) {
                 binding.playbackOverlay.isVisible = true
-                if (currentPlayerState.isLoading) {
+                if (currentIsLoading) {
                     binding.playbackLoading.isVisible = true
                     binding.playbackIndicator.isVisible = false
                 } else {
                     binding.playbackLoading.isVisible = false
                     binding.playbackIndicator.isVisible = true
                     binding.playbackIndicator.setImageResource(
-                        if (currentPlayerState.isPlaying) R.drawable.ic_pause_24
-                        else R.drawable.ic_play_24
+                        if (currentIsPlaying) R.drawable.ic_pause_24 else R.drawable.ic_play_24
                     )
                 }
             } else {
@@ -107,13 +165,9 @@ class DownloadAdapter(
                 binding.playbackLoading.isVisible = false
                 binding.playbackIndicator.isVisible = false
             }
+        }
 
-            // Click entire item to stream/play online
-            binding.root.setOnClickListener {
-                onPlayClick(song)
-            }
-
-            // Download state
+        fun bindDownloadState(song: OnlineSong) {
             val isDownloading = progressMap.containsKey(song.webUrl)
             val isCompleted = completedUrls.contains(song.webUrl)
 
@@ -141,11 +195,12 @@ class DownloadAdapter(
                     onDownloadClick(song)
                 }
             }
-
-            binding.songAddPlaylistButton.setOnClickListener {
-                onAddToPlaylistClick(song)
-            }
         }
+    }
+
+    companion object {
+        private const val PAYLOAD_PLAYBACK_STATE = "payload_playback_state"
+        private const val PAYLOAD_DOWNLOAD_PROGRESS = "payload_download_progress"
     }
 
     private object DiffCallback : DiffUtil.ItemCallback<OnlineSong>() {

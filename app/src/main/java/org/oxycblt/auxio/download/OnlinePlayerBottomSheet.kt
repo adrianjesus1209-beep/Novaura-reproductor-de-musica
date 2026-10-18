@@ -67,6 +67,10 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
 
     @Inject lateinit var imageLoader: ImageLoader
 
+    private var lastSongUrl: String? = null
+    private var lastIsPlaying: Boolean? = null
+    private var lastQueueIndex: Int? = null
+
     private val trackAdapter = OnlineTrackAdapter { index ->
         downloadModel.playQueueIndex(index)
     }
@@ -197,30 +201,40 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
                     return@collectLatest
                 }
 
-                // Subtitle in Toolbar
-                binding.onlinePlayerToolbar.title = getString(R.string.lbl_playback)
-                binding.onlinePlayerToolbar.subtitle = getString(R.string.lbl_all_songs)
+                if (lastSongUrl != song.webUrl) {
+                    lastSongUrl = song.webUrl
 
-                // Song Title & Artist in Cover Badge
-                binding.onlinePlayerFullTitle.text = song.title
-                binding.onlinePlayerFullArtist.text = song.artist
-                binding.onlinePlayerFullTitle.isSelected = true
+                    // Subtitle in Toolbar
+                    binding.onlinePlayerToolbar.title = getString(R.string.lbl_playback)
+                    binding.onlinePlayerToolbar.subtitle = getString(R.string.lbl_all_songs)
 
-                // Favorite icon state
-                updateFavoriteIcon(isOnlineFavorite(song))
+                    // Song Title & Artist in Cover Badge
+                    binding.onlinePlayerFullTitle.text = song.title
+                    binding.onlinePlayerFullArtist.text = song.artist
+                    binding.onlinePlayerFullTitle.isSelected = true
 
-                // Large Artwork and Ambient Background Blur
-                ThumbnailLoader.load(binding.onlinePlayerLargeCover, song.thumbnailUrl)
-                val request =
-                    ImageRequest.Builder(requireContext())
-                        .data(song.thumbnailUrl)
-                        .transformations(BlurTransformation.DEFAULT)
-                        .target(binding.playbackBlurBackground)
-                        .build()
-                imageLoader.enqueue(request)
+                    // Favorite icon state
+                    updateFavoriteIcon(isOnlineFavorite(song))
 
-                // Deterministic waveform seed for StyledSeekBar
-                binding.onlinePlayerSeekBar.setSongSeed(song.webUrl.hashCode().toLong())
+                    // Large Artwork and Ambient Background Blur
+                    ThumbnailLoader.load(binding.onlinePlayerLargeCover, song.thumbnailUrl)
+                    val request =
+                        ImageRequest.Builder(requireContext())
+                            .data(song.thumbnailUrl)
+                            .transformations(BlurTransformation.DEFAULT)
+                            .target(binding.playbackBlurBackground)
+                            .build()
+                    imageLoader.enqueue(request)
+
+                    // Deterministic waveform seed for StyledSeekBar
+                    binding.onlinePlayerSeekBar.setSongSeed(song.webUrl.hashCode().toLong())
+                }
+
+                if (lastQueueIndex != state.queueIndex || lastIsPlaying != state.isPlaying) {
+                    lastQueueIndex = state.queueIndex
+                    lastIsPlaying = state.isPlaying
+                    trackAdapter.submitQueue(state.queue, state.queueIndex, state.isPlaying)
+                }
 
                 // Playback states & icons
                 binding.onlinePlayerLargeLoading.isVisible = state.isLoading
@@ -247,9 +261,6 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
 
                 binding.onlinePlayerSeekBar.durationDs = durationMs / 100L
                 binding.onlinePlayerSeekBar.positionDs = positionMs / 100L
-
-                // Update queue tracklist
-                trackAdapter.submitQueue(state.queue, state.queueIndex, state.isPlaying)
             }
         }
     }
