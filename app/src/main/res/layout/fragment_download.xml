@@ -7,11 +7,10 @@
     android:background="?attr/colorSurface"
     android:transitionGroup="true">
 
-    <org.oxycblt.auxio.ui.CoordinatorAppBarLayout
+    <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/download_appbar"
         style="@style/Widget.Auxio.AppBarLayout"
-        android:fitsSystemWindows="true"
-        app:liftOnScroll="false">
+        android:fitsSystemWindows="true">
 
         <org.oxycblt.auxio.ui.AuxioToolbar
             android:id="@+id/download_toolbar"
@@ -65,7 +64,7 @@
             android:visibility="gone"
             tools:visibility="visible" />
 
-    </org.oxycblt.auxio.ui.CoordinatorAppBarLayout>
+    </com.google.android.material.appbar.AppBarLayout>
 
     <FrameLayout
         android:layout_width="match_parent"

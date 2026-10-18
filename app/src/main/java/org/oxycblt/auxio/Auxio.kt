@@ -48,6 +48,21 @@ class Auxio : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            android.util.Log.e("NovauraCrash", "FATAL CRASH on thread ${thread.name}", throwable)
+            try {
+                val crashDir = getExternalFilesDir(null) ?: filesDir
+                java.io
+                    .File(crashDir, "last_crash.txt")
+                    .writeText(
+                        "Novaura Crash Log\nTime: ${java.util.Date()}\nThread: ${thread.name}\n\n" +
+                            android.util.Log.getStackTraceString(throwable)
+                    )
+            } catch (_: Exception) {}
+            previousHandler?.uncaughtException(thread, throwable)
+        }
         if (BuildConfig.DEBUG) {
             // DebugTree only logs DEBUG/VERBOSE when the platform's global log level happens to
             // allow them, which almost never happens on stock Android. Forcing the level here keeps

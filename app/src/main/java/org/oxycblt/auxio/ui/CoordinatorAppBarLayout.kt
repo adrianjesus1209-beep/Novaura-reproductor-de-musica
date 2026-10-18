@@ -54,7 +54,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
     private val onPreDraw = ViewTreeObserver.OnPreDrawListener {
         val child = findScrollingChild()
 
-        if (child != null) {
+        if (child != null && parent is CoordinatorLayout) {
             val coordinator = parent as CoordinatorLayout
             coordinatorLayoutBehavior?.onNestedPreScroll(
                 coordinator,
@@ -106,9 +106,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
         // it updates this layout in it's onNestedPreScroll call.
         if (scrollingChild == null) {
             if (liftOnScrollTargetViewId != ResourcesCompat.ID_NULL) {
-                scrollingChild = (parent as ViewGroup).findViewById(liftOnScrollTargetViewId)
-            } else {
-                error("liftOnScrollTargetViewId was not specified")
+                scrollingChild = (parent as? ViewGroup)?.findViewById(liftOnScrollTargetViewId)
             }
         }
 

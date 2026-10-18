@@ -635,15 +635,25 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         view.apply {
             requestFocus()
             postDelayed(200) {
-                imm?.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
+                if (isAdded && !isDetached) {
+                    try {
+                        imm?.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
+                    } catch (e: Exception) {
+                        L.w(e, "Could not show soft input")
+                    }
+                }
             }
         }
     }
 
     private fun hideKeyboard() {
-        val token = view?.windowToken ?: activity?.currentFocus?.windowToken
-        if (token != null) {
-            imm?.hideSoftInputFromWindow(token, InputMethodManager.HIDE_NOT_ALWAYS)
+        try {
+            val token = view?.windowToken ?: activity?.currentFocus?.windowToken
+            if (token != null) {
+                imm?.hideSoftInputFromWindow(token, InputMethodManager.HIDE_NOT_ALWAYS)
+            }
+        } catch (e: Exception) {
+            L.w(e, "Could not hide soft input")
         }
     }
 
