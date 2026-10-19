@@ -230,12 +230,11 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
             updateDashboardFavorites(binding)
         }
 
-        // Check and request storage permission automatically on launch
-        if (!hasStoragePermission()) {
-            L.d("[PERMISSIONS_DEBUG] REQUESTING permission=${storagePermission()}")
-            storagePermissionLauncher?.launch(storagePermission())
+        // Permissions are requested at startup by MainActivity.
+        if (hasStoragePermission()) {
+            L.d("[PERMISSIONS_DEBUG] CHECK=GRANTED")
         } else {
-            L.d("[PERMISSIONS_DEBUG] CHECK=GRANTED, skipping request")
+            L.d("[PERMISSIONS_DEBUG] CHECK=NOT_YET_GRANTED, handled by MainActivity or user action")
         }
     }
 

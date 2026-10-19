@@ -34,6 +34,7 @@ import androidx.core.view.updatePadding
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import org.oxycblt.auxio.databinding.ActivityMainBinding
+import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.state.DeferredPlayback
 import org.oxycblt.auxio.ui.UISettings
@@ -57,11 +58,26 @@ import timber.log.Timber as L
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
     private val playbackModel: PlaybackViewModel by viewModels()
+    private val musicModel: MusicViewModel by viewModels()
     @Inject lateinit var uiSettings: UISettings
 
-    private val notificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            L.d("POST_NOTIFICATIONS granted: $granted")
+    private val appPermissionsLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+            val audioPermission =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Manifest.permission.READ_MEDIA_AUDIO
+                } else {
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                }
+            val audioGranted =
+                results[audioPermission] == true ||
+                    ContextCompat.checkSelfPermission(this, audioPermission) ==
+                        PackageManager.PERMISSION_GRANTED
+            val notifGranted = results[Manifest.permission.POST_NOTIFICATIONS] ?: true
+            L.d("App permissions result: audioGranted=$audioGranted, notifGranted=$notifGranted")
+            if (audioGranted) {
+                musicModel.refresh()
+            }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,6 +89,41 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         setupEdgeToEdge(binding.root)
 
+        requestAppPermissions()
+
+        L.d("Activity created")
+    }
+
+    private fun requestAppPermissions() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        // 1. Audio / Music storage permission (mandatory to discover songs)
+        val audioPermission =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Manifest.permission.READ_MEDIA_AUDIO
+            } else {
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            }
+        if (
+            ContextCompat.checkSelfPermission(this, audioPermission) !=
+                PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionsToRequest.add(audioPermission)
+        }
+
+        // On Android 9 and below, write storage permission was needed for deleting songs
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            if (
+                ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionsToRequest.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
+        }
+
+        // 2. Notification permission (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (
                 ContextCompat.checkSelfPermission(
@@ -80,11 +131,14 @@ class MainActivity : AppCompatActivity() {
                     Manifest.permission.POST_NOTIFICATIONS,
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
 
-        L.d("Activity created")
+        if (permissionsToRequest.isNotEmpty()) {
+            L.d("Requesting startup permissions: $permissionsToRequest")
+            appPermissionsLauncher.launch(permissionsToRequest.toTypedArray())
+        }
     }
 
     override fun onResume() {
