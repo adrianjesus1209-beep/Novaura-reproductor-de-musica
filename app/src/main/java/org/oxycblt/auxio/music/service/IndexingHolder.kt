@@ -20,6 +20,7 @@ package org.oxycblt.auxio.music.service
 
 import android.content.Context
 import android.os.PowerManager
+import android.os.SystemClock
 import coil3.ImageLoader
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -104,12 +105,23 @@ private constructor(
         musicSettings.unregisterListener(this)
     }
 
+    private var lastAutoScanUptime = 0L
+
     fun start() {
+        val now = SystemClock.uptimeMillis()
         val state = musicRepository.indexingState
-        // Retry failed runs too: a poison state from a run that crashed would otherwise leave the
-        // app silently idle on the next launch.
+        // Retry failed runs or perform initial launch scan.
         if (state == null || (state is IndexingState.Completed && state.error != null)) {
-            requestIndex(true)
+            lastAutoScanUptime = now
+            requestIndex(
+                withCache = true,
+                forceStorageScan = true,
+                silent = musicSettings.isInitialScanCompleted,
+            )
+        } else if (state !is IndexingState.Indexing && (now - lastAutoScanUptime >= 5_000L)) {
+            // Reopening app when service is active: trigger background storage scan
+            lastAutoScanUptime = now
+            requestIndex(withCache = true, forceStorageScan = true, silent = true)
         }
     }
 

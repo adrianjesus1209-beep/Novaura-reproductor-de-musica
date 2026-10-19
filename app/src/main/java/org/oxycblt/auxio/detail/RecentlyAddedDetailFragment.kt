@@ -46,6 +46,7 @@ import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.music.PlaylistDecision
 import org.oxycblt.auxio.music.PlaylistMessage
+import org.oxycblt.auxio.music.RecentlyAddedHelper
 import org.oxycblt.auxio.music.SongDecision
 import org.oxycblt.auxio.music.SongMessage
 import org.oxycblt.auxio.playback.PlaySong
@@ -156,15 +157,7 @@ class RecentlyAddedDetailFragment :
 
     private fun getRecentlyAddedSongs(): List<Song> {
         val library = musicRepository.library ?: return emptyList()
-        val allSongs = library.songs
-        val novauraSongs = allSongs.filter {
-            it.path.components.toString().contains("Novaura", ignoreCase = true)
-        }
-        return if (novauraSongs.isNotEmpty()) {
-            novauraSongs.sortedByDescending { maxOf(it.addedMs, it.modifiedMs) }
-        } else {
-            allSongs.sortedByDescending { maxOf(it.addedMs, it.modifiedMs) }.take(50)
-        }
+        return RecentlyAddedHelper.filterRecentlyAdded(library.songs)
     }
 
     private fun updateRecentlyAdded(binding: FragmentDetailBinding) {

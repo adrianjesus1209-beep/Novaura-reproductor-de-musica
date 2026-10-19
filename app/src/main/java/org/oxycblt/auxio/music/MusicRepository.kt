@@ -21,6 +21,7 @@ package org.oxycblt.auxio.music
 import android.content.Context
 import android.media.MediaScannerConnection
 import android.net.Uri
+import android.os.Environment
 import android.os.SystemClock
 import android.os.storage.StorageManager
 import android.provider.DocumentsContract
@@ -453,7 +454,11 @@ constructor(
 
     @Synchronized
     override fun requestIndex(withCache: Boolean) {
-        requestIndex(withCache, forceStorageScan = false, silent = false)
+        requestIndex(
+            withCache,
+            forceStorageScan = true,
+            silent = musicSettings.isInitialScanCompleted,
+        )
     }
 
     @Synchronized
@@ -520,24 +525,41 @@ constructor(
         L.d("Running index...")
         val start = System.currentTimeMillis()
         val musikrInstance = Musikr.new(context, config)
+
+        // Instant UI Presentation: If library is not yet loaded in memory and we have
+        // cached music, load and emit from cache first so the UI is immediately populated (~15ms).
+        if (library == null && withCache && musicSettings.isInitialScanCompleted) {
+            try {
+                L.d("Fast load directly from local cache database for instant startup...")
+                val cachedResult = musikrInstance.runFromCache()
+                if (cachedResult != null && cachedResult.library.songs.isNotEmpty()) {
+                    L.d(
+                        "Emitting cached library immediately (${cachedResult.library.songs.size} songs)"
+                    )
+                    emitLibrary(cachedResult.library)
+                }
+            } catch (e: Exception) {
+                L.w("Failed to load initial cache: $e")
+            }
+        }
+
+        // Fast scan of common music and download directories into MediaScanner to ensure external
+        // downloads
+        // (Chrome, Telegram, WhatsApp, third-party downloaders) are registered in MediaStore
+        if (forceStorageScan) {
+            scanExternalAudioDirectories()
+        }
+
         val progressCallback: suspend (IndexingProgress) -> Unit =
             if (silent) {
                 {}
             } else {
                 { progress -> emitIndexingProgress(progress) }
             }
-        val result =
-            if (withCache && !forceStorageScan && musicSettings.isInitialScanCompleted) {
-                L.d("Fast load directly from local cache database (no storage scan)...")
-                musikrInstance.runFromCache()
-                    ?: run {
-                        L.d("Local cache empty, performing storage scan...")
-                        musikrInstance.run(progressCallback)
-                    }
-            } else {
-                L.d("Performing storage scan...")
-                musikrInstance.run(progressCallback)
-            }
+
+        L.d("Performing storage scan (withCache=$withCache, silent=$silent)...")
+        val result = musikrInstance.run(progressCallback)
+
         L.d("Index finished in ${System.currentTimeMillis() - start}ms")
         // Music loading completed, update the revision right now so we re-use this work
         // later.
@@ -562,7 +584,47 @@ constructor(
         result.cleanup()
         // Finish up loading.
         L.d("Indexing complete")
-        emitIndexingCompletion(null, result.diagnostics)
+        emitIndexingCompletion(null, result.diagnostics, silent)
+    }
+
+    /**
+     * Fast scan of common music and download directories into MediaScanner so that external
+     * downloads from browsers, Telegram, WhatsApp, etc. are registered in MediaStore.
+     */
+    private fun scanExternalAudioDirectories() {
+        try {
+            val audioExtensions = setOf("mp3", "m4a", "flac", "ogg", "opus", "wav", "aac")
+            val filesToScan = mutableListOf<String>()
+            val now = System.currentTimeMillis()
+            val cutoff = now - RecentlyAddedHelper.EXPIRATION_WINDOW_MS
+
+            val targetDirs =
+                listOfNotNull(
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                )
+
+            for (dir in targetDirs) {
+                if (dir.exists() && dir.isDirectory) {
+                    dir.walkTopDown().maxDepth(3).forEach { file ->
+                        if (file.isFile && file.extension.lowercase() in audioExtensions) {
+                            if (file.lastModified() >= cutoff) {
+                                filesToScan.add(file.absolutePath)
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (filesToScan.isNotEmpty()) {
+                L.d(
+                    "Found ${filesToScan.size} recent external audio files, triggering MediaScannerConnection"
+                )
+                MediaScannerConnection.scanFile(context, filesToScan.toTypedArray(), null, null)
+            }
+        } catch (e: Exception) {
+            L.w("scanExternalAudioDirectories caught exception: $e")
+        }
     }
 
     /**

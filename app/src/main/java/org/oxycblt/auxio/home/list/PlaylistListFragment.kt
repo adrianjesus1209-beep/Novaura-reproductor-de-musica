@@ -43,6 +43,7 @@ import org.oxycblt.auxio.list.recycler.PlaylistViewHolder
 import org.oxycblt.auxio.list.sort.Sort
 import org.oxycblt.auxio.music.IndexingState
 import org.oxycblt.auxio.music.MusicViewModel
+import org.oxycblt.auxio.music.RecentlyAddedHelper
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.formatDurationMsPopup
 import org.oxycblt.auxio.util.collectImmediately
@@ -142,12 +143,9 @@ class PlaylistListFragment :
 
     private fun updateRecentlyAddedCount(binding: FragmentPlaylistListBinding) {
         val songs = homeModel.songList.value
-        val novauraCount = songs.count {
-            it.path.components.toString().contains("Novaura", ignoreCase = true)
-        }
-        val count = if (novauraCount > 0) novauraCount else minOf(songs.size, 50)
+        val recentSongs = RecentlyAddedHelper.filterRecentlyAdded(songs)
         binding.txtRecentlyAddedCount.text =
-            requireContext().getPlural(R.plurals.fmt_song_count, count)
+            requireContext().getPlural(R.plurals.fmt_song_count, recentSongs.size)
     }
 
     override fun getPopupData(pos: Int): FastScrollRecyclerView.PopupProvider.PopupData? {
