@@ -57,25 +57,42 @@ private class TagInterpreterImpl(private val interpretation: Interpretation) : T
                 song.tags.albumArtistSortNames,
                 interpretation,
             )
+
+        val rawSongNameOrFileWithoutExt =
+            song.tags.name ?: requireNotNull(song.file.path.name).substringBeforeLast(".")
+        val (effectiveSongName, fallbackArtists) =
+            if (individualPreArtists.isEmpty() && albumPreArtists.isEmpty()) {
+                inferArtistAndTitle(
+                    rawSongNameOrFileWithoutExt,
+                    song.file.path.directory.name,
+                    interpretation,
+                )
+            } else {
+                rawSongNameOrFileWithoutExt to emptyList()
+            }
+
+        val effectiveIndividualPreArtists = individualPreArtists.ifEmpty { fallbackArtists }
+
         val preAlbum =
             makePreAlbum(
                 song.tags,
                 song.file,
-                individualPreArtists,
+                effectiveIndividualPreArtists,
                 albumPreArtists,
                 interpretation,
             )
         val rawArtists =
-            individualPreArtists.ifEmpty { albumPreArtists }.ifEmpty { listOf(unknownPreArtist()) }
+            effectiveIndividualPreArtists
+                .ifEmpty { albumPreArtists }
+                .ifEmpty { listOf(unknownPreArtist()) }
         val rawGenres =
             makePreGenres(song.tags, interpretation).ifEmpty { listOf(unknownPreGenre()) }
         val uri = song.file.uri
 
-        val songNameOrFile = song.tags.name ?: requireNotNull(song.file.path.name)
+        val songNameOrFile = song.tags.name ?: effectiveSongName
         val songNameOrFileWithoutExt =
             song.tags.name ?: requireNotNull(song.file.path.name).split('.').first()
-        val songNameOrFileWithoutExtCorrect =
-            song.tags.name ?: requireNotNull(song.file.path.name).substringBeforeLast(".")
+        val songNameOrFileWithoutExtCorrect = effectiveSongName
         val albumNameOrDir = song.tags.albumName ?: song.file.path.directory.name
 
         val musicBrainzId = song.tags.musicBrainzId?.toUuidOrNull()
@@ -219,6 +236,59 @@ private class TagInterpreterImpl(private val interpretation: Interpretation) : T
 
     private fun makePreGenre(rawName: String?, interpretation: Interpretation) =
         PreGenre(interpretation.naming.name(rawName, null, Placeholder.GENRE), rawName)
+
+    private fun inferArtistAndTitle(
+        fileNameWithoutExt: String,
+        directoryName: String?,
+        interpretation: Interpretation,
+    ): Pair<String, List<PreArtist>> {
+        val splitRegex = Regex(" [-—–] ")
+        // 1. Try "Artist - Title" from fileNameWithoutExt
+        if (splitRegex.containsMatchIn(fileNameWithoutExt)) {
+            val parts = fileNameWithoutExt.split(splitRegex)
+            if (parts.size >= 2) {
+                val artistPart = parts[0].trim()
+                val titlePart = parts.drop(1).joinToString(" - ").trim()
+                if (
+                    artistPart.isNotEmpty() &&
+                        !artistPart.equals("Artista desconocido", ignoreCase = true) &&
+                        !artistPart.equals("Unknown artist", ignoreCase = true) &&
+                        titlePart.isNotEmpty()
+                ) {
+                    val preArtist =
+                        PreArtist(
+                            musicBrainzId = null,
+                            name = interpretation.naming.name(artistPart, null, Placeholder.ARTIST),
+                            rawName = artistPart,
+                        )
+                    return titlePart to listOf(preArtist)
+                }
+            }
+        }
+
+        // 2. Try "Artist - Album" or "Artist - Title" from directoryName
+        if (directoryName != null && splitRegex.containsMatchIn(directoryName)) {
+            val dirParts = directoryName.split(splitRegex)
+            if (dirParts.size >= 2) {
+                val dirArtist = dirParts[0].trim()
+                if (
+                    dirArtist.isNotEmpty() &&
+                        !dirArtist.equals("Artista desconocido", ignoreCase = true) &&
+                        !dirArtist.equals("Unknown artist", ignoreCase = true)
+                ) {
+                    val preArtist =
+                        PreArtist(
+                            musicBrainzId = null,
+                            name = interpretation.naming.name(dirArtist, null, Placeholder.ARTIST),
+                            rawName = dirArtist,
+                        )
+                    return fileNameWithoutExt to listOf(preArtist)
+                }
+            }
+        }
+
+        return fileNameWithoutExt to emptyList()
+    }
 
     private fun unknownPreGenre() = PreGenre(Name.Unknown(Placeholder.GENRE), null)
 }

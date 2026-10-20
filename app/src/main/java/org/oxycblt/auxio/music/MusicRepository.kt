@@ -29,8 +29,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.oxycblt.auxio.image.covers.SettingCovers
@@ -284,6 +286,8 @@ constructor(
     private val storedPlaylists: StoredPlaylists,
     private val settingCovers: SettingCovers,
     private val musicSettings: MusicSettings,
+    private val downloadRepository:
+        javax.inject.Provider<org.oxycblt.auxio.download.DownloadRepository>,
 ) : MusicRepository {
     private val updateListeners = mutableListOf<MusicRepository.UpdateListener>()
     private val indexingListeners = mutableListOf<MusicRepository.IndexingListener>()
@@ -574,6 +578,12 @@ constructor(
         L.d("Emitting new library")
         emitLibrary(result.library)
         emitIndexingCompletion(null, result.diagnostics, silent)
+
+        // Asynchronously backfill missing covers for Novaura downloads if any are missing
+        CoroutineScope(Dispatchers.IO).launch {
+            backfillNovauraCovers(result.library.songs)
+        }
+
         // An empty library right after a fresh query almost always means MediaProvider has not
         // indexed the files yet, so give the platform a chance to catch up and re-read it.
         if (result.library.songs.isEmpty()) {
@@ -585,6 +595,43 @@ constructor(
         // Finish up loading.
         L.d("Indexing complete")
         emitIndexingCompletion(null, result.diagnostics, silent)
+    }
+
+    private suspend fun backfillNovauraCovers(songs: Collection<Song>) {
+        try {
+            val novauraSongsWithoutCover = songs.filter { song ->
+                song.cover == null && song.path.components.unixString.contains("Novaura")
+            }
+            if (novauraSongsWithoutCover.isEmpty()) return
+
+            var backfilledAny = false
+            for (song in novauraSongsWithoutCover.take(10)) {
+                val folderName = song.path.directory.name ?: continue
+                val displayName = song.path.name ?: continue
+                val songTitle = song.name.resolve(context)
+                val songArtist = song.artists.resolveNames(context)
+
+                val success =
+                    downloadRepository
+                        .get()
+                        .backfillCoverForSong(
+                            songTitle = songTitle,
+                            songArtist = songArtist,
+                            folderName = folderName,
+                            displayName = displayName,
+                        )
+                if (success) {
+                    backfilledAny = true
+                }
+            }
+
+            if (backfilledAny) {
+                L.d("Backfilled covers for Novaura downloads, requesting silent index update")
+                requestIndex(withCache = false, forceStorageScan = false, silent = true)
+            }
+        } catch (e: Exception) {
+            L.w("Error during backfillNovauraCovers: $e")
+        }
     }
 
     /**

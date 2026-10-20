@@ -62,8 +62,14 @@ class FSCovers(private val context: Context) : Covers<FDCover> {
         val exists =
             withContext(Dispatchers.IO) {
                 try {
-                    context.contentResolver.openFileDescriptor(uri, "r")?.also { it.close() } !=
-                        null
+                    if (uri.scheme == "file") {
+                        val path = uri.path ?: return@withContext false
+                        val file = java.io.File(path)
+                        file.exists() && file.length() > 0
+                    } else {
+                        context.contentResolver.openFileDescriptor(uri, "r")?.also { it.close() } !=
+                            null
+                    }
                 } catch (e: Exception) {
                     false
                 }
@@ -95,16 +101,80 @@ class MutableFSCovers(private val context: Context) : MutableCovers<FDCover> {
     override suspend fun obtain(id: String): CoverResult<FDCover> = inner.obtain(id)
 
     override suspend fun create(file: File, metadata: Metadata): CoverResult<FDCover> {
-        // Since DeviceFiles is a streaming API, we have to wait for the current recursive
-        // query to finally finish to be able to have a complete list of siblings to search for.
-        val parent = (file.parent ?: return CoverResult.Miss()).await()
-        val bestCover = parent.children.map { it to coverArtScore(it) }.maxBy { it.second }
-        if (bestCover.second > 0) {
-            return CoverResult.Hit(FolderCoverImpl(context, bestCover.first.uri))
+        // 1. SAF mode: Parent directory traversal if available
+        val parent = file.parent?.await()
+        if (parent != null) {
+            val bestCover =
+                parent.children.map { it to coverArtScore(it) }.maxByOrNull { it.second }
+            if (bestCover != null && bestCover.second > 0) {
+                return CoverResult.Hit(FolderCoverImpl(context, bestCover.first.uri))
+            }
         }
+
+        // 2. Downloaded covers directory check (for songs downloaded inside Novaura)
+        val downloadCoversDir = java.io.File(context.filesDir, "download_covers")
+        if (downloadCoversDir.exists()) {
+            val fileNameWithoutExt = file.path.name?.substringBeforeLast('.')
+            val folderName = file.path.directory.name
+            val candidates = mutableListOf<String>()
+            if (fileNameWithoutExt != null) {
+                candidates.add(
+                    "file_${org.oxycblt.musikr.covers.CoverUtils.toMd5(fileNameWithoutExt)}.jpg"
+                )
+                candidates.add(
+                    "file_${org.oxycblt.musikr.covers.CoverUtils.toSafeFsName(fileNameWithoutExt)}.jpg"
+                )
+                candidates.add(
+                    "${org.oxycblt.musikr.covers.CoverUtils.toSafeFsName(fileNameWithoutExt)}.jpg"
+                )
+            }
+            if (folderName != null) {
+                candidates.add(
+                    "folder_${org.oxycblt.musikr.covers.CoverUtils.toMd5(folderName)}.jpg"
+                )
+                candidates.add(
+                    "folder_${org.oxycblt.musikr.covers.CoverUtils.toSafeFsName(folderName)}.jpg"
+                )
+                candidates.add(
+                    "${org.oxycblt.musikr.covers.CoverUtils.toSafeFsName(folderName)}.jpg"
+                )
+            }
+            for (candidate in candidates) {
+                val coverFile = java.io.File(downloadCoversDir, candidate)
+                if (coverFile.exists() && coverFile.length() > 0) {
+                    return CoverResult.Hit(FolderCoverImpl(context, Uri.fromFile(coverFile)))
+                }
+            }
+        }
+
+        // 3. MediaStore mode: Check external filesystem directory for sibling cover image
+        val volumeStr = file.path.volume.components?.unixString
+        val dirStr = file.path.directory.components.unixString
+        if (volumeStr != null && dirStr.isNotEmpty()) {
+            val fullDirPath = "/$volumeStr/$dirStr"
+            val dirFile = java.io.File(fullDirPath)
+            if (dirFile.exists() && dirFile.isDirectory) {
+                val candidateNames =
+                    listOf(
+                        "cover.jpg",
+                        "cover.png",
+                        "folder.jpg",
+                        "folder.png",
+                        "artwork.jpg",
+                        "front.jpg",
+                    )
+                for (name in candidateNames) {
+                    val candidateFile = java.io.File(dirFile, name)
+                    if (candidateFile.exists() && candidateFile.length() > 0) {
+                        return CoverResult.Hit(
+                            FolderCoverImpl(context, Uri.fromFile(candidateFile))
+                        )
+                    }
+                }
+            }
+        }
+
         // No useful cover art was found.
-        // Well, technically we might have found a cover image, but it might be some unrelated
-        // jpeg from poor file organization.
         return CoverResult.Miss()
     }
 
@@ -152,11 +222,36 @@ private class FolderCoverImpl(private val context: Context, private val uri: Uri
 
     @SuppressLint("Recycle")
     override suspend fun open(): InputStream? =
-        withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri) }
+        withContext(Dispatchers.IO) {
+            if (uri.scheme == "file") {
+                try {
+                    val path = uri.path ?: return@withContext null
+                    java.io.FileInputStream(java.io.File(path))
+                } catch (e: Exception) {
+                    null
+                }
+            } else {
+                context.contentResolver.openInputStream(uri)
+            }
+        }
 
     @SuppressLint("Recycle")
     override suspend fun fd(): ParcelFileDescriptor? =
-        withContext(Dispatchers.IO) { context.contentResolver.openFileDescriptor(uri, "r") }
+        withContext(Dispatchers.IO) {
+            if (uri.scheme == "file") {
+                try {
+                    val path = uri.path ?: return@withContext null
+                    ParcelFileDescriptor.open(
+                        java.io.File(path),
+                        ParcelFileDescriptor.MODE_READ_ONLY,
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+            } else {
+                context.contentResolver.openFileDescriptor(uri, "r")
+            }
+        }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

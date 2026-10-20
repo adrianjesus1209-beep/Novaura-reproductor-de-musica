@@ -83,10 +83,37 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                 val page = searchExtractor.initialPage
 
                 page.items.filterIsInstance<StreamInfoItem>().map { item ->
+                    val cleanUploader =
+                        item.uploaderName
+                            ?.removeSuffix(" - Topic")
+                            ?.removeSuffix(" Official")
+                            ?.removeSuffix(" - Official")
+                            ?.trim()
+                            ?.ifEmpty { null }
+                    val rawName = item.name ?: "Desconocido"
+                    val (extractedArtist, extractedTitle) =
+                        if (rawName.contains(" - ")) {
+                            val parts = rawName.split(" - ")
+                            val a = parts[0].trim()
+                            val t = parts.drop(1).joinToString(" - ").trim()
+                            if (a.isNotEmpty() && t.isNotEmpty()) {
+                                a to t
+                            } else {
+                                null to rawName
+                            }
+                        } else {
+                            null to rawName
+                        }
+
+                    val finalArtist = cleanUploader ?: extractedArtist ?: "Artista desconocido"
+                    val finalTitle =
+                        if (extractedArtist != null && cleanUploader != null) extractedTitle
+                        else rawName
+
                     OnlineSong(
                         id = item.url ?: "",
-                        title = item.name ?: "Desconocido",
-                        artist = item.uploaderName ?: "Artista desconocido",
+                        title = finalTitle,
+                        artist = finalArtist,
                         durationText = formatDuration(item.duration),
                         durationSeconds = item.duration,
                         thumbnailUrl = item.thumbnails.maxByOrNull { it.width }?.url,
@@ -213,9 +240,8 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                         physicalDir.mkdirs()
                     }
 
-                    // Download thumbnail into cover.jpg inside the same folder so Auxio/Novaura
-                    // displays it
-                    downloadThumbnail(song.thumbnailUrl, folderName, relativePath)
+                    // Download thumbnail into internal download_covers and cover.jpg
+                    downloadThumbnail(song.thumbnailUrl, folderName, displayName, song)
 
                     val audioFile = File(physicalDir, displayName)
                     val coverFile = File(physicalDir, "cover.jpg")
@@ -243,7 +269,7 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                     FileOutputStream(destFile).use { output ->
                         copyStreamWithProgress(body.byteStream(), output, contentLength, onProgress)
                     }
-                    downloadThumbnailLegacy(song.thumbnailUrl, musicDir)
+                    downloadThumbnail(song.thumbnailUrl, folderName, displayName, song)
                     val coverFile = File(musicDir, "cover.jpg")
                     MediaScannerConnection.scanFile(
                         context,
@@ -293,72 +319,102 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
     private fun downloadThumbnail(
         thumbnailUrl: String?,
         folderName: String,
-        relativePath: String,
+        displayName: String,
+        song: OnlineSong? = null,
     ) {
         if (thumbnailUrl.isNullOrBlank()) return
         try {
             val req = Request.Builder().url(thumbnailUrl).build()
             val resp = downloader.client.newCall(req).execute()
-            if (!resp.isSuccessful) return
-            val bytes = resp.body?.bytes() ?: return
-
-            // 1. Direct file write to Music/Novaura/folderName/cover.jpg
-            val physicalDir =
-                File(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
-                    "Novaura/$folderName",
-                )
-            if (!physicalDir.exists()) {
-                physicalDir.mkdirs()
+            if (!resp.isSuccessful) {
+                L.w("Failed to download thumbnail, code: ${resp.code}")
+                return
             }
-            val coverFile = File(physicalDir, "cover.jpg")
+            val bytes = resp.body?.bytes() ?: return
+            if (bytes.isEmpty()) return
+
+            // 1. Bulletproof internal storage: context.filesDir/download_covers
+            val downloadCoversDir = File(context.filesDir, "download_covers").apply { mkdirs() }
+            val coversDir = File(context.filesDir, "covers").apply { mkdirs() }
+            val displayNameWithoutExt = displayName.substringBeforeLast('.')
+
+            val keys = mutableListOf<String>()
+            keys.add("folder_${org.oxycblt.musikr.covers.CoverUtils.toMd5(folderName)}.jpg")
+            keys.add("folder_${org.oxycblt.musikr.covers.CoverUtils.toSafeFsName(folderName)}.jpg")
+            keys.add("${org.oxycblt.musikr.covers.CoverUtils.toSafeFsName(folderName)}.jpg")
+            keys.add(
+                "file_${org.oxycblt.musikr.covers.CoverUtils.toMd5(displayNameWithoutExt)}.jpg"
+            )
+            keys.add(
+                "file_${org.oxycblt.musikr.covers.CoverUtils.toSafeFsName(displayNameWithoutExt)}.jpg"
+            )
+            keys.add(
+                "${org.oxycblt.musikr.covers.CoverUtils.toSafeFsName(displayNameWithoutExt)}.jpg"
+            )
+
+            if (song != null) {
+                val metaKey = "${song.artist}_${song.title}"
+                keys.add("meta_${org.oxycblt.musikr.covers.CoverUtils.toMd5(metaKey)}.jpg")
+                keys.add("meta_${org.oxycblt.musikr.covers.CoverUtils.toSafeFsName(metaKey)}.jpg")
+            }
+
+            for (key in keys) {
+                try {
+                    File(downloadCoversDir, key).writeBytes(bytes)
+                    File(coversDir, key).writeBytes(bytes)
+                } catch (e: Exception) {
+                    L.w(e, "Error writing cover key: $key")
+                }
+            }
+            L.d("Thumbnail saved to download_covers with ${keys.size} keys")
+
+            // 2. Best-effort direct filesystem write to Music/Novaura/folderName/cover.jpg
             try {
-                coverFile.writeBytes(bytes)
-                L.d("cover.jpg written directly to ${coverFile.absolutePath}")
+                val physicalDir =
+                    File(
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+                        "Novaura/$folderName",
+                    )
+                if (physicalDir.exists() || physicalDir.mkdirs()) {
+                    val coverFile = File(physicalDir, "cover.jpg")
+                    coverFile.writeBytes(bytes)
+                    L.d("cover.jpg written directly to ${coverFile.absolutePath}")
+                }
             } catch (fe: Exception) {
                 L.w(fe, "Direct file write for cover.jpg failed")
-            }
-
-            // 2. On Android 10+ (Q+), also register via MediaStore.Files so system indexers see it
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                try {
-                    val cv =
-                        ContentValues().apply {
-                            put(MediaStore.MediaColumns.DISPLAY_NAME, "cover.jpg")
-                            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-                            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
-                            put(MediaStore.MediaColumns.IS_PENDING, 0)
-                        }
-                    val uri =
-                        context.contentResolver.insert(
-                            MediaStore.Files.getContentUri("external"),
-                            cv,
-                        )
-                    if (uri != null) {
-                        context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
-                    }
-                } catch (me: Exception) {
-                    L.w(me, "Failed to insert cover.jpg via MediaStore.Files")
-                }
             }
         } catch (e: Exception) {
             L.w(e, "Failed to download thumbnail")
         }
     }
 
-    private fun downloadThumbnailLegacy(thumbnailUrl: String?, targetDir: File) {
-        if (thumbnailUrl.isNullOrBlank()) return
-        try {
-            val req = Request.Builder().url(thumbnailUrl).build()
-            val resp = downloader.client.newCall(req).execute()
-            if (!resp.isSuccessful) return
-            val bytes = resp.body?.bytes() ?: return
-            val coverFile = File(targetDir, "cover.jpg")
-            coverFile.writeBytes(bytes)
-        } catch (e: Exception) {
-            L.w(e, "Failed to save legacy cover.jpg")
+    suspend fun backfillCoverForSong(
+        songTitle: String,
+        songArtist: String,
+        folderName: String,
+        displayName: String,
+    ): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                val downloadCoversDir = File(context.filesDir, "download_covers")
+                val key = "folder_${org.oxycblt.musikr.covers.CoverUtils.toMd5(folderName)}.jpg"
+                if (File(downloadCoversDir, key).exists()) {
+                    return@withContext true
+                }
+                val searchQuery = "$songArtist $songTitle".replace("Artista desconocido", "").trim()
+                if (searchQuery.isBlank()) return@withContext false
+                val results = search(searchQuery)
+                val match = results.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }
+                if (match?.thumbnailUrl != null) {
+                    downloadThumbnail(match.thumbnailUrl, folderName, displayName, match)
+                    return@withContext true
+                }
+                false
+            } catch (e: Exception) {
+                L.w(e, "Failed to backfill cover for $songTitle")
+                false
+            }
         }
-    }
 
     private fun formatDuration(durationSeconds: Long): String {
         if (durationSeconds <= 0) return "--:--"
