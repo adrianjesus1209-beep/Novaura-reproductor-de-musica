@@ -361,12 +361,8 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         binding.homeDashboard.btnSeeAllSongs.setOnClickListener {
             homeModel.selectNavTab(HomeViewModel.NAV_TAB_SONGS)
         }
-        binding.homeDashboard.btnRefreshStats.setOnClickListener {
-            updateDashboardStats(binding)
-        }
 
         updateDashboardFavorites(binding)
-        updateDashboardStats(binding)
     }
 
     private fun updateDashboardFavorites(binding: FragmentHomeBinding) {
@@ -446,37 +442,12 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         val topSongs = statsManager.getMostPlayedSongs(songs, 10)
         binding.homeDashboard.sectionMostPlayed.isVisible = topSongs.isNotEmpty()
         mostPlayedAdapter?.submitList(topSongs)
-        updateDashboardStats(binding)
     }
 
     private fun updateDashboardArtists(binding: FragmentHomeBinding, artists: List<Artist>) {
         val topArtists = statsManager.getTopArtists(artists, 10)
         binding.homeDashboard.sectionTopArtists.isVisible = topArtists.isNotEmpty()
         topArtistsAdapter?.submitList(topArtists)
-    }
-
-    private fun updateDashboardStats(binding: FragmentHomeBinding) {
-        val stats7d = statsManager.getStats7Days()
-        val statsLt = statsManager.getStatsLifetime()
-
-        val (tracks7d, time7d) =
-            if (stats7d.tracksPlayed > 0) {
-                stats7d.tracksPlayed to statsManager.formatDuration(stats7d.listenedDurationMs)
-            } else {
-                0 to "0s"
-            }
-
-        val (tracksLt, timeLt) =
-            if (statsLt.tracksPlayed > 0) {
-                statsLt.tracksPlayed to statsManager.formatDuration(statsLt.listenedDurationMs)
-            } else {
-                0 to "0s"
-            }
-
-        binding.homeDashboard.tvStats7dTracks.text = tracks7d.toString()
-        binding.homeDashboard.tvStats7dTime.text = time7d
-        binding.homeDashboard.tvStatsLifetimeTracks.text = tracksLt.toString()
-        binding.homeDashboard.tvStatsLifetimeTime.text = timeLt
     }
 
     private fun setupPager(binding: FragmentHomeBinding) {
