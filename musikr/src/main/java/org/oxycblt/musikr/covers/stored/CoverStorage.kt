@@ -92,6 +92,10 @@ interface CoverStorage {
 private class FSCoverStorage(private val dir: File) : CoverStorage {
     private val fileMutexes = mutableMapOf<String, Mutex>()
     private val mapMutex = Mutex()
+    private val existingFiles =
+        java.util.concurrent.ConcurrentHashMap.newKeySet<String>().apply {
+            dir.list()?.let { addAll(it) }
+        }
 
     private suspend fun getMutexForFile(file: String): Mutex {
         return mapMutex.withLock { fileMutexes.getOrPut(file) { Mutex() } }
@@ -100,7 +104,14 @@ private class FSCoverStorage(private val dir: File) : CoverStorage {
     override suspend fun find(name: String): FDCover? =
         withContext(Dispatchers.IO) {
             try {
-                File(dir, name).takeIf { it.exists() }?.let { FSStoredCover(it) }
+                if (existingFiles.contains(name)) {
+                    FSStoredCover(File(dir, name))
+                } else if (File(dir, name).exists()) {
+                    existingFiles.add(name)
+                    FSStoredCover(File(dir, name))
+                } else {
+                    null
+                }
             } catch (e: IOException) {
                 null
             }
@@ -117,6 +128,7 @@ private class FSCoverStorage(private val dir: File) : CoverStorage {
                     try {
                         tempFile.outputStream().use { block(it) }
                         tempFile.renameTo(targetFile)
+                        existingFiles.add(name)
                         FSStoredCover(targetFile)
                     } catch (e: IOException) {
                         tempFile.delete()
@@ -135,6 +147,7 @@ private class FSCoverStorage(private val dir: File) : CoverStorage {
         }
 
     override suspend fun rm(name: String) {
+        existingFiles.remove(name)
         withContext(Dispatchers.IO) { File(dir, name).deleteRecursively() }
     }
 }

@@ -38,7 +38,7 @@ internal object PipelineTuning {
      * and cover transcoding do not starve each other. A hard-coded 8 saturated CPU and IO on
      * low-end devices, which is what made the UI stutter while scanning.
      */
-    val parallelism: Int = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(2, 8)
+    val parallelism: Int = Runtime.getRuntime().availableProcessors().coerceIn(4, 12)
 
     /**
      * Capacity of the channels connecting pipeline stages.
@@ -48,7 +48,7 @@ internal object PipelineTuning {
      * buffer. Previously every stage channel was UNLIMITED, which let extracted songs (and the
      * embedded cover bitmaps they carry) pile up unboundedly on large libraries.
      */
-    val stageBuffer: Int = parallelism * 2
+    const val stageBuffer: Int = 64
 
     /**
      * Single source of truth for the smallest plausible song duration, in milliseconds.

@@ -551,7 +551,9 @@ constructor(
         // downloads
         // (Chrome, Telegram, WhatsApp, third-party downloaders) are registered in MediaStore
         if (forceStorageScan) {
-            scanExternalAudioDirectories()
+            CoroutineScope(Dispatchers.IO).launch {
+                scanExternalAudioDirectories()
+            }
         }
 
         val progressCallback: suspend (IndexingProgress) -> Unit =

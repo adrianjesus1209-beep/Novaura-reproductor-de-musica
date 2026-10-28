@@ -50,6 +50,8 @@ private const val PREFIX = "mcf:"
  * @param context The [Context] to use to access the filesystem and check for ID validity.
  */
 class FSCovers(private val context: Context) : Covers<FDCover> {
+    private val verifiedUris = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
     override suspend fun obtain(id: String): CoverResult<FDCover> {
         if (!id.startsWith(PREFIX)) {
             return CoverResult.Miss()
@@ -59,22 +61,30 @@ class FSCovers(private val context: Context) : Covers<FDCover> {
 
         // Check if the cover file still actually exists. Perhaps the file was deleted at some
         // point or superceded by a new one.
+        val cachedExists = verifiedUris[id]
         val exists =
-            withContext(Dispatchers.IO) {
-                try {
-                    if (uri.scheme == "file") {
-                        val path = uri.path ?: return@withContext false
-                        val file = java.io.File(path)
-                        file.exists() && file.length() > 0
-                    } else {
-                        context.contentResolver.openFileDescriptor(uri, "r")?.also { it.close() } !=
-                            null
+            if (cachedExists != null) {
+                cachedExists
+            } else {
+                val res =
+                    withContext(Dispatchers.IO) {
+                        try {
+                            if (uri.scheme == "file") {
+                                val path = uri.path ?: return@withContext false
+                                val file = java.io.File(path)
+                                file.exists() && file.length() > 0
+                            } else {
+                                context.contentResolver.openFileDescriptor(uri, "r")?.also {
+                                    it.close()
+                                } != null
+                            }
+                        } catch (e: Exception) {
+                            false
+                        }
                     }
-                } catch (e: Exception) {
-                    false
-                }
+                verifiedUris[id] = res
+                res
             }
-
         return if (exists) {
             CoverResult.Hit(FolderCoverImpl(context, uri))
         } else {
