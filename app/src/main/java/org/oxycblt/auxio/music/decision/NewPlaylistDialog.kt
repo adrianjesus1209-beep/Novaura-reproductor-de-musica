@@ -34,7 +34,6 @@ import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.music.PlaylistDecision
 import org.oxycblt.auxio.ui.ViewBindingMaterialDialogFragment
 import org.oxycblt.auxio.util.collectImmediately
-import org.oxycblt.auxio.util.unlikelyToBeNull
 import timber.log.Timber as L
 
 /**
@@ -61,12 +60,13 @@ class NewPlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNameBi
                 }
             )
             .setPositiveButton(R.string.lbl_ok) { _, _ ->
-                val pendingPlaylist = unlikelyToBeNull(pickerModel.currentPendingNewPlaylist.value)
+                val pendingPlaylist =
+                    pickerModel.currentPendingNewPlaylist.value ?: return@setPositiveButton
                 val name =
                     when (val chosenName = pickerModel.chosenName.value) {
                         is ChosenName.Valid -> chosenName.value
                         is ChosenName.Empty -> pendingPlaylist.preferredName
-                        else -> throw IllegalStateException()
+                        else -> return@setPositiveButton
                     }
                 // TODO: Navigate to playlist if there are songs in it
                 musicModel.createPlaylist(name, pendingPlaylist.songs, pendingPlaylist.reason)
@@ -116,8 +116,15 @@ class NewPlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNameBi
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        (dialog as? AlertDialog)?.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled =
+            pickerModel.chosenName.value is ChosenName.Valid ||
+                pickerModel.chosenName.value is ChosenName.Empty
+    }
+
     private fun updateChosenName(chosenName: ChosenName) {
-        (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled =
+        (dialog as? AlertDialog)?.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled =
             chosenName is ChosenName.Valid || chosenName is ChosenName.Empty
     }
 

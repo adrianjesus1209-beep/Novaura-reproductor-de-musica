@@ -188,14 +188,16 @@ constructor(
         // Replace the previous position co-routine with a new one that uses the new
         // state information.
         lastPositionJob?.cancel()
-        lastPositionJob =
-            viewModelScope.launch(Dispatchers.Default) {
-                while (true) {
-                    positionDs.value = progression.calculateElapsedPositionMs().msToDs()
-                    // Wait a deci-second for the next position tick.
-                    delay(100.milliseconds)
+        if (progression.isPlaying) {
+            lastPositionJob =
+                viewModelScope.launch(Dispatchers.Default) {
+                    while (true) {
+                        positionDs.value = progression.calculateElapsedPositionMs().msToDs()
+                        // Wait a deci-second for the next position tick.
+                        delay(100.milliseconds)
+                    }
                 }
-            }
+        }
     }
 
     override fun onRepeatModeChanged(repeatMode: RepeatMode) {
@@ -305,7 +307,7 @@ constructor(
         L.d(
             "Cannot use given genre parameter for $song [$genre from ${song.genres}], showing choice dialog"
         )
-        startPlaybackDecision(PlaybackDecision.PlayFromArtist(song))
+        startPlaybackDecision(PlaybackDecision.PlayFromGenre(song))
     }
 
     private fun playFromPlaylistImpl(song: Song, playlist: Playlist, shuffle: ShuffleMode) {

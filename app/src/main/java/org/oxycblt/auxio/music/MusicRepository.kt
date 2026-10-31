@@ -33,6 +33,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.oxycblt.auxio.image.covers.SettingCovers
@@ -291,6 +293,7 @@ constructor(
 ) : MusicRepository {
     private val updateListeners = mutableListOf<MusicRepository.UpdateListener>()
     private val indexingListeners = mutableListOf<MusicRepository.IndexingListener>()
+    private val playlistMutex = Mutex()
     @Volatile private var indexingWorker: IndexingWorker? = null
 
     @Volatile override var library: MutableLibrary? = null
@@ -367,7 +370,7 @@ constructor(
                 ?: findPlaylist(uid)
         })
 
-    override suspend fun createPlaylist(name: String, songs: List<Song>) {
+    override suspend fun createPlaylist(name: String, songs: List<Song>) = playlistMutex.withLock {
         val library = synchronized(this) { library ?: return }
         L.d("Creating playlist $name with ${songs.size} songs")
         val newLibrary = library.createPlaylist(name, songs)
@@ -375,7 +378,7 @@ constructor(
         withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
     }
 
-    override suspend fun renamePlaylist(playlist: Playlist, name: String) {
+    override suspend fun renamePlaylist(playlist: Playlist, name: String) = playlistMutex.withLock {
         val library = synchronized(this) { library ?: return }
         L.d("Renaming $playlist to $name")
         val newLibrary = library.renamePlaylist(playlist, name)
@@ -383,7 +386,7 @@ constructor(
         withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
     }
 
-    override suspend fun deletePlaylist(playlist: Playlist) {
+    override suspend fun deletePlaylist(playlist: Playlist) = playlistMutex.withLock {
         val library = synchronized(this) { library ?: return }
         L.d("Deleting $playlist")
         val newLibrary = library.deletePlaylist(playlist)
@@ -440,21 +443,23 @@ constructor(
         return anyDeleted
     }
 
-    override suspend fun addToPlaylist(songs: List<Song>, playlist: Playlist) {
-        val library = synchronized(this) { library ?: return }
-        L.d("Adding ${songs.size} songs to $playlist")
-        val newLibrary = library.addToPlaylist(playlist, songs)
-        synchronized(this) { this.library = newLibrary }
-        withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
-    }
+    override suspend fun addToPlaylist(songs: List<Song>, playlist: Playlist) =
+        playlistMutex.withLock {
+            val library = synchronized(this) { library ?: return }
+            L.d("Adding ${songs.size} songs to $playlist")
+            val newLibrary = library.addToPlaylist(playlist, songs)
+            synchronized(this) { this.library = newLibrary }
+            withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
+        }
 
-    override suspend fun rewritePlaylist(playlist: Playlist, songs: List<Song>) {
-        val library = synchronized(this) { library ?: return }
-        L.d("Rewriting $playlist with ${songs.size} songs")
-        val newLibrary = library.rewritePlaylist(playlist, songs)
-        synchronized(this) { this.library = newLibrary }
-        withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
-    }
+    override suspend fun rewritePlaylist(playlist: Playlist, songs: List<Song>) =
+        playlistMutex.withLock {
+            val library = synchronized(this) { library ?: return }
+            L.d("Rewriting $playlist with ${songs.size} songs")
+            val newLibrary = library.rewritePlaylist(playlist, songs)
+            synchronized(this) { this.library = newLibrary }
+            withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
+        }
 
     @Synchronized
     override fun requestIndex(withCache: Boolean) {
@@ -579,7 +584,6 @@ constructor(
         // cleanup finishes.
         L.d("Emitting new library")
         emitLibrary(result.library)
-        emitIndexingCompletion(null, result.diagnostics, silent)
 
         // Asynchronously backfill missing covers for Novaura downloads if any are missing
         CoroutineScope(Dispatchers.IO).launch {

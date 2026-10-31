@@ -110,7 +110,7 @@ constructor(
 
     override fun onRemoveQueueItem(description: MediaDescriptionCompat) {
         super.onRemoveQueueItem(description)
-        val at = description.extras?.getInt(KEY_QUEUE_POS)
+        val at = description.extras?.takeIf { it.containsKey(KEY_QUEUE_POS) }?.getInt(KEY_QUEUE_POS)
         if (at != null) {
             // Direct queue item removal w/preserved extras, we can explicitly remove
             // the correct item rather than a duplicate elsewhere.
@@ -125,7 +125,9 @@ constructor(
                 else -> return
             }
         val firstAt = playbackManager.queue.indexOfFirst { it.uid == songUid }
-        playbackManager.removeQueueItem(firstAt)
+        if (firstAt >= 0) {
+            playbackManager.removeQueueItem(firstAt)
+        }
     }
 
     override fun onPlay() {

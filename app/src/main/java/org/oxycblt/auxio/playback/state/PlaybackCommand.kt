@@ -156,7 +156,7 @@ constructor(
     ): PlaybackCommand? {
         return if (parent != null) {
             newCommand(song, parent, sort, shuffle)
-        } else if (song.genres.size == 1) {
+        } else if (parents.size == 1) {
             newCommand(song, parents.first(), sort, shuffle)
         } else {
             null

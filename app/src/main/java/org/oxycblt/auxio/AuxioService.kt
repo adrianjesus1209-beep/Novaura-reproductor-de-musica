@@ -21,6 +21,8 @@ package org.oxycblt.auxio
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.support.v4.media.MediaBrowserCompat.MediaItem
@@ -64,7 +66,9 @@ class AuxioService :
         val startReqId = intent?.getIntExtra(INTENT_KEY_START_ID, -1)
         if (
             startReqId == IntegerTable.START_ID_WIDGET_PLAY ||
-                startReqId == IntegerTable.START_ID_TASKER
+                startReqId == IntegerTable.START_ID_TASKER ||
+                startReqId == IntegerTable.START_ID_MEDIA_BUTTON ||
+                Intent.ACTION_MEDIA_BUTTON == intent?.action
         ) {
             ensureForegroundNotification()
         }
@@ -79,7 +83,16 @@ class AuxioService :
     private fun ensureForegroundNotification() {
         if (!isForeground) {
             val notification = playbackFragment.sessionNotification
-            startForeground(notification.code, notification.build())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ServiceCompat.startForeground(
+                    this,
+                    notification.code,
+                    notification.build(),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+                )
+            } else {
+                startForeground(notification.code, notification.build())
+            }
             isForeground = true
         }
     }
@@ -103,6 +116,7 @@ class AuxioService :
     override fun onDestroy() {
         super.onDestroy()
         isAlive = false
+        isForeground = false
         musicFragment.release()
         playbackFragment.release()
     }
@@ -148,7 +162,16 @@ class AuxioService :
         val mediaNotification = playbackFragment.notification
         if (mediaNotification != null) {
             if (change == ForegroundListener.Change.MEDIA_SESSION) {
-                startForeground(mediaNotification.code, mediaNotification.build())
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ServiceCompat.startForeground(
+                        this,
+                        mediaNotification.code,
+                        mediaNotification.build(),
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+                    )
+                } else {
+                    startForeground(mediaNotification.code, mediaNotification.build())
+                }
             }
             // Nothing changed, but don't show anything music related since we can always
             // index during playback.
@@ -156,7 +179,16 @@ class AuxioService :
         } else {
             musicFragment.createNotification {
                 if (it != null) {
-                    startForeground(it.code, it.build())
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        ServiceCompat.startForeground(
+                            this,
+                            it.code,
+                            it.build(),
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+                        )
+                    } else {
+                        startForeground(it.code, it.build())
+                    }
                     isForeground = true
                 } else {
                     ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)

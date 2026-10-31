@@ -82,7 +82,7 @@ class BetterShuffleOrder(private val shuffled: IntArray) : ShuffleOrder {
             }
         for (i in shuffled.indices) {
             var currentIndex = shuffled[i]
-            if (currentIndex > insertionIndex) {
+            if (currentIndex >= insertionIndex) {
                 currentIndex += insertionCount
             }
 

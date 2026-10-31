@@ -40,6 +40,7 @@ import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.ui.ViewBindingMaterialDialogFragment
 import org.oxycblt.auxio.util.showToast
+import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Song
 import timber.log.Timber as L
 
@@ -77,11 +78,23 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         hasAutoLaunched = savedInstanceState?.getBoolean(KEY_AUTO_LAUNCHED, false) ?: false
+        val savedUids = savedInstanceState?.getStringArrayList(KEY_PENDING_MEDIA_STORE_SONGS)
+        if (savedUids != null) {
+            pendingMediaStoreSongs = savedUids.mapNotNull {
+                Music.UID.fromString(it)?.let { uid -> musicModel.findSong(uid) }
+            }
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putBoolean(KEY_AUTO_LAUNCHED, hasAutoLaunched)
+        if (pendingMediaStoreSongs.isNotEmpty()) {
+            outState.putStringArrayList(
+                KEY_PENDING_MEDIA_STORE_SONGS,
+                ArrayList(pendingMediaStoreSongs.map { it.uid.toString() }),
+            )
+        }
     }
 
     override fun onConfigDialog(builder: AlertDialog.Builder) {
@@ -154,11 +167,6 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
     }
 
     private fun onConfirmDelete() {
-        val currentlyPlayingUid = playbackModel.song.value?.uid
-        if (currentlyPlayingUid != null && songsToDelete.any { it.uid == currentlyPlayingUid }) {
-            playbackModel.next()
-        }
-
         // Separate songs into SAF tree uris and MediaStore uris
         val (safSongs, mediaStoreSongs) =
             songsToDelete.partition {
@@ -220,6 +228,10 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
     }
 
     private fun performDelete(songs: List<Song>) {
+        val currentlyPlayingUid = playbackModel.song.value?.uid
+        if (currentlyPlayingUid != null && songs.any { it.uid == currentlyPlayingUid }) {
+            playbackModel.next()
+        }
         musicModel.deleteSongs(songs, rude = true)
     }
 
@@ -229,5 +241,6 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
 
     private companion object {
         const val KEY_AUTO_LAUNCHED = "auto_launched"
+        const val KEY_PENDING_MEDIA_STORE_SONGS = "pending_media_store_songs"
     }
 }

@@ -18,6 +18,7 @@
  
 package org.oxycblt.auxio.playback.persist
 
+import androidx.room.withTransaction
 import javax.inject.Inject
 import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.playback.state.PlaybackStateManager
@@ -44,6 +45,7 @@ interface PersistenceRepository {
 class PersistenceRepositoryImpl
 @Inject
 constructor(
+    private val database: PersistenceDatabase,
     private val playbackStateDao: PlaybackStateDao,
     private val queueDao: QueueDao,
     private val musicRepository: MusicRepository,
@@ -80,49 +82,41 @@ constructor(
     }
 
     override suspend fun saveState(state: PlaybackStateManager.SavedState?): Boolean {
-        try {
-            playbackStateDao.nukeState()
-            queueDao.nukeHeap()
-            queueDao.nukeShuffledMapping()
-        } catch (e: Exception) {
-            L.e("Unable to clear previous state")
-            L.e(e.stackTraceToString())
-            return false
-        }
+        return try {
+            database.withTransaction {
+                playbackStateDao.nukeState()
+                queueDao.nukeHeap()
+                queueDao.nukeShuffledMapping()
+                if (state != null) {
+                    val playbackState =
+                        PlaybackState(
+                            id = 0,
+                            index = state.index,
+                            positionMs = state.positionMs,
+                            repeatMode = state.repeatMode,
+                            songUid = state.songUid,
+                            parentUid = state.parent?.uid,
+                        )
+                    val heap =
+                        state.heap.mapIndexed { i, song ->
+                            QueueHeapItem(i, requireNotNull(song).uid)
+                        }
+                    val shuffledMapping =
+                        state.shuffledMapping.mapIndexed { i, index ->
+                            QueueShuffledMappingItem(i, index)
+                        }
 
-        L.d("Successfully cleared previous state")
-        if (state != null) {
-            // Transform saved state into raw state, which can then be written to the database.
-            val playbackState =
-                PlaybackState(
-                    id = 0,
-                    index = state.index,
-                    positionMs = state.positionMs,
-                    repeatMode = state.repeatMode,
-                    songUid = state.songUid,
-                    parentUid = state.parent?.uid,
-                )
-
-            // Convert the remaining queue information do their database-specific counterparts.
-            val heap =
-                state.heap.mapIndexed { i, song -> QueueHeapItem(i, requireNotNull(song).uid) }
-
-            val shuffledMapping =
-                state.shuffledMapping.mapIndexed { i, index -> QueueShuffledMappingItem(i, index) }
-
-            try {
-                playbackStateDao.insertState(playbackState)
-                queueDao.insertHeap(heap)
-                queueDao.insertShuffledMapping(shuffledMapping)
-            } catch (e: Exception) {
-                L.e("Unable to write new state")
-                L.e(e.stackTraceToString())
-                return false
+                    playbackStateDao.insertState(playbackState)
+                    queueDao.insertHeap(heap)
+                    queueDao.insertShuffledMapping(shuffledMapping)
+                }
             }
-
-            L.d("Successfully wrote new state")
+            L.d("Successfully saved state")
+            true
+        } catch (e: Exception) {
+            L.e("Unable to save playback state")
+            L.e(e.stackTraceToString())
+            false
         }
-
-        return true
     }
 }

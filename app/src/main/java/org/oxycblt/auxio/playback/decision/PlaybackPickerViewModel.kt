@@ -63,7 +63,7 @@ class PlaybackPickerViewModel @Inject constructor(private val musicRepository: M
     fun setPickerSongUid(uid: Music.UID) {
         L.d("Opening picker for song $uid")
         currentPickerSong.value = musicRepository.library?.findSong(uid)
-        if (currentPickerSong.value != null) {
+        if (currentPickerSong.value == null) {
             L.w("Given song UID was invalid")
         }
     }

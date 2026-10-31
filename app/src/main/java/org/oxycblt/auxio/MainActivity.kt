@@ -158,6 +158,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         startIntentAction(intent)
     }
 
@@ -210,6 +211,12 @@ class MainActivity : AppCompatActivity() {
             return true
         }
         intent.putExtra(KEY_INTENT_USED, true)
+
+        val startId = intent.getIntExtra(AuxioService.INTENT_KEY_START_ID, -1)
+        if (startId == IntegerTable.START_ID_WIDGET_PLAY) {
+            playbackModel.playDeferred(DeferredPlayback.RestoreState(true))
+            return true
+        }
 
         val action =
             when (intent.action) {

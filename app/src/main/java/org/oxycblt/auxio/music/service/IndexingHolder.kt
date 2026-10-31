@@ -99,6 +99,11 @@ private constructor(
 
     fun release() {
         stopTracking()
+        currentIndexJob?.cancel()
+        currentIndexJob = null
+        if (wakeLockLazy.isInitialized()) {
+            wakeLock.releaseSafe()
+        }
         musicRepository.unregisterWorker(this)
         musicRepository.removeIndexingListener(this)
         musicRepository.removeUpdateListener(this)

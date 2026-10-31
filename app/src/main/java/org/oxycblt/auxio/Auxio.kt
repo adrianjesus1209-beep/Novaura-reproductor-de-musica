@@ -30,7 +30,6 @@ import org.oxycblt.auxio.image.ImageSettings
 import org.oxycblt.auxio.music.MusicSettings
 import org.oxycblt.auxio.playback.PlaybackSettings
 import org.oxycblt.auxio.ui.UISettings
-import org.oxycblt.auxio.util.CopyleftNoticeTree
 import timber.log.Timber
 
 /**
@@ -72,11 +71,6 @@ class Auxio : Application() {
                     override fun isLoggable(tag: String?, priority: Int) = true
                 }
             )
-        } else if (
-            BuildConfig.APPLICATION_ID != "org.oxycblt.auxio" &&
-                BuildConfig.APPLICATION_ID != "org.oxycblt.auxio.debug"
-        ) {
-            Timber.plant(CopyleftNoticeTree())
         }
 
         // Migrate any settings that may have changed in an app update.

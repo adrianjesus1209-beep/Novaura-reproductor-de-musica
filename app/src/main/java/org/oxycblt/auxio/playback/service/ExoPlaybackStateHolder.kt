@@ -371,16 +371,11 @@ class ExoPlaybackStateHolder(
     }
 
     override fun playNext(songs: List<Song>, ack: StateAck.PlayNext) {
-        val currTimeline = player.currentTimeline
         val nextIndex =
-            if (currTimeline.isEmpty) {
+            if (player.mediaItemCount == 0 || player.currentMediaItemIndex == C.INDEX_UNSET) {
                 C.INDEX_UNSET
             } else {
-                currTimeline.getNextWindowIndex(
-                    player.currentMediaItemIndex,
-                    Player.REPEAT_MODE_OFF,
-                    player.shuffleModeEnabled,
-                )
+                (player.currentMediaItemIndex + 1).coerceAtMost(player.mediaItemCount)
             }
 
         if (nextIndex == C.INDEX_UNSET) {

@@ -33,7 +33,6 @@ import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.ui.ViewBindingMaterialDialogFragment
 import org.oxycblt.auxio.util.collectImmediately
-import org.oxycblt.auxio.util.unlikelyToBeNull
 import timber.log.Timber as L
 
 /**
@@ -55,11 +54,13 @@ class RenamePlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNam
             .setTitle(R.string.lbl_rename_playlist)
             .setPositiveButton(R.string.lbl_ok) { _, _ ->
                 val pendingRenamePlaylist =
-                    unlikelyToBeNull(pickerModel.currentPendingRenamePlaylist.value)
-                val chosenName = pickerModel.chosenName.value as ChosenName.Valid
+                    pickerModel.currentPendingRenamePlaylist.value ?: return@setPositiveButton
+                val chosenName =
+                    (pickerModel.chosenName.value as? ChosenName.Valid)?.value
+                        ?: return@setPositiveButton
                 musicModel.renamePlaylist(
                     pendingRenamePlaylist.playlist,
-                    chosenName.value,
+                    chosenName,
                     pendingRenamePlaylist.applySongs,
                     pendingRenamePlaylist.reason,
                 )
@@ -106,8 +107,14 @@ class RenamePlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNam
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        (dialog as? AlertDialog)?.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled =
+            pickerModel.chosenName.value is ChosenName.Valid
+    }
+
     private fun updateChosenName(chosenName: ChosenName) {
-        (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled =
+        (dialog as? AlertDialog)?.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled =
             chosenName is ChosenName.Valid
     }
 }
