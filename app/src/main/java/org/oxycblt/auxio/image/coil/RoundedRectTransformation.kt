@@ -28,6 +28,7 @@ import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.RectF
 import android.graphics.Shader
+import android.os.Build
 import androidx.annotation.Px
 import androidx.core.graphics.applyCanvas
 import coil3.decode.DecodeUtils
@@ -63,14 +64,23 @@ class RoundedRectTransformation(
     override suspend fun transform(input: Bitmap, size: Size): Bitmap {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
-        val (outputWidth, outputHeight) = calculateOutputSize(input, size)
+        val (rawWidth, rawHeight) = calculateOutputSize(input, size)
+        val outputWidth = rawWidth.coerceAtLeast(1)
+        val outputHeight = rawHeight.coerceAtLeast(1)
 
-        val output =
-            createBitmap(
-                outputWidth,
-                outputHeight,
-                requireNotNull(input.config) { "unsupported bitmap format" },
-            )
+        val safeConfig =
+            if (
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                    input.config == Bitmap.Config.HARDWARE
+            ) {
+                Bitmap.Config.ARGB_8888
+            } else if (input.config == Bitmap.Config.RGB_565 || input.config == null) {
+                Bitmap.Config.ARGB_8888
+            } else {
+                input.config ?: Bitmap.Config.ARGB_8888
+            }
+
+        val output = createBitmap(outputWidth, outputHeight, safeConfig)
         output.applyCanvas {
             drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
 

@@ -58,20 +58,26 @@ class NewPipeDownloader(
             else -> okHttpBuilder.method(httpMethod, body)
         }
 
-        val response = client.newCall(okHttpBuilder.build()).execute()
-        val responseBody = response.body
-        val responseBodyString = responseBody?.string()
-        val responseCode = response.code
-        val responseMessage = response.message
-        val responseHeaders = response.headers.toMultimap()
-        val latestUrl = response.request.url.toString()
+        return client.newCall(okHttpBuilder.build()).execute().use { response ->
+            val responseBodyString = response.body?.string()
+            val responseCode = response.code
+            val responseMessage = response.message
+            val responseHeaders = response.headers.toMultimap()
+            val latestUrl = response.request.url.toString()
 
-        return ExtractorResponse(
-            responseCode,
-            responseMessage,
-            responseHeaders,
-            responseBodyString,
-            latestUrl,
-        )
+            ExtractorResponse(
+                responseCode,
+                responseMessage,
+                responseHeaders,
+                responseBodyString,
+                latestUrl,
+            )
+        }
+    }
+
+    companion object {
+        private val instance = NewPipeDownloader()
+
+        fun getInstance(): NewPipeDownloader = instance
     }
 }

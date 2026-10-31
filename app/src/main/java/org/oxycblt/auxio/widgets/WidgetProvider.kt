@@ -338,9 +338,9 @@ class WidgetProvider : AppWidgetProvider() {
                     throw e
                 }
                 val victim = victims.first()
-                val view = views.entries.find { it.value.layoutId == victim } ?: continue
-                view.value.discardCover(context)
                 victims.remove(victim)
+                val matchingViews = views.values.filter { it.layoutId == victim }
+                matchingViews.forEach { it.discardCover(context) }
             } catch (e: Exception) {
                 L.w("Unable to update widget: $e")
                 showDefaultFallback(context, uiSettings)

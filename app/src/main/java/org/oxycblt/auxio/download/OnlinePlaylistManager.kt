@@ -32,6 +32,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -48,6 +50,7 @@ data class OnlinePlaylist(
 class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val playlistFile by lazy { File(context.filesDir, "online_playlists.json") }
+    private val fileMutex = Mutex()
 
     private val _playlists = MutableStateFlow<List<OnlinePlaylist>>(emptyList())
     val playlists: StateFlow<List<OnlinePlaylist>> = _playlists.asStateFlow()
@@ -60,82 +63,96 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
 
     private suspend fun loadPlaylists() =
         withContext(Dispatchers.IO) {
-            if (!playlistFile.exists()) {
-                _playlists.value = emptyList()
-                return@withContext
-            }
+            fileMutex.withLock {
+                if (!playlistFile.exists()) {
+                    _playlists.value = emptyList()
+                    return@withContext
+                }
 
-            try {
-                val content = playlistFile.readText()
-                val array = JSONArray(content)
-                val list = mutableListOf<OnlinePlaylist>()
+                try {
+                    val content = playlistFile.readText()
+                    val array = JSONArray(content)
+                    val list = mutableListOf<OnlinePlaylist>()
 
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    val id = obj.optString("id", UUID.randomUUID().toString())
-                    val name = obj.optString("name", "Mi Lista")
-                    val createdAt = obj.optLong("createdAt", System.currentTimeMillis())
-                    val songsArray = obj.optJSONArray("songs") ?: JSONArray()
-                    val songs = mutableListOf<OnlineSong>()
+                    for (i in 0 until array.length()) {
+                        val obj = array.getJSONObject(i)
+                        val id = obj.optString("id", UUID.randomUUID().toString())
+                        val name = obj.optString("name", "Mi Lista")
+                        val createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                        val songsArray = obj.optJSONArray("songs") ?: JSONArray()
+                        val songs = mutableListOf<OnlineSong>()
 
-                    for (j in 0 until songsArray.length()) {
-                        val sObj = songsArray.getJSONObject(j)
-                        songs.add(
-                            OnlineSong(
-                                id = sObj.optString("id"),
-                                title = sObj.optString("title"),
-                                artist = sObj.optString("artist"),
-                                durationText = sObj.optString("durationText"),
-                                durationSeconds = sObj.optLong("durationSeconds"),
-                                thumbnailUrl =
-                                    sObj.optString("thumbnailUrl").takeIf { it.isNotBlank() },
-                                webUrl = sObj.optString("webUrl"),
+                        for (j in 0 until songsArray.length()) {
+                            val sObj = songsArray.getJSONObject(j)
+                            songs.add(
+                                OnlineSong(
+                                    id = sObj.optString("id"),
+                                    title = sObj.optString("title"),
+                                    artist = sObj.optString("artist"),
+                                    durationText = sObj.optString("durationText"),
+                                    durationSeconds = sObj.optLong("durationSeconds"),
+                                    thumbnailUrl =
+                                        sObj.optString("thumbnailUrl").takeIf { it.isNotBlank() },
+                                    webUrl = sObj.optString("webUrl"),
+                                )
+                            )
+                        }
+
+                        list.add(
+                            OnlinePlaylist(
+                                id = id,
+                                name = name,
+                                createdAt = createdAt,
+                                songs = songs,
                             )
                         )
                     }
-
-                    list.add(
-                        OnlinePlaylist(id = id, name = name, createdAt = createdAt, songs = songs)
-                    )
+                    _playlists.value = list
+                } catch (e: Exception) {
+                    L.e(e, "Failed to load online playlists")
+                    _playlists.value = emptyList()
                 }
-                _playlists.value = list
-            } catch (e: Exception) {
-                L.e(e, "Failed to load online playlists")
-                _playlists.value = emptyList()
             }
         }
 
     private suspend fun savePlaylists() =
         withContext(Dispatchers.IO) {
-            try {
-                val array = JSONArray()
-                for (p in _playlists.value) {
-                    val obj =
-                        JSONObject().apply {
-                            put("id", p.id)
-                            put("name", p.name)
-                            put("createdAt", p.createdAt)
-                            val sArr = JSONArray()
-                            for (s in p.songs) {
-                                sArr.put(
-                                    JSONObject().apply {
-                                        put("id", s.id)
-                                        put("title", s.title)
-                                        put("artist", s.artist)
-                                        put("durationText", s.durationText)
-                                        put("durationSeconds", s.durationSeconds)
-                                        put("thumbnailUrl", s.thumbnailUrl.orEmpty())
-                                        put("webUrl", s.webUrl)
-                                    }
-                                )
+            fileMutex.withLock {
+                try {
+                    val array = JSONArray()
+                    for (p in _playlists.value) {
+                        val obj =
+                            JSONObject().apply {
+                                put("id", p.id)
+                                put("name", p.name)
+                                put("createdAt", p.createdAt)
+                                val sArr = JSONArray()
+                                for (s in p.songs) {
+                                    sArr.put(
+                                        JSONObject().apply {
+                                            put("id", s.id)
+                                            put("title", s.title)
+                                            put("artist", s.artist)
+                                            put("durationText", s.durationText)
+                                            put("durationSeconds", s.durationSeconds)
+                                            put("thumbnailUrl", s.thumbnailUrl.orEmpty())
+                                            put("webUrl", s.webUrl)
+                                        }
+                                    )
+                                }
+                                put("songs", sArr)
                             }
-                            put("songs", sArr)
-                        }
-                    array.put(obj)
+                        array.put(obj)
+                    }
+                    val tempFile = File(context.filesDir, "online_playlists.json.tmp")
+                    tempFile.writeText(array.toString(2))
+                    if (!tempFile.renameTo(playlistFile)) {
+                        tempFile.copyTo(playlistFile, overwrite = true)
+                        tempFile.delete()
+                    }
+                } catch (e: Exception) {
+                    L.e(e, "Failed to save online playlists")
                 }
-                playlistFile.writeText(array.toString(2))
-            } catch (e: Exception) {
-                L.e(e, "Failed to save online playlists")
             }
         }
 

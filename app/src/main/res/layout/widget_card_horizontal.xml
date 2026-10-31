@@ -49,6 +49,7 @@
             android:ellipsize="marquee"
             android:marqueeRepeatLimit="marquee_forever"
             android:singleLine="true"
+            android:text="Novaura Music"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
             android:textStyle="bold"
@@ -62,6 +63,7 @@
             android:layout_marginTop="1dp"
             android:ellipsize="end"
             android:singleLine="true"
+            android:text="Toca ▶ para reproducir"
             android:textColor="#B3FFFFFF"
             android:textSize="12sp"
             tools:text="Artist name" />

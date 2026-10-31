@@ -22,19 +22,33 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.LruCache
 import android.widget.ImageView
+import java.lang.ref.WeakReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.image.coil.BlurTransformation
 
 object ThumbnailLoader {
-    private val cache = LruCache<String, Bitmap>(60)
-    private val blurCache = LruCache<String, Bitmap>(30)
-    private val client = OkHttpClient()
+    private val memoryCache =
+        object : LruCache<String, Bitmap>(16 * 1024) {
+            override fun sizeOf(key: String, value: Bitmap): Int =
+                (value.allocationByteCount / 1024).coerceAtLeast(1)
+        }
+
+    private val blurCache =
+        object : LruCache<String, Bitmap>(8 * 1024) {
+            override fun sizeOf(key: String, value: Bitmap): Int =
+                (value.allocationByteCount / 1024).coerceAtLeast(1)
+        }
+
+    private val client
+        get() = NewPipeDownloader.getInstance().client
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     fun load(imageView: ImageView, url: String?) {
         load(imageView, null, url)
@@ -52,7 +66,7 @@ object ThumbnailLoader {
         imageView.tag = url
         blurView?.tag = url
 
-        val cached = cache.get(url)
+        val cached = memoryCache.get(url)
         val cachedBlur = blurCache.get(url)
 
         if (cached != null) {
@@ -61,12 +75,14 @@ object ThumbnailLoader {
                 if (cachedBlur != null) {
                     blurView.setImageBitmap(cachedBlur)
                 } else {
-                    CoroutineScope(Dispatchers.IO).launch {
+                    val blurViewRef = WeakReference(blurView)
+                    scope.launch {
                         val blurred = BlurTransformation.blur(cached, radius = 22, sampling = 0.2f)
                         blurCache.put(url, blurred)
                         withContext(Dispatchers.Main) {
-                            if (blurView.tag == url) {
-                                blurView.setImageBitmap(blurred)
+                            val targetBlur = blurViewRef.get()
+                            if (targetBlur != null && targetBlur.tag == url) {
+                                targetBlur.setImageBitmap(blurred)
                             }
                         }
                     }
@@ -78,24 +94,30 @@ object ThumbnailLoader {
         imageView.setImageResource(R.drawable.ic_song_24)
         blurView?.setImageDrawable(null)
 
-        CoroutineScope(Dispatchers.IO).launch {
+        val imageViewRef = WeakReference(imageView)
+        val blurViewRef = blurView?.let { WeakReference(it) }
+
+        scope.launch {
             try {
                 val req = Request.Builder().url(url).build()
                 client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@use
                     val bytes = resp.body?.bytes()
                     if (bytes != null) {
                         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                         if (bitmap != null) {
-                            cache.put(url, bitmap)
+                            memoryCache.put(url, bitmap)
                             val blurred =
                                 BlurTransformation.blur(bitmap, radius = 22, sampling = 0.2f)
                             blurCache.put(url, blurred)
                             withContext(Dispatchers.Main) {
-                                if (imageView.tag == url) {
-                                    imageView.setImageBitmap(bitmap)
+                                val targetImage = imageViewRef.get()
+                                if (targetImage != null && targetImage.tag == url) {
+                                    targetImage.setImageBitmap(bitmap)
                                 }
-                                if (blurView?.tag == url) {
-                                    blurView.setImageBitmap(blurred)
+                                val targetBlur = blurViewRef?.get()
+                                if (targetBlur != null && targetBlur.tag == url) {
+                                    targetBlur.setImageBitmap(blurred)
                                 }
                             }
                         }

@@ -53,11 +53,26 @@ abstract class CoverCompositionFetcher(
     private val size: Size,
 ) : Fetcher {
     final override suspend fun fetch(): FetchResult? {
+        val squareSize =
+            min(size.width.pxOrElse { 512 }, size.height.pxOrElse { 512 }).coerceAtLeast(1)
+        val targetSize = squareSize / 2
+
         val bitmaps =
             data.covers.covers
                 .asFlow()
                 .mapNotNull { cover -> cover.open() }
-                .mapNotNull { stream -> BitmapFactory.decodeStream(stream).also { stream.close() } }
+                .mapNotNull { stream ->
+                    stream.use { s ->
+                        runCatching {
+                                val options =
+                                    BitmapFactory.Options().apply {
+                                        inSampleSize = 2
+                                    }
+                                BitmapFactory.decodeStream(s, null, options)
+                            }
+                            .getOrNull()
+                    }
+                }
                 .take(4)
                 .toList()
         if (bitmaps.size < 4) {
@@ -69,8 +84,6 @@ abstract class CoverCompositionFetcher(
             )
         }
 
-        val squareSize =
-            min(size.width.pxOrElse { 512 }, size.height.pxOrElse { 512 }).coerceAtLeast(1)
         val random = Random(data.seed)
         for (i in 0..10) {
             // cycle random a few times
@@ -80,8 +93,10 @@ abstract class CoverCompositionFetcher(
             // then cycle it some more
             random.nextLong()
         }
+        val composed = compose(bitmaps, squareSize, random)
+        bitmaps.forEach { runCatching { it.recycle() } }
         return ImageFetchResult(
-            image = compose(bitmaps, squareSize, random).toDrawable(context.resources).asImage(),
+            image = composed.toDrawable(context.resources).asImage(),
             isSampled = true,
             dataSource = DataSource.DISK,
         )

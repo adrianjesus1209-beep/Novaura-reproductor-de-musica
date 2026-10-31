@@ -499,7 +499,7 @@ constructor(
                 UpdateInstructions.Remove(at, 1)
             } else {
                 L.d("Playlist will be empty after removal, removing header")
-                UpdateInstructions.Remove(at - 1, 3)
+                UpdateInstructions.Remove(0, _playlistSongList.value.size)
             },
         )
     }

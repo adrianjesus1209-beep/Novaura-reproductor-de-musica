@@ -31,11 +31,13 @@ import androidx.core.app.NotificationCompat
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.oxycblt.auxio.MainActivity
 import org.oxycblt.auxio.R
@@ -64,8 +66,13 @@ class DownloadService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForegroundCompat(buildPrimaryForegroundNotification())
+
         if (intent == null) {
-            if (activeSongs.isEmpty()) stopSelf()
+            if (activeSongs.isEmpty()) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
             return START_NOT_STICKY
         }
 
@@ -82,6 +89,7 @@ class DownloadService : Service() {
                 if (song != null) {
                     startDownloading(song)
                 } else if (activeSongs.isEmpty()) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 }
             }
@@ -103,9 +111,15 @@ class DownloadService : Service() {
                 if (url.isNotEmpty()) {
                     downloadManager.resumeDownload(url)
                 }
+                if (activeSongs.isEmpty()) {
+                    checkAllDownloadsFinished()
+                }
             }
             ACTION_RESUME_ALL -> {
                 downloadManager.resumeAll()
+                if (activeSongs.isEmpty()) {
+                    checkAllDownloadsFinished()
+                }
             }
             ACTION_CANCEL -> {
                 val url = intent.getStringExtra(EXTRA_URL).orEmpty()
@@ -121,11 +135,26 @@ class DownloadService : Service() {
                 cancelAllDownloads()
             }
             else -> {
-                if (activeSongs.isEmpty()) stopSelf()
+                if (activeSongs.isEmpty()) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
             }
         }
 
         return START_NOT_STICKY
+    }
+
+    private fun startForegroundCompat(notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     private fun pauseSingleDownload(url: String) {
@@ -156,7 +185,7 @@ class DownloadService : Service() {
         activeJobs.clear()
         activeSongs.clear()
         activeProgress.clear()
-        stopForeground(STOP_FOREGROUND_DETACH)
+        stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
@@ -169,27 +198,26 @@ class DownloadService : Service() {
         activeProgress[song.webUrl] = 0
 
         // Start or update foreground notification
-        val notification = buildPrimaryForegroundNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
+        startForegroundCompat(buildPrimaryForegroundNotification())
 
         postNotificationUpdate(force = true)
 
         val job = serviceScope.launch {
             L.d("Starting background download for: ${song.title}")
             val resultUri =
-                downloadRepository.downloadSong(song) { percent ->
-                    activeProgress[song.webUrl] = percent
-                    downloadManager.updateProgress(song.webUrl, percent)
-                    postNotificationUpdateThrottled()
+                try {
+                    downloadRepository.downloadSong(song) { percent ->
+                        activeProgress[song.webUrl] = percent
+                        downloadManager.updateProgress(song.webUrl, percent)
+                        postNotificationUpdateThrottled()
+                    }
+                } catch (e: CancellationException) {
+                    throw e
                 }
+
+            if (!isActive || !activeJobs.containsKey(song.webUrl)) {
+                return@launch
+            }
 
             val success = resultUri != null
             activeSongs.remove(song.webUrl)
@@ -230,7 +258,7 @@ class DownloadService : Service() {
                 )
             } else {
                 L.d("All background downloads completed")
-                stopForeground(STOP_FOREGROUND_DETACH)
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
         } else {

@@ -7,7 +7,7 @@
     android:minResizeHeight="40dp"
     android:minResizeWidth="160dp"
     android:previewImage="@drawable/ui_widget_preview"
-    android:previewLayout="@layout/widget_card_horizontal"
+    android:previewLayout="@layout/widget_default"
     android:resizeMode="horizontal|vertical"
     android:targetCellWidth="4"
     android:targetCellHeight="1"

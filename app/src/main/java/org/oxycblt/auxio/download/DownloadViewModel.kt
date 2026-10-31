@@ -37,7 +37,7 @@ import timber.log.Timber as L
 sealed interface DownloadEvent {
     data class Started(val title: String) : DownloadEvent
 
-    data class Success(val title: String) : DownloadEvent
+    data class Success(val title: String, val webUrl: String = "") : DownloadEvent
 
     data class Error(val title: String) : DownloadEvent
 }
@@ -108,7 +108,7 @@ constructor(
                 // Sort
                 when (sort) {
                     SearchSortFilter.RELEVANCE -> list
-                    SearchSortFilter.VIEWS -> list.sortedByDescending { it.durationSeconds }
+                    SearchSortFilter.VIEWS -> list.sortedByDescending { it.viewCount }
                 }
             }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())

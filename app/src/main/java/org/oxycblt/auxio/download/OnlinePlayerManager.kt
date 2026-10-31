@@ -259,6 +259,9 @@ constructor(
         streamExtractionJob?.cancel()
         positionJob?.cancel()
         exoPlayer?.stop()
+        exoPlayer?.clearMediaItems()
+        exoPlayer?.release()
+        exoPlayer = null
         _playerState.value = OnlinePlayerState(isShuffle = isShuffle, isRepeat = isRepeat)
     }
 

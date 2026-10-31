@@ -138,6 +138,7 @@ constructor(
         const val NAV_TAB_ALBUMS = 2
         const val NAV_TAB_ARTISTS = 3
         const val NAV_TAB_PLAYLISTS = 4
+        const val NAV_TAB_GENRES = 5
     }
 
     private val _currentNavTab = MutableStateFlow(NAV_TAB_HOME)
@@ -150,6 +151,7 @@ constructor(
                 NAV_TAB_SONGS -> MusicType.SONGS
                 NAV_TAB_ALBUMS -> MusicType.ALBUMS
                 NAV_TAB_ARTISTS -> MusicType.ARTISTS
+                NAV_TAB_GENRES -> MusicType.GENRES
                 NAV_TAB_PLAYLISTS -> MusicType.PLAYLISTS
                 else -> null
             }
@@ -279,15 +281,17 @@ constructor(
         val tabType = currentTabTypes.getOrNull(pagerPos) ?: return
         L.d("Updating current tab to $tabType")
         _currentTabType.value = tabType
-        val navTab =
-            when (tabType) {
-                MusicType.SONGS -> NAV_TAB_SONGS
-                MusicType.ALBUMS -> NAV_TAB_ALBUMS
-                MusicType.ARTISTS -> NAV_TAB_ARTISTS
-                MusicType.PLAYLISTS -> NAV_TAB_PLAYLISTS
-                else -> NAV_TAB_HOME
-            }
-        _currentNavTab.value = navTab
+        if (_currentNavTab.value != NAV_TAB_HOME) {
+            val navTab =
+                when (tabType) {
+                    MusicType.SONGS -> NAV_TAB_SONGS
+                    MusicType.ALBUMS -> NAV_TAB_ALBUMS
+                    MusicType.ARTISTS -> NAV_TAB_ARTISTS
+                    MusicType.GENRES -> NAV_TAB_GENRES
+                    MusicType.PLAYLISTS -> NAV_TAB_PLAYLISTS
+                }
+            _currentNavTab.value = navTab
+        }
     }
 
     /**

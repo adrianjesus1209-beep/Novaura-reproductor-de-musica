@@ -103,7 +103,6 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
     }
 
     fun cancelDownload(webUrl: String) {
-        val item = _downloadItems.value.find { it.song.webUrl == webUrl }
         _downloadItems.value = _downloadItems.value.filter { it.song.webUrl != webUrl }
         _downloadProgress.value = _downloadProgress.value - webUrl
         _activeCount.value = countActive()
@@ -184,7 +183,7 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
         _activeCount.value = countActive()
 
         if (success) {
-            _events.tryEmit(DownloadEvent.Success(title))
+            _events.tryEmit(DownloadEvent.Success(title, webUrl))
         } else {
             _events.tryEmit(DownloadEvent.Error(title))
         }
@@ -201,7 +200,10 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
             }
 
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (
+                actionName == DownloadService.ACTION_ENQUEUE &&
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+            ) {
                 ContextCompat.startForegroundService(context, intent)
             } else {
                 context.startService(intent)

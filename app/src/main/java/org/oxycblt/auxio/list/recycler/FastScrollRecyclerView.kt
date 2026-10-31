@@ -424,14 +424,17 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
         // [proportion of scroll position to scroll range] * [total thumb range]
         // This is somewhat adapted from the androidx RecyclerView FastScroller implementation.
         val offsetY = computeVerticalScrollOffset()
-        if (computeVerticalScrollRange() < height || isEmpty()) {
+        val scrollRange = computeVerticalScrollRange()
+        val extentY = computeVerticalScrollExtent()
+        val maxOffsetY = scrollRange - extentY
+        if (scrollRange <= height || maxOffsetY <= 0 || isEmpty()) {
             fastScrollingPossible = false
             hideThumb()
             hidePopup()
             return
         }
-        val extentY = computeVerticalScrollExtent()
-        val fraction = (offsetY).toFloat() / (computeVerticalScrollRange() - extentY)
+        fastScrollingPossible = true
+        val fraction = offsetY.toFloat() / maxOffsetY
         thumbOffset = (thumbOffsetRange * fraction).toInt()
     }
 
@@ -497,6 +500,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
     }
 
     private fun scrollToThumbOffset(thumbOffset: Int) {
+        if (thumbOffsetRange <= 0) return
         val rangeY = computeVerticalScrollRange() - computeVerticalScrollExtent()
         val previousThumbOffset = this.thumbOffset.coerceAtLeast(0).coerceAtMost(thumbOffsetRange)
         val previousOffsetY = rangeY * (previousThumbOffset / thumbOffsetRange.toFloat())

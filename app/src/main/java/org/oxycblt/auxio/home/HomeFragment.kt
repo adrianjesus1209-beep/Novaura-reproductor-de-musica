@@ -418,6 +418,7 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                 HomeViewModel.NAV_TAB_SONGS -> getString(R.string.lbl_songs)
                 HomeViewModel.NAV_TAB_ALBUMS -> getString(R.string.lbl_albums)
                 HomeViewModel.NAV_TAB_ARTISTS -> getString(R.string.lbl_artists)
+                HomeViewModel.NAV_TAB_GENRES -> getString(R.string.lbl_genres)
                 HomeViewModel.NAV_TAB_PLAYLISTS -> getString(R.string.lbl_playlists)
                 else -> getString(R.string.info_app_name)
             }
@@ -428,6 +429,7 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                     HomeViewModel.NAV_TAB_SONGS -> MusicType.SONGS
                     HomeViewModel.NAV_TAB_ALBUMS -> MusicType.ALBUMS
                     HomeViewModel.NAV_TAB_ARTISTS -> MusicType.ARTISTS
+                    HomeViewModel.NAV_TAB_GENRES -> MusicType.GENRES
                     HomeViewModel.NAV_TAB_PLAYLISTS -> MusicType.PLAYLISTS
                     else -> MusicType.SONGS
                 }
