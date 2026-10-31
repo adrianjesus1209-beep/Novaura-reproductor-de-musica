@@ -67,7 +67,10 @@ private class DocumentPathFactoryImpl(
     private val mediaStorePathInterpreterFactory: MediaStorePathInterpreter.Factory,
 ) : DocumentPathFactory {
     override fun unpackDocumentUri(uri: Uri): Path? {
-        val id = DocumentsContract.getDocumentId(uri)
+        if (!DocumentsContract.isDocumentUri(context, uri)) {
+            return null
+        }
+        val id = runCatching { DocumentsContract.getDocumentId(uri) }.getOrNull() ?: return null
         val numericId = id.toLongOrNull()
         return if (numericId != null) {
             // The document URI is special and points to an entry only accessible via
@@ -80,8 +83,11 @@ private class DocumentPathFactoryImpl(
                         contentUri,
                         mediaStorePathInterpreterFactory.projection,
                     ) {
-                        it.moveToFirst()
-                        mediaStorePathInterpreterFactory.wrap(it).extract()
+                        if (it.moveToFirst()) {
+                            mediaStorePathInterpreterFactory.wrap(it).extract()
+                        } else {
+                            null
+                        }
                     }
 
                 if (path != null) {

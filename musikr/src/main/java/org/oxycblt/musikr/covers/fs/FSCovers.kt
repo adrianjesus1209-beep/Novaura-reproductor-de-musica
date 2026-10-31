@@ -33,7 +33,6 @@ import org.oxycblt.musikr.covers.FDCover
 import org.oxycblt.musikr.covers.MutableCovers
 import org.oxycblt.musikr.fs.File
 import org.oxycblt.musikr.metadata.Metadata
-import org.oxycblt.musikr.util.unlikelyToBeNull
 
 private const val PREFIX = "mcf:"
 
@@ -202,10 +201,13 @@ class MutableFSCovers(private val context: Context) : MutableCovers<FDCover> {
         val filename = requireNotNull(file.path.name)
         val name = filename.substringBeforeLast('.')
         val extension = filename.substringAfterLast('.', "")
+        val parentName = file.parent?.await()?.path?.name
+        val searchNames =
+            if (parentName != null) preferredCoverNames + parentName else preferredCoverNames
         // See if the name contains any of the preferred cover names. This helps weed out
         // images that are not actually cover art and are just there.,
         var score =
-            (preferredCoverNames + requireNotNull(unlikelyToBeNull(file.parent).await().path.name))
+            searchNames
                 .withIndex()
                 .filter { name.contains(it.value, ignoreCase = true) }
                 .sumOf { it.index + 1 }

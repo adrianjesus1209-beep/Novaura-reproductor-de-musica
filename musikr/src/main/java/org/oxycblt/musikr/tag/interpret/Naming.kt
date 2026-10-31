@@ -51,8 +51,23 @@ data object SimpleNaming : Naming() {
     override fun name(raw: String, sort: String?): Name.Known = SimpleKnownName(raw, sort)
 }
 
-private val collator: Collator = Collator.getInstance().apply { strength = Collator.PRIMARY }
+private val threadLocalCollator: ThreadLocal<Collator> = ThreadLocal.withInitial {
+    Collator.getInstance().apply { strength = Collator.PRIMARY }
+}
 private val punctRegex by lazy { Regex("[\\p{Punct}+]") }
+
+private object TransliteratorHolder {
+    val transliterator: Transliterator? by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            runCatching {
+                    if (Transliterator.getAvailableIDs().asSequence().any { it == "Any-Latin" }) {
+                        Transliterator.getInstance("Any-Latin;")
+                    } else null
+                }
+                .getOrNull()
+        } else null
+    }
+}
 
 // TODO: Consider how you want to handle whitespace and "gaps" in names.
 
@@ -68,7 +83,7 @@ private data class SimpleKnownName(override val raw: String, override val sort: 
     private fun parseToken(name: String): Token {
         // Remove excess punctuation from the string, as those usually aren't considered in sorting.
         val stripped = name.replace(punctRegex, "").trim().ifEmpty { name }
-        val collationKey = collator.getCollationKey(stripped)
+        val collationKey = requireNotNull(threadLocalCollator.get()).getCollationKey(stripped)
         // Always use lexicographic mode since we aren't parsing any numeric components
         return Token(collationKey, Token.Type.LEXICOGRAPHIC)
     }
@@ -104,16 +119,14 @@ private data class IntelligentKnownName(override val raw: String, override val s
                 }
 
         // Transliterate to latin if available
-        if (
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                Transliterator.getAvailableIDs().toList().contains("Any-Latin")
-        ) {
-            stripped = Transliterator.getInstance("Any-Latin;").transliterate(stripped)
+        TransliteratorHolder.transliterator?.let {
+            stripped = it.transliterate(stripped)
         }
 
         // To properly compare numeric components in names, we have to split them up into
         // individual lexicographic and numeric tokens and then individually compare them
         // with special logic.
+        val currentCollator = requireNotNull(threadLocalCollator.get())
         return TOKEN_REGEX.findAll(stripped).mapTo(mutableListOf()) { match ->
             // Remove excess whitespace where possible
             val token = match.value.trim().ifEmpty { match.value }
@@ -125,10 +138,10 @@ private data class IntelligentKnownName(override val raw: String, override val s
                 val digits =
                     token.trimStart { Character.getNumericValue(it) == 0 }.ifEmpty { token }
                 // Other languages have other types of digit strings, still use collation keys
-                collationKey = collator.getCollationKey(digits)
+                collationKey = currentCollator.getCollationKey(digits)
                 type = Token.Type.NUMERIC
             } else {
-                collationKey = collator.getCollationKey(token)
+                collationKey = currentCollator.getCollationKey(token)
                 type = Token.Type.LEXICOGRAPHIC
             }
             Token(collationKey, type)

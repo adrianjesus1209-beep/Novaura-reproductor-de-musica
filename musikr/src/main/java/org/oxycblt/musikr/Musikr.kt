@@ -246,8 +246,8 @@ private class MusikrImpl(
         val rawPath = file.path.components.unixString
         if (rawPath.startsWith("/")) {
             val ioFile = java.io.File(rawPath)
-            if (!ioFile.exists()) {
-                return false
+            if (ioFile.exists()) {
+                return true
             }
         }
         return runCatching {

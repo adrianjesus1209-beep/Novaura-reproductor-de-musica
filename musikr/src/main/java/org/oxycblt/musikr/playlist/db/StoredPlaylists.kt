@@ -44,11 +44,18 @@ private class StoredPlaylistsImpl(private val playlistDao: PlaylistDao) : Stored
     }
 
     override suspend fun read() =
-        playlistDao.readRawPlaylists().map {
+        playlistDao.readRawPlaylists().map { raw ->
+            val orderedSongUids = playlistDao.getSongUidsForPlaylist(raw.playlistInfo.playlistUid)
+            val songPointers =
+                if (orderedSongUids.isNotEmpty()) {
+                    orderedSongUids.map { SongPointer.UID(it) }
+                } else {
+                    raw.songs.map { SongPointer.UID(it.songUid) }
+                }
             PlaylistFile(
-                it.playlistInfo.name,
-                it.songs.map { song -> SongPointer.UID(song.songUid) },
-                StoredPlaylistHandle(it.playlistInfo, playlistDao),
+                raw.playlistInfo.name,
+                songPointers,
+                StoredPlaylistHandle(raw.playlistInfo, playlistDao),
             )
         }
 }

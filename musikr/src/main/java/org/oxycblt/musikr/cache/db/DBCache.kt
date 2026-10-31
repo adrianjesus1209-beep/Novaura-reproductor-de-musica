@@ -63,6 +63,10 @@ class DBCache private constructor(private val readDao: CacheReadDao) : Cache {
         return allSongs.map { it.toCachedFile() }
     }
 
+    internal fun invalidate() {
+        mapping = null
+    }
+
     companion object {
         /**
          * Create a new instance of [DBCache] from the given [context].
@@ -95,20 +99,24 @@ private constructor(private val inner: DBCache, private val writeDao: CacheWrite
 
     override suspend fun write(cachedFile: CachedFile) {
         writeDao.updateSong(cachedFile.toDbData())
+        inner.invalidate()
     }
 
     override suspend fun writeAll(cachedFiles: List<CachedFile>) {
         for (chunk in cachedFiles.chunked(BATCH_SIZE)) {
             writeDao.updateSongs(chunk.map { it.toDbData() })
         }
+        inner.invalidate()
     }
 
     override suspend fun cleanup(excluding: List<CachedFile>) {
         writeDao.deleteExcludingUris(excluding.mapTo(mutableSetOf()) { it.file.uri.toString() })
+        inner.invalidate()
     }
 
     override suspend fun delete(uris: Collection<Uri>) {
         writeDao.deleteUris(uris)
+        inner.invalidate()
     }
 
     companion object {

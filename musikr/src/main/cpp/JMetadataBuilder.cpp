@@ -108,10 +108,14 @@ template<typename T>
 void mp4AddImpl(JTagMap &map, TagLib::String &itemName, T itemValue) {
     if (itemName.startsWith("----")) {
         // Split this into it's atom name and description
-        auto split = itemName.find(':');
-        auto atomName = itemName.substr(0, split);
-        auto atomDescription = itemName.substr(split + 1);
-        map.add_combined(atomName, atomDescription, itemValue);
+        int splitPos = itemName.find(':');
+        if (splitPos != -1) {
+            auto atomName = itemName.substr(0, splitPos);
+            auto atomDescription = itemName.substr(splitPos + 1);
+            map.add_combined(atomName, atomDescription, itemValue);
+        } else {
+            map.add_id(itemName, itemValue);
+        }
     } else {
         map.add_id(itemName, itemValue);
     }
@@ -132,10 +136,10 @@ void JMetadataBuilder::setMp4(TagLib::MP4::Tag &tag) {
                 if (format == TagLib::MP4::CoverArt::PNG
                         || format == TagLib::MP4::CoverArt::JPEG) {
                     cover = pic.data();
-                    continue;
+                    break;
                 }
             }
-            if (!pics.isEmpty()) {
+            if ((!cover.has_value() || cover->isEmpty()) && !pics.isEmpty()) {
                 cover = pics.front().data();
             }
             continue;
@@ -146,8 +150,11 @@ void JMetadataBuilder::setMp4(TagLib::MP4::Tag &tag) {
         // Normal expected MP4 items
         case TagLib::MP4::Item::Type::StringList:
             mp4AddImpl(mp4, itemName, itemValue.toStringList());
-            break;
+            continue;
             // Weird MP4 items I'm 90% sure I'll encounter.
+        case TagLib::MP4::Item::Type::Bool:
+            serializedValue = itemValue.toBool() ? "1" : "0";
+            break;
         case TagLib::MP4::Item::Type::Int:
             serializedValue = std::to_string(itemValue.toInt());
             break;

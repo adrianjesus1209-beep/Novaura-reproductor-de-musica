@@ -163,10 +163,12 @@ private constructor(
                                     },
                             )
                         children.add(file)
-                        files.send(file)
                     }
                 }
                 directoryDeferred.complete(Directory(uri, relativePath, parent, children))
+            }
+            for (file in children) {
+                files.send(file)
             }
             recursive?.tryAwaitAll()
         }

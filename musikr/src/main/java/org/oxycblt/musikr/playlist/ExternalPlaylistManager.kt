@@ -107,8 +107,7 @@ private class ExternalPlaylistManagerImpl(
                 }
                 // Strip extension
                 val fileName = filePath.name ?: return imported
-                val split = fileName.split(".")
-                var newName = split[0]
+                var newName = fileName.substringBeforeLast('.')
                 // Replace delimiters with space
                 newName = newName.replace(Regex("[_-]"), " ")
                 // Replace long stretches of whitespace with one space
@@ -131,7 +130,8 @@ private class ExternalPlaylistManagerImpl(
                 filePath.directory
             }
         return try {
-            val outputStream = context.contentResolverSafe.openOutputStream(uri) ?: return false
+            val outputStream =
+                context.contentResolverSafe.openOutputStream(uri, "wt") ?: return false
             outputStream.use {
                 m3u.write(playlist, it, workingDirectory, config)
                 true

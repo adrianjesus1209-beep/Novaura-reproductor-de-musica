@@ -56,7 +56,7 @@ internal class ArtistImpl(private val core: ArtistCore) : Artist {
         )
 
     private val hashCode =
-        31 * (31 * uid.hashCode() + core.preArtist.hashCode()) * core.songs.hashCode()
+        31 * (31 * uid.hashCode() + core.preArtist.hashCode()) + core.songs.hashCode()
 
     override fun hashCode() = hashCode
 

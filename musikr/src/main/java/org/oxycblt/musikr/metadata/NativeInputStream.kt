@@ -26,7 +26,7 @@ import org.oxycblt.musikr.fs.File
 internal class NativeInputStream(private val deviceFile: File, fis: FileInputStream) {
     private val channel = fis.channel
 
-    fun name() = requireNotNull(deviceFile.path.name)
+    fun name(): String = deviceFile.path.name ?: ""
 
     fun readBlock(buf: ByteBuffer): Int {
         try {

@@ -22,19 +22,35 @@
 JStringRef::JStringRef(JNIEnv *env, jstring jString) : env(env), string(jString) {
 }
 
-JStringRef::JStringRef(JNIEnv *env, const TagLib::String string) {
-    this->env = env;
-    this->string = env->NewStringUTF(string.toCString(true));
+JStringRef::JStringRef(JNIEnv *env, const TagLib::String string) : env(env) {
+    TagLib::ByteVector utf16 = string.data(TagLib::String::UTF16LE);
+    const jchar empty = 0;
+    const jchar *chars =
+            utf16.isEmpty() ?
+                    &empty : reinterpret_cast<const jchar*>(utf16.data());
+    this->string = env->NewString(chars, static_cast<jsize>(utf16.size() / 2));
 }
 
 JStringRef::~JStringRef() {
-    env->DeleteLocalRef(string);
+    if (string != nullptr) {
+        env->DeleteLocalRef(string);
+    }
 }
 
 TagLib::String JStringRef::copy() {
-    auto chars = env->GetStringUTFChars(string, nullptr);
-    TagLib::String result = chars;
-    env->ReleaseStringUTFChars(string, chars);
+    if (string == nullptr) {
+        return TagLib::String();
+    }
+    jsize length = env->GetStringLength(string);
+    const jchar *chars = env->GetStringChars(string, nullptr);
+    if (chars == nullptr) {
+        return TagLib::String();
+    }
+    TagLib::String result(
+            TagLib::ByteVector(reinterpret_cast<const char*>(chars),
+                    static_cast<unsigned int>(length * 2)),
+            TagLib::String::UTF16LE);
+    env->ReleaseStringChars(string, chars);
     return result;
 }
 

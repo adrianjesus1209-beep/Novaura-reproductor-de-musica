@@ -143,6 +143,11 @@ internal abstract class PlaylistDao {
     @Query("SELECT * FROM PlaylistInfo")
     abstract suspend fun readRawPlaylists(): List<RawPlaylist>
 
+    @Query(
+        "SELECT songUid FROM PlaylistSongCrossRef WHERE playlistUid = :playlistUid ORDER BY id ASC"
+    )
+    abstract suspend fun getSongUidsForPlaylist(playlistUid: Music.UID): List<Music.UID>
+
     /**
      * Create a new playlist.
      *

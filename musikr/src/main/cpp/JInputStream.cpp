@@ -28,7 +28,9 @@ JInputStream::JInputStream(JNIEnv *env, jobject jInputStream) : env(env), jInput
         jInputStream) {
     JClassRef jInputStreamClass = { env,
             "org/oxycblt/musikr/metadata/NativeInputStream" };
-    if (!env->IsInstanceOf(jInputStream, *jInputStreamClass)) {
+    if (env->ExceptionCheck()
+            || !env->IsInstanceOf(jInputStream, *jInputStreamClass)) {
+        env->ExceptionClear();
         throw std::runtime_error("Object is not NativeInputStream");
     }
     jmethodID jInputStreamNameMethod = jInputStreamClass.method("name",
@@ -46,7 +48,11 @@ JInputStream::JInputStream(JNIEnv *env, jobject jInputStream) : env(env), jInput
     jInputStreamLengthMethod = jInputStreamClass.method("length", "()J");
     JStringRef jName = { env, reinterpret_cast<jstring>(env->CallObjectMethod(
             jInputStream, jInputStreamNameMethod)) };
-    _name = TagLib::String(env->GetStringUTFChars(*jName, nullptr));
+    if (env->ExceptionCheck() || *jName == nullptr) {
+        env->ExceptionClear();
+        throw std::runtime_error("Unable to get stream name");
+    }
+    _name = jName.copy();
 }
 
 JInputStream::~JInputStream() {
@@ -61,12 +67,17 @@ TagLib::FileName /* const char * */JInputStream::name() const {
 jint JInputStream::readBlockImpl(TagLib::ByteVector &buf) {
     jobject wrappedByteBuffer = env->NewDirectByteBuffer(buf.data(),
             buf.size());
-    if (wrappedByteBuffer == nullptr) {
+    if (env->ExceptionCheck() || wrappedByteBuffer == nullptr) {
+        env->ExceptionClear();
         throw std::runtime_error("Failed to wrap ByteBuffer");
     }
     JObjectRef byteBuffer { env, wrappedByteBuffer };
     jint read = env->CallIntMethod(jInputStream, jInputStreamReadBlockMethod,
             *byteBuffer);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        throw std::runtime_error("Failed to read block, see logs");
+    }
     return read;
 }
 
@@ -103,7 +114,13 @@ bool JInputStream::readOnly() const {
 }
 
 bool JInputStream::isOpen() const {
-    return env->CallBooleanMethod(jInputStream, jInputStreamIsOpenMethod);
+    jboolean result = env->CallBooleanMethod(jInputStream,
+            jInputStreamIsOpenMethod);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        throw std::runtime_error("Failed to check if stream is open");
+    }
+    return result;
 }
 
 void JInputStream::seek(TagLib::offset_t offset, Position p) {
@@ -123,7 +140,8 @@ void JInputStream::seek(TagLib::offset_t offset, Position p) {
                 jInputStreamSeekFromEndMethod, joffset);
         break;
     }
-    if (!result) {
+    if (env->ExceptionCheck() || !result) {
+        env->ExceptionClear();
         throw std::runtime_error("Failed to seek, see logs");
     }
 }
@@ -134,7 +152,8 @@ void JInputStream::clear() {
 
 TagLib::offset_t JInputStream::tell() const {
     jlong jposition = env->CallLongMethod(jInputStream, jInputStreamTellMethod);
-    if (jposition == INT64_MIN) {
+    if (env->ExceptionCheck() || jposition == INT64_MIN) {
+        env->ExceptionClear();
         throw std::runtime_error("Failed to get position, see logs");
     }
     return static_cast<TagLib::offset_t>(jposition);
@@ -142,7 +161,8 @@ TagLib::offset_t JInputStream::tell() const {
 
 TagLib::offset_t JInputStream::length() {
     jlong jlength = env->CallLongMethod(jInputStream, jInputStreamLengthMethod);
-    if (jlength == INT64_MIN) {
+    if (env->ExceptionCheck() || jlength == INT64_MIN) {
+        env->ExceptionClear();
         throw std::runtime_error("Failed to get length, see logs");
     }
     return static_cast<TagLib::offset_t>(jlength);
@@ -151,4 +171,3 @@ TagLib::offset_t JInputStream::length() {
 void JInputStream::truncate(TagLib::offset_t length) {
     throw std::runtime_error("Not implemented");
 }
-

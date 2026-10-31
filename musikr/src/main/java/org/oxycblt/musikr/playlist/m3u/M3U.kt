@@ -144,7 +144,7 @@ private class M3UImpl(private val volumeManager: VolumeManager) : M3U() {
             else ->
                 listOf(
                     InterpretedPath(Components.parseUnix(path), false),
-                    InterpretedPath(Components.parseWindows(path), true),
+                    InterpretedPath(Components.parseWindows(path), false),
                 )
         }
 
@@ -182,7 +182,7 @@ private class M3UImpl(private val volumeManager: VolumeManager) : M3U() {
         writer.writeLine("#EXTENC:UTF-8")
         writer.writeLine("#PLAYLIST:${playlist.name.raw}")
         for (song in playlist.songs) {
-            writer.writeLine("#EXTINF:${song.durationMs},${song.name.raw}")
+            writer.writeLine("#EXTINF:${song.durationMs / 1000},${song.name.raw}")
             val albumName = song.album.name
             if (albumName is Name.Known) {
                 writer.writeLine("#EXTALB:${albumName.raw}")
@@ -208,7 +208,7 @@ private class M3UImpl(private val volumeManager: VolumeManager) : M3U() {
                     if (config.windowsPaths) {
                         // Assume the plain windows C volume, since that's probably where most music
                         // libraries are on a windows PC.
-                        "C:\\\\${song.path.volume.components?.let { it.windowsString + "\\" } ?: ""}${song.path.components.windowsString}"
+                        "C:\\${song.path.volume.components?.let { it.windowsString + "\\" } ?: ""}${song.path.components.windowsString}"
                     } else {
                         "/${song.path.volume.components?.let { it.unixString + "/" } ?: ""}${song.path.components.unixString}"
                     }

@@ -277,16 +277,17 @@ Java_org_oxycblt_musikr_metadata_TagLibJNI_openNative(JNIEnv *env,
         name = jStream.name();
         TagLib::FileRef fileRef {&jStream, true, TagLib::AudioProperties::Average};
         TagLib::File *fileToUse = fileRef.file();
-        bool needsOverride = (fileToUse != nullptr &&
-                fileToUse->audioProperties() != nullptr &&
+        bool needsOverride = (fileToUse == nullptr ||
+                fileToUse->tag() == nullptr ||
+                fileToUse->audioProperties() == nullptr ||
                 fileToUse->audioProperties()->lengthInSeconds() == 0);
         if (needsOverride) {
-            LOGD("FileRef result for %s is suspicious (duration=0). Forcing content scan.", name.c_str());
+            LOGD("FileRef result for %s is suspicious (null or duration=0). Forcing content scan.", name.c_str());
             jStream.seek(0, TagLib::IOStream::Beginning);
             overriddenFile = createFileFromContent(&jStream, true, TagLib::AudioProperties::Average);
             if (overriddenFile != nullptr &&
                     overriddenFile->audioProperties() != nullptr &&
-                    overriddenFile->audioProperties()->lengthInSeconds() > 0)
+                    (fileToUse == nullptr || overriddenFile->audioProperties()->lengthInSeconds() > 0))
             {
                 LOGD("Content scan successful. Overriding FileRef result for %s.", name.c_str());
                 fileToUse = overriddenFile;
@@ -316,6 +317,9 @@ Java_org_oxycblt_musikr_metadata_TagLibJNI_openNative(JNIEnv *env,
         delete overriddenFile;
         return metadataResultSuccess(env, *jMetadata);
     } catch (std::exception &e) {
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
         LOGE("Unable to parse metadata in %s: %s", name.c_str(), e.what());
         delete overriddenFile;
         return metadataResultProviderFailed(env);

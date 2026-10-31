@@ -91,9 +91,13 @@ private class TagInterpreterImpl(private val interpretation: Interpretation) : T
 
         val songNameOrFile = song.tags.name ?: effectiveSongName
         val songNameOrFileWithoutExt =
-            song.tags.name ?: requireNotNull(song.file.path.name).split('.').first()
+            song.tags.name ?: (song.file.path.name?.substringBeforeLast('.') ?: effectiveSongName)
         val songNameOrFileWithoutExtCorrect = effectiveSongName
         val albumNameOrDir = song.tags.albumName ?: song.file.path.directory.name
+        val effectiveArtistNames =
+            song.tags.artistNames.ifEmpty {
+                effectiveIndividualPreArtists.mapNotNull { it.rawName }
+            }
 
         val musicBrainzId = song.tags.musicBrainzId?.toUuidOrNull()
         val v363uid =
@@ -106,7 +110,7 @@ private class TagInterpreterImpl(private val interpretation: Interpretation) : T
                     update(song.tags.track)
                     update(song.tags.disc)
 
-                    update(song.tags.artistNames)
+                    update(effectiveArtistNames)
                     update(song.tags.albumArtistNames)
                 }
 
