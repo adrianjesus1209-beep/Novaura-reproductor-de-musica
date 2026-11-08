@@ -23,7 +23,9 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
@@ -43,12 +45,13 @@ import org.oxycblt.auxio.list.adapter.SelectionIndicatorAdapter
 import org.oxycblt.auxio.list.recycler.FastScrollRecyclerView
 import org.oxycblt.auxio.list.recycler.PlaylistViewHolder
 import org.oxycblt.auxio.list.sort.Sort
+import org.oxycblt.auxio.music.FavoritesManager
 import org.oxycblt.auxio.music.IndexingState
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.music.RecentlyAddedHelper
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.formatDurationMsPopup
-import org.oxycblt.auxio.playback.session.SessionPlaylistManager
+import org.oxycblt.auxio.playback.stats.PlaybackStatsManager
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.getPlural
 import org.oxycblt.auxio.util.navigateSafe
@@ -59,17 +62,18 @@ import org.oxycblt.musikr.Song
 import timber.log.Timber as L
 
 /**
- * A [ListFragment] that shows a list of [Playlist]s with pinned "Recently Added" and "Recent Mix"
- * buttons at the top.
- *
- * @author Alexander Capehart (OxygenCobalt)
+ * A [ListFragment] that shows a list of [Playlist]s with pinned smart lists ("Recently Added",
+ * "Most Played", "Favorites") and section header at the top.
  */
 @AndroidEntryPoint
 class PlaylistListFragment :
     ListFragment<Playlist, FragmentPlaylistListBinding>(),
     FastScrollRecyclerView.PopupProvider,
     FastScrollRecyclerView.Listener {
-    @Inject lateinit var sessionPlaylistManager: SessionPlaylistManager
+
+    @Inject lateinit var favoritesManager: FavoritesManager
+    @Inject lateinit var playbackStatsManager: PlaybackStatsManager
+
     private val homeModel: HomeViewModel by activityViewModels()
     private val detailModel: DetailViewModel by activityViewModels()
     override val listModel: ListViewModel by activityViewModels()
@@ -93,20 +97,39 @@ class PlaylistListFragment :
             listener = this@PlaylistListFragment
         }
 
-        binding.btnRecentlyAdded.setOnClickListener {
+        // Smart items navigation
+        binding.itemRecentlyAdded.setOnClickListener {
             findNavController().navigateSafe(HomeFragmentDirections.showRecentlyAdded())
         }
 
-        binding.btnRecentMix.setOnClickListener {
-            val mixPlaylist = sessionPlaylistManager.getRecentMixPlaylist()
-            if (mixPlaylist != null) {
-                detailModel.showPlaylist(mixPlaylist)
-            } else {
-                val songs = sessionPlaylistManager.sessionSongs.value
-                if (songs.isNotEmpty()) {
-                    playbackModel.play(songs)
-                }
-            }
+        binding.itemMostPlayed.setOnClickListener {
+            findNavController().navigateSafe(HomeFragmentDirections.showMostPlayed())
+        }
+
+        binding.itemFavorites.setOnClickListener {
+            findNavController().navigateSafe(HomeFragmentDirections.showFavorites())
+        }
+
+        // 3-dots menus on smart items
+        binding.btnRecentlyAddedMenu.setOnClickListener {
+            showSmartMenu(it, ::getRecentlyAddedSongs)
+        }
+
+        binding.btnMostPlayedMenu.setOnClickListener {
+            showSmartMenu(it, ::getMostPlayedSongs)
+        }
+
+        binding.btnFavoritesMenu.setOnClickListener {
+            showSmartMenu(it, ::getFavoritesSongs)
+        }
+
+        // Section header actions
+        binding.btnPlaylistSort.setOnClickListener {
+            findNavController().navigateSafe(HomeFragmentDirections.sortPlaylists())
+        }
+
+        binding.btnCreatePlaylist.setOnClickListener {
+            musicModel.createPlaylist()
         }
 
         binding.homeNoMusicPlaceholder.apply {
@@ -123,10 +146,10 @@ class PlaylistListFragment :
             ::updateNoMusicIndicator,
         )
         collectImmediately(homeModel.songList) {
-            updateRecentlyAddedCount(binding)
+            updateCounts(binding)
         }
-        collectImmediately(sessionPlaylistManager.sessionSongs) {
-            updateRecentMixCount(binding)
+        collectImmediately(favoritesManager.favoriteSongs) {
+            updateCounts(binding)
         }
         collectImmediately(listModel.selected, ::updateSelection)
         collectImmediately(
@@ -148,8 +171,6 @@ class PlaylistListFragment :
 
     override fun onResume() {
         super.onResume()
-        // Re-evaluate the no-music indicator so that permission changes (e.g. grants made
-        // from the system settings) are reflected immediately.
         if (view != null) {
             val binding = requireBinding()
             updateNoMusicIndicator(
@@ -157,28 +178,55 @@ class PlaylistListFragment :
                 homeModel.playlistList.value,
                 musicModel.indexingState.value,
             )
-            updateRecentlyAddedCount(binding)
-            updateRecentMixCount(binding)
+            updateCounts(binding)
         }
     }
 
-    private fun updateRecentMixCount(binding: FragmentPlaylistListBinding) {
-        val mixPlaylist = sessionPlaylistManager.getRecentMixPlaylist()
-        val sessionSongs = sessionPlaylistManager.sessionSongs.value
-        val count = mixPlaylist?.songs?.size ?: sessionSongs.size
-        if (count > 0) {
-            binding.txtRecentMixCount.text =
-                requireContext().getPlural(R.plurals.fmt_session_songs, count)
-        } else {
-            binding.txtRecentMixCount.text = getString(R.string.lbl_empty_recent_mix)
-        }
-    }
-
-    private fun updateRecentlyAddedCount(binding: FragmentPlaylistListBinding) {
+    private fun getRecentlyAddedSongs(): List<Song> {
         val songs = homeModel.songList.value
-        val recentSongs = RecentlyAddedHelper.filterRecentlyAdded(songs)
+        return RecentlyAddedHelper.filterRecentlyAdded(songs)
+    }
+
+    private fun getMostPlayedSongs(): List<Song> {
+        val songs = homeModel.songList.value
+        return playbackStatsManager.getMostPlayedSongs(songs, limit = 100, minPlays = 1)
+    }
+
+    private fun getFavoritesSongs(): List<Song> {
+        return favoritesManager.favoriteSongs.value
+    }
+
+    private fun updateCounts(binding: FragmentPlaylistListBinding) {
+        val recentSongs = getRecentlyAddedSongs()
         binding.txtRecentlyAddedCount.text =
             requireContext().getPlural(R.plurals.fmt_song_count, recentSongs.size)
+
+        val mostPlayedSongs = getMostPlayedSongs()
+        binding.txtMostPlayedCount.text =
+            requireContext().getPlural(R.plurals.fmt_song_count, mostPlayedSongs.size)
+
+        val favSongs = getFavoritesSongs()
+        binding.txtFavoritesCount.text =
+            requireContext().getPlural(R.plurals.fmt_song_count, favSongs.size)
+    }
+
+    private fun showSmartMenu(anchor: View, songsProvider: () -> List<Song>) {
+        val songs = songsProvider()
+        val popup = PopupMenu(requireContext(), anchor)
+        val playItem = popup.menu.add(0, 1, 0, R.string.lbl_play)
+        val shuffleItem = popup.menu.add(0, 2, 1, R.string.lbl_shuffle)
+        playItem.isEnabled = songs.isNotEmpty()
+        shuffleItem.isEnabled = songs.isNotEmpty()
+        popup.setOnMenuItemClickListener { item ->
+            if (songs.isNotEmpty()) {
+                when (item.itemId) {
+                    1 -> playbackModel.play(songs)
+                    2 -> playbackModel.shuffle(songs)
+                }
+            }
+            true
+        }
+        popup.show()
     }
 
     override fun getPopupData(pos: Int): FastScrollRecyclerView.PopupProvider.PopupData? {
@@ -218,9 +266,6 @@ class PlaylistListFragment :
 
     private fun updatePlaylists(playlists: List<Playlist>) {
         playlistAdapter.update(playlists, homeModel.playlistInstructions.consume())
-        if (view != null) {
-            updateRecentMixCount(requireBinding())
-        }
     }
 
     private fun updateNoMusicIndicator(

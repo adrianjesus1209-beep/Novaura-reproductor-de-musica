@@ -514,5 +514,11 @@
     <string name="lbl_recently_added_empty">No hay canciones añadidas recientemente</string>
     <string name="lbl_recently_added_empty_desc">Las canciones que descargues o agregues a tu dispositivo aparecerán aquí.</string>
     <string name="notif_download_single_complete_title">✓ Descarga completada - %s</string>
+
+    <!-- Más reproducidas y Sección de Listas -->
+    <string name="lbl_most_played">Más reproducidas</string>
+    <string name="lbl_most_played_subhead">Tus canciones más reproducidas</string>
+    <string name="lbl_most_played_empty_desc">Las canciones que más escuches aparecerán aquí.</string>
+    <string name="lbl_create_new">Crear nuevo</string>
 </resources>
 

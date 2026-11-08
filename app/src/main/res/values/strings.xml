@@ -657,6 +657,12 @@
     <string name="lbl_recently_added_empty">No recently added songs</string>
     <string name="lbl_recently_added_empty_desc">Songs you download or add to your device will appear here.</string>
     <string name="notif_download_single_complete_title">✓ Download complete - %s</string>
+
+    <!-- Most Played and Playlist Section -->
+    <string name="lbl_most_played">Most played</string>
+    <string name="lbl_most_played_subhead">Your most listened tracks</string>
+    <string name="lbl_most_played_empty_desc">Songs you listen to will appear here.</string>
+    <string name="lbl_create_new">Create new</string>
 </resources>
 
 

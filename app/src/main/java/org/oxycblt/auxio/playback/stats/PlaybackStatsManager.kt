@@ -80,10 +80,21 @@ class PlaybackStatsManager @Inject constructor(@ApplicationContext context: Cont
         editor.putString(KEY_7D_LOG, updatedEntries.joinToString(";")).apply()
     }
 
-    fun getMostPlayedSongs(allSongs: List<Song>, limit: Int = 10): List<Song> {
+    fun getMostPlayedSongs(
+        allSongs: Collection<Song>,
+        limit: Int = 100,
+        minPlays: Int = 1,
+    ): List<Song> {
         if (allSongs.isEmpty()) return emptyList()
 
-        val sorted = allSongs.sortedByDescending { song ->
+        val filtered =
+            if (minPlays > 0) {
+                allSongs.filter { prefs.getInt(KEY_SONG_COUNT_PREFIX + it.uid, 0) >= minPlays }
+            } else {
+                allSongs
+            }
+
+        val sorted = filtered.sortedByDescending { song ->
             prefs.getInt(KEY_SONG_COUNT_PREFIX + song.uid, 0)
         }
 
