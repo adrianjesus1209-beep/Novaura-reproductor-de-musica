@@ -70,6 +70,71 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
+    <!-- Header button for "Mi Mix Reciente" (Smart Session Playlist) -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/btn_recent_mix"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/spacing_medium"
+        android:layout_marginTop="2dp"
+        android:layout_marginEnd="@dimen/spacing_medium"
+        android:layout_marginBottom="@dimen/spacing_small"
+        android:clickable="true"
+        android:focusable="true"
+        app:cardBackgroundColor="?attr/colorSurfaceVariant"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:strokeColor="?attr/colorOutlineVariant"
+        app:strokeWidth="1dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="@dimen/spacing_medium">
+
+            <ImageView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/ui_selection_badge_bg"
+                android:backgroundTint="?attr/colorSecondary"
+                android:padding="10dp"
+                android:src="@drawable/ic_auto_mix_24"
+                app:tint="?attr/colorOnSecondary" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/spacing_medium"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/txt_recent_mix_title"
+                    style="@style/Widget.Auxio.TextView.Item.Primary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/lbl_recent_mix"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/txt_recent_mix_count"
+                    style="@style/Widget.Auxio.TextView.Item.Secondary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/lbl_empty_recent_mix"
+                    tools:text="0 canciones en sesión" />
+            </LinearLayout>
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_open_20"
+                app:tint="?attr/colorOnSurfaceVariant" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"

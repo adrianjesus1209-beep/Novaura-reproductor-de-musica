@@ -23,19 +23,30 @@ import android.view.LayoutInflater
 import androidx.core.view.isInvisible
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import androidx.navigation.findNavController
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import dagger.hilt.android.AndroidEntryPoint
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.min
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentQueueBinding
+import org.oxycblt.auxio.home.HomeFragmentDirections
 import org.oxycblt.auxio.list.EditClickListListener
 import org.oxycblt.auxio.list.ListViewModel
+import org.oxycblt.auxio.music.MusicViewModel
+import org.oxycblt.auxio.music.PlaylistDecision
 import org.oxycblt.auxio.playback.PlaySong
 import org.oxycblt.auxio.playback.PlaybackViewModel
+import org.oxycblt.auxio.playback.formatDurationMs
 import org.oxycblt.auxio.ui.ViewBindingFragment
 import org.oxycblt.auxio.util.collectImmediately
+import org.oxycblt.auxio.util.getPlural
+import org.oxycblt.auxio.util.navigateSafe
 import org.oxycblt.musikr.Song
 import timber.log.Timber as L
 
@@ -49,6 +60,7 @@ class QueueFragment : ViewBindingFragment<FragmentQueueBinding>(), EditClickList
     private val queueModel: QueueViewModel by viewModels()
     private val playbackModel: PlaybackViewModel by activityViewModels()
     private val listModel: ListViewModel by activityViewModels()
+    private val musicModel: MusicViewModel by activityViewModels()
     private val queueAdapter =
         QueueAdapter(this) { song ->
             listModel.openMenu(R.menu.song, song, PlaySong.ByItself)
@@ -61,6 +73,7 @@ class QueueFragment : ViewBindingFragment<FragmentQueueBinding>(), EditClickList
         super.onBindingCreated(binding, savedInstanceState)
 
         // --- UI SETUP ---
+        binding.btnSaveQueue.setOnClickListener { saveQueueAsPlaylist() }
         binding.queueRecycler.apply {
             adapter = queueAdapter
             touchHelper =
@@ -118,6 +131,12 @@ class QueueFragment : ViewBindingFragment<FragmentQueueBinding>(), EditClickList
     private fun updateQueue(queue: List<Song>, index: Int, isPlaying: Boolean) {
         val binding = requireBinding()
 
+        val countStr = requireContext().getPlural(R.plurals.fmt_song_count, queue.size)
+        val totalDurationMs = queue.sumOf { it.durationMs }
+        val durationStr = totalDurationMs.formatDurationMs(true)
+        binding.queueInfoText.text = "$countStr • $durationStr"
+        binding.btnSaveQueue.isEnabled = queue.isNotEmpty()
+
         queueAdapter.update(queue, queueModel.queueInstructions.consume())
         queueAdapter.setPosition(index, isPlaying)
 
@@ -144,6 +163,41 @@ class QueueFragment : ViewBindingFragment<FragmentQueueBinding>(), EditClickList
                 L.d("Scrolling downwards, offsetting by $offset")
                 binding.queueRecycler.scrollToPosition(min(queue.lastIndex, offset))
             }
+        }
+    }
+
+    private fun saveQueueAsPlaylist() {
+        val songs = queueModel.queue.value
+        if (songs.isEmpty()) return
+        val template = generateSuggestedPlaylistName(songs)
+        val navController =
+            try {
+                requireActivity().findNavController(R.id.explore_nav_host)
+            } catch (e: Exception) {
+                findNavController()
+            }
+        navController.navigateSafe(
+            HomeFragmentDirections.newPlaylist(
+                songs.map { it.uid }.toTypedArray(),
+                template,
+                PlaylistDecision.New.Reason.NEW,
+            )
+        )
+    }
+
+    private fun generateSuggestedPlaylistName(songs: List<Song>): String {
+        val context = requireContext()
+        if (songs.isEmpty()) return context.getString(R.string.lbl_new_playlist)
+        val primaryArtist =
+            songs.flatMap { it.artists }.groupingBy { it.name }.eachCount().maxByOrNull { it.value }
+
+        return if (
+            primaryArtist != null && primaryArtist.value >= (songs.size / 2).coerceAtLeast(2)
+        ) {
+            context.getString(R.string.fmt_mix_artist, primaryArtist.key)
+        } else {
+            val dateFormat = SimpleDateFormat("d MMM", Locale.getDefault()).format(Date())
+            context.getString(R.string.fmt_mix_date, dateFormat)
         }
     }
 }

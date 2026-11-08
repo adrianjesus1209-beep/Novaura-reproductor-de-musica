@@ -37,6 +37,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import org.oxycblt.auxio.music.service.MusicServiceFragment
 import org.oxycblt.auxio.playback.service.PlaybackServiceFragment
+import org.oxycblt.auxio.playback.session.SessionPlaylistManager
 import timber.log.Timber
 
 @AndroidEntryPoint
@@ -47,6 +48,8 @@ class AuxioService :
 
     @Inject lateinit var musicFragmentFactory: MusicServiceFragment.Factory
     private lateinit var musicFragment: MusicServiceFragment
+
+    @Inject lateinit var sessionPlaylistManager: SessionPlaylistManager
 
     @SuppressLint("WrongConstant")
     override fun onCreate() {

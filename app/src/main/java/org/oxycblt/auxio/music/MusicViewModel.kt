@@ -148,6 +148,7 @@ constructor(
         name: String? = null,
         songs: List<Song> = listOf(),
         reason: PlaylistDecision.New.Reason = PlaylistDecision.New.Reason.NEW,
+        template: String? = null,
     ) {
         if (name != null) {
             L.d("Creating $name with ${songs.size} songs]")
@@ -163,7 +164,7 @@ constructor(
             }
         } else {
             L.d("Launching creation dialog for ${songs.size} songs")
-            playlistDecision.put(PlaylistDecision.New(songs, null, reason))
+            playlistDecision.put(PlaylistDecision.New(songs, template, reason))
         }
     }
 

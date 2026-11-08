@@ -29,6 +29,8 @@ import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentPlaylistListBinding
 import org.oxycblt.auxio.detail.DetailViewModel
@@ -46,6 +48,7 @@ import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.music.RecentlyAddedHelper
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.formatDurationMsPopup
+import org.oxycblt.auxio.playback.session.SessionPlaylistManager
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.getPlural
 import org.oxycblt.auxio.util.navigateSafe
@@ -56,15 +59,17 @@ import org.oxycblt.musikr.Song
 import timber.log.Timber as L
 
 /**
- * A [ListFragment] that shows a list of [Playlist]s with a pinned "Recently Added" button at the
- * top.
+ * A [ListFragment] that shows a list of [Playlist]s with pinned "Recently Added" and "Recent Mix"
+ * buttons at the top.
  *
  * @author Alexander Capehart (OxygenCobalt)
  */
+@AndroidEntryPoint
 class PlaylistListFragment :
     ListFragment<Playlist, FragmentPlaylistListBinding>(),
     FastScrollRecyclerView.PopupProvider,
     FastScrollRecyclerView.Listener {
+    @Inject lateinit var sessionPlaylistManager: SessionPlaylistManager
     private val homeModel: HomeViewModel by activityViewModels()
     private val detailModel: DetailViewModel by activityViewModels()
     override val listModel: ListViewModel by activityViewModels()
@@ -92,6 +97,18 @@ class PlaylistListFragment :
             findNavController().navigateSafe(HomeFragmentDirections.showRecentlyAdded())
         }
 
+        binding.btnRecentMix.setOnClickListener {
+            val mixPlaylist = sessionPlaylistManager.getRecentMixPlaylist()
+            if (mixPlaylist != null) {
+                detailModel.showPlaylist(mixPlaylist)
+            } else {
+                val songs = sessionPlaylistManager.sessionSongs.value
+                if (songs.isNotEmpty()) {
+                    playbackModel.play(songs)
+                }
+            }
+        }
+
         binding.homeNoMusicPlaceholder.apply {
             setImageResource(R.drawable.ic_playlist_48)
             contentDescription = getString(R.string.lbl_playlists)
@@ -107,6 +124,9 @@ class PlaylistListFragment :
         )
         collectImmediately(homeModel.songList) {
             updateRecentlyAddedCount(binding)
+        }
+        collectImmediately(sessionPlaylistManager.sessionSongs) {
+            updateRecentMixCount(binding)
         }
         collectImmediately(listModel.selected, ::updateSelection)
         collectImmediately(
@@ -138,6 +158,19 @@ class PlaylistListFragment :
                 musicModel.indexingState.value,
             )
             updateRecentlyAddedCount(binding)
+            updateRecentMixCount(binding)
+        }
+    }
+
+    private fun updateRecentMixCount(binding: FragmentPlaylistListBinding) {
+        val mixPlaylist = sessionPlaylistManager.getRecentMixPlaylist()
+        val sessionSongs = sessionPlaylistManager.sessionSongs.value
+        val count = mixPlaylist?.songs?.size ?: sessionSongs.size
+        if (count > 0) {
+            binding.txtRecentMixCount.text =
+                requireContext().getPlural(R.plurals.fmt_session_songs, count)
+        } else {
+            binding.txtRecentMixCount.text = getString(R.string.lbl_empty_recent_mix)
         }
     }
 
@@ -185,6 +218,9 @@ class PlaylistListFragment :
 
     private fun updatePlaylists(playlists: List<Playlist>) {
         playlistAdapter.update(playlists, homeModel.playlistInstructions.consume())
+        if (view != null) {
+            updateRecentMixCount(requireBinding())
+        }
     }
 
     private fun updateNoMusicIndicator(

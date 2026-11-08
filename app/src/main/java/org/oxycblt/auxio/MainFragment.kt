@@ -72,6 +72,7 @@ import org.oxycblt.auxio.playback.OpenPanel
 import org.oxycblt.auxio.playback.PlaybackBottomSheetBehavior
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.queue.QueueBottomSheetBehavior
+import org.oxycblt.auxio.playback.session.SessionPlaylistManager
 import org.oxycblt.auxio.playback.stats.PlaybackStatsManager
 import org.oxycblt.auxio.ui.DialogAwareNavigationListener
 import org.oxycblt.auxio.ui.UISettings
@@ -120,6 +121,7 @@ class MainFragment :
     @Inject lateinit var uiSettings: UISettings
     @Inject lateinit var imageLoader: ImageLoader
     @Inject lateinit var statsManager: PlaybackStatsManager
+    @Inject lateinit var sessionPlaylistManager: SessionPlaylistManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -767,6 +769,7 @@ class MainFragment :
         if (song != null) {
             tryShowSheets()
             statsManager.recordSongPlayed(song, song.durationMs)
+            sessionPlaylistManager.recordSong(song)
             val cover = song.cover
             if (cover != null && blurBg != null && blurScrim != null) {
                 val request =

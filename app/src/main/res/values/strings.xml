@@ -127,6 +127,16 @@
     <string name="lbl_shuffle">Shuffle</string>
 
     <string name="lbl_queue">Queue</string>
+    <string name="lbl_save_queue">Save as playlist</string>
+    <string name="lbl_recent_mix">My Recent Mix</string>
+    <string name="lbl_recent_mix_desc">Listening session</string>
+    <string name="lbl_empty_recent_mix">Play music to create your mix</string>
+    <plurals name="fmt_session_songs">
+        <item quantity="one">%d song in session</item>
+        <item quantity="other">%d songs in session</item>
+    </plurals>
+    <string name="fmt_mix_artist">%s Mix</string>
+    <string name="fmt_mix_date">Listening Mix - %s</string>
     <string name="lbl_play_next">Play next</string>
     <string name="lbl_queue_add">Add to queue</string>
 

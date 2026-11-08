@@ -1,20 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/queue_layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
-    <org.oxycblt.auxio.list.recycler.AuxioRecyclerView
-        android:id="@+id/queue_recycler"
-        style="@style/Widget.Auxio.RecyclerView.Linear"
+    <LinearLayout
+        android:id="@+id/queue_header_bar"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        tools:listitem="@layout/item_editable_song" />
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/spacing_medium"
+        android:paddingTop="@dimen/spacing_small"
+        android:paddingEnd="@dimen/spacing_medium"
+        android:paddingBottom="@dimen/spacing_small">
 
-    <com.google.android.material.divider.MaterialDivider
-        android:id="@+id/queue_divider"
+        <TextView
+            android:id="@+id/queue_info_text"
+            style="@style/Widget.Auxio.TextView.Secondary.Compact"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:singleLine="true"
+            tools:text="12 canciones • 48 min" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_save_queue"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="14dp"
+            android:text="@string/lbl_save_queue"
+            android:textSize="12sp"
+            app:cornerRadius="18dp"
+            app:icon="@drawable/ic_playlist_add_24"
+            app:iconSize="16dp" />
+    </LinearLayout>
+
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
-</FrameLayout>
+        <org.oxycblt.auxio.list.recycler.AuxioRecyclerView
+            android:id="@+id/queue_recycler"
+            style="@style/Widget.Auxio.RecyclerView.Linear"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            tools:listitem="@layout/item_editable_song" />
+
+        <com.google.android.material.divider.MaterialDivider
+            android:id="@+id/queue_divider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+    </FrameLayout>
+
+</LinearLayout>

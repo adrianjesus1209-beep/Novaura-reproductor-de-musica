@@ -24,6 +24,16 @@
     <string name="set_play_song_from_album">Reproducir por álbum</string>
     <string name="set_play_song_from_artist">Reproducir por artista</string>
     <string name="lbl_queue">Cola</string>
+    <string name="lbl_save_queue">Guardar como lista</string>
+    <string name="lbl_recent_mix">Mi Mix Reciente</string>
+    <string name="lbl_recent_mix_desc">Sesión de escucha</string>
+    <string name="lbl_empty_recent_mix">Reproduce música para crear tu mix</string>
+    <plurals name="fmt_session_songs">
+        <item quantity="one">%d canción en sesión</item>
+        <item quantity="other">%d canciones en sesión</item>
+    </plurals>
+    <string name="fmt_mix_artist">Mix de %s</string>
+    <string name="fmt_mix_date">Mix de escucha - %s</string>
     <string name="lbl_play_next">Reproducir siguiente</string>
     <string name="lbl_queue_add">Añadir a la cola</string>
     <string name="lng_queue_added">Añadido a la cola</string>
