@@ -65,10 +65,29 @@ interface SearchEngine {
     )
 }
 
-class SearchEngineImpl @Inject constructor(@ApplicationContext private val context: Context) :
-    SearchEngine {
+class SearchEngineImpl
+@Inject
+constructor(
+    @ApplicationContext private val context: Context,
+    private val searchIndex: SearchIndex,
+) : SearchEngine {
     override suspend fun search(items: SearchEngine.Items, query: String): SearchEngine.Items {
         L.d("Launching search for $query")
+
+        if (searchIndex.isReady) {
+            return SearchEngine.Items(
+                songs = items.songs?.let { searchIndex.searchSongs(query, it).ifEmpty { null } },
+                albums = items.albums?.let { searchIndex.searchAlbums(query, it).ifEmpty { null } },
+                artists =
+                    items.artists?.let { searchIndex.searchArtists(query, it).ifEmpty { null } },
+                genres = items.genres?.let { searchIndex.searchGenres(query, it).ifEmpty { null } },
+                playlists =
+                    items.playlists?.let {
+                        searchIndex.searchPlaylists(query, it).ifEmpty { null }
+                    },
+            )
+        }
+
         return SearchEngine.Items(
             songs =
                 items.songs?.searchListImpl(query) { q, song ->

@@ -45,6 +45,9 @@
         <action
             android:id="@+id/accent_settings"
             app:destination="@id/accent_dialog" />
+        <action
+            android:id="@+id/wallpaper_settings"
+            app:destination="@id/theme_customizer_dialog" />
     </fragment>
 
     <fragment
@@ -105,4 +108,10 @@
         android:name="org.oxycblt.auxio.settings.AboutFragment"
         android:label="dialog_about"
         tools:layout="@layout/fragment_about" />
+
+    <dialog
+        android:id="@+id/theme_customizer_dialog"
+        android:name="org.oxycblt.auxio.theme.ThemeCustomizerDialog"
+        android:label="theme_customizer_dialog"
+        tools:layout="@layout/dialog_theme_customizer" />
 </navigation>

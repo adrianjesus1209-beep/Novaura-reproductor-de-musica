@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/customizer_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
+    android:orientation="vertical"
+    android:fitsSystemWindows="true"
+    android:paddingStart="20dp"
+    android:paddingTop="16dp"
+    android:paddingEnd="20dp"
+    android:paddingBottom="20dp">
+
+    <!-- Top App Bar / Header -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp">
+
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/desc_exit"
+            android:src="@drawable/ic_back_24"
+            app:tint="?attr/colorOnSurface" />
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="@string/lbl_theme_customizer"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textColor="?attr/colorOnSurface"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/btn_reset"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/lbl_reset_wallpaper"
+            android:src="@drawable/ic_refresh_24"
+            app:tint="?attr/colorOnSurface" />
+
+    </RelativeLayout>
+
+    <!-- Preview Card with 24dp rounded corners -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_preview"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clickable="true"
+        android:focusable="true"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="4dp"
+        app:strokeColor="#26FFFFFF"
+        app:strokeWidth="1dp">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ImageView
+                android:id="@+id/iv_preview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@string/lbl_theme_customizer"
+                android:scaleType="centerCrop" />
+
+            <!-- Darkening scrim for brightness control and text readability -->
+            <View
+                android:id="@+id/view_preview_scrim"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#000000"
+                android:alpha="0.35" />
+
+            <!-- Placeholder shown when no image is selected -->
+            <LinearLayout
+                android:id="@+id/layout_empty_placeholder"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:contentDescription="@string/lbl_choose_image"
+                    android:src="@drawable/ic_add_photo_24"
+                    app:tint="?attr/colorPrimary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/lbl_choose_image"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
+
+            </LinearLayout>
+
+        </FrameLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Sliders section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:orientation="vertical">
+
+        <!-- Brightness Slider Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/lbl_brightness"
+                android:src="@drawable/ic_light_24"
+                app:tint="?attr/colorOnSurface" />
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/slider_brightness"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:stepSize="1.0"
+                android:value="0.0"
+                android:valueFrom="-100.0"
+                android:valueTo="100.0"
+                app:thumbColor="?attr/colorPrimary"
+                app:trackColorActive="?attr/colorPrimary"
+                app:trackColorInactive="#33808080" />
+
+        </LinearLayout>
+
+        <!-- Blur Slider Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/lbl_blur"
+                android:src="@drawable/ic_water_drop_24"
+                app:tint="?attr/colorOnSurface" />
+
+            <com.google.android.material.slider.Slider
+                android:id="@+id/slider_blur"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:stepSize="1.0"
+                android:value="20.0"
+                android:valueFrom="0.0"
+                android:valueTo="100.0"
+                app:thumbColor="?attr/colorPrimary"
+                app:trackColorActive="?attr/colorPrimary"
+                app:trackColorInactive="#33808080" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Bottom Action Bar: Cancel and Save -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_cancel"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="@string/lbl_cancel"
+            android:textColor="?attr/colorOnSurface"
+            app:icon="@drawable/ic_close_24"
+            app:iconTint="?attr/colorOnSurface" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_save"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="@string/lbl_save"
+            android:textColor="?attr/colorPrimary"
+            app:icon="@drawable/ic_check_24"
+            app:iconTint="?attr/colorPrimary" />
+
+    </LinearLayout>
+
+</LinearLayout>

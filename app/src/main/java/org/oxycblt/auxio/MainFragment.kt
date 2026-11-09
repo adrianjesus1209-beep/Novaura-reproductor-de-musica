@@ -20,8 +20,12 @@ package org.oxycblt.auxio
 
 import android.annotation.SuppressLint
 import android.content.res.ColorStateList
+import android.graphics.BitmapFactory
 import android.graphics.Color
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -101,7 +105,8 @@ import timber.log.Timber as L
 class MainFragment :
     ViewBindingFragment<FragmentMainBinding>(),
     ViewTreeObserver.OnPreDrawListener,
-    SpeedDialView.OnActionSelectedListener {
+    SpeedDialView.OnActionSelectedListener,
+    UISettings.Listener {
     private val musicModel: MusicViewModel by activityViewModels()
     private val detailModel: DetailViewModel by activityViewModels()
     private val homeModel: HomeViewModel by activityViewModels()
@@ -134,6 +139,9 @@ class MainFragment :
     @SuppressLint("PrivateResource")
     override fun onBindingCreated(binding: FragmentMainBinding, savedInstanceState: Bundle?) {
         super.onBindingCreated(binding, savedInstanceState)
+
+        uiSettings.registerListener(this)
+        applyCustomWallpaper(binding)
 
         val playbackSheetBehavior =
             binding.playbackSheet.coordinatorLayoutBehavior as PlaybackBottomSheetBehavior
@@ -332,6 +340,7 @@ class MainFragment :
 
     override fun onDestroyBinding(binding: FragmentMainBinding) {
         super.onDestroyBinding(binding)
+        uiSettings.unregisterListener(this)
         speedDialBackCallback = null
         sheetBackCallback = null
         detailBackCallback = null
@@ -766,6 +775,17 @@ class MainFragment :
         val binding = requireBinding()
         val blurBg = binding.mainBlurBackground
         val blurScrim = binding.mainBlurScrim
+        if (uiSettings.customWallpaperEnabled) {
+            if (song != null) {
+                tryShowSheets()
+                statsManager.recordSongPlayed(song, song.durationMs)
+                sessionPlaylistManager.recordSong(song)
+            } else {
+                tryHideAllSheets()
+            }
+            return
+        }
+
         if (song != null) {
             tryShowSheets()
             statsManager.recordSongPlayed(song, song.durationMs)
@@ -1089,5 +1109,81 @@ class MainFragment :
                 FloatingActionButton.OnVisibilityChangedListener::class,
                 Boolean::class,
             )
+    }
+
+    override fun onRoundModeChanged() {}
+
+    override fun onCustomWallpaperChanged() {
+        view?.post {
+            val b = binding ?: return@post
+            applyCustomWallpaper(b)
+        }
+    }
+
+    private fun applyCustomWallpaper(binding: FragmentMainBinding) {
+        if (!uiSettings.customWallpaperEnabled) {
+            binding.mainBlurBackground.setImageDrawable(null)
+            binding.mainBlurBackground.alpha = 0f
+            binding.mainBlurScrim.alpha = 0f
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                binding.mainBlurBackground.setRenderEffect(null)
+            }
+            binding.mainLayout.setBackgroundColor(
+                requireContext().getAttrColorCompat(MR.attr.colorSurface).defaultColor
+            )
+            return
+        }
+
+        val wallpaperFile = uiSettings.getCustomWallpaperFile()
+        if (!wallpaperFile.exists()) {
+            binding.mainBlurBackground.setImageDrawable(null)
+            binding.mainBlurBackground.alpha = 0f
+            binding.mainBlurScrim.alpha = 0f
+            binding.mainLayout.setBackgroundColor(
+                requireContext().getAttrColorCompat(MR.attr.colorSurface).defaultColor
+            )
+            return
+        }
+
+        try {
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(wallpaperFile.absolutePath, options)
+            var sampleSize = 1
+            val maxDimension = 1920
+            while (
+                options.outWidth / sampleSize > maxDimension ||
+                    options.outHeight / sampleSize > maxDimension
+            ) {
+                sampleSize *= 2
+            }
+            val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            val bitmap = BitmapFactory.decodeFile(wallpaperFile.absolutePath, decodeOptions)
+            if (bitmap != null) {
+                binding.mainBlurBackground.setImageBitmap(bitmap)
+                binding.mainBlurBackground.alpha = 1f
+
+                val blur = uiSettings.customWallpaperBlur.toFloat()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (blur > 0f) {
+                        val radius = (blur / 100f * 50f).coerceAtLeast(1f)
+                        binding.mainBlurBackground.setRenderEffect(
+                            RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
+                        )
+                    } else {
+                        binding.mainBlurBackground.setRenderEffect(null)
+                    }
+                }
+
+                val brightness = uiSettings.customWallpaperBrightness.toFloat()
+                val factor = -brightness / 100f
+                val scrimAlpha = (0.35f + factor * 0.45f).coerceIn(0.05f, 0.95f)
+                binding.mainBlurScrim.setBackgroundColor(Color.BLACK)
+                binding.mainBlurScrim.alpha = scrimAlpha
+
+                binding.mainLayout.background = null
+            }
+        } catch (e: Exception) {
+            L.e("Failed to apply custom wallpaper in MainFragment", e)
+        }
     }
 }

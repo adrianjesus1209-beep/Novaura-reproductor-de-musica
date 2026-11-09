@@ -43,6 +43,9 @@ class UIPreferenceFragment : BasePreferenceFragment(R.xml.preferences_ui) {
         if (preference.key == getString(R.string.set_key_accent)) {
             L.d("Navigating to accent dialog")
             findNavController().navigateSafe(UIPreferenceFragmentDirections.accentSettings())
+        } else if (preference.key == getString(R.string.set_key_custom_wallpaper)) {
+            L.d("Navigating to custom wallpaper dialog")
+            findNavController().navigateSafe(UIPreferenceFragmentDirections.wallpaperSettings())
         }
     }
 

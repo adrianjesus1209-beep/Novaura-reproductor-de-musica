@@ -520,5 +520,16 @@
     <string name="lbl_most_played_subhead">Tus canciones más reproducidas</string>
     <string name="lbl_most_played_empty_desc">Las canciones que más escuches aparecerán aquí.</string>
     <string name="lbl_create_new">Crear nuevo</string>
+
+    <!-- Fondo de pantalla personalizado y Precarga -->
+    <string name="lbl_loading_library">Cargando e indexando música...</string>
+    <string name="lbl_theme_customizer">Fondo de pantalla personalizado</string>
+    <string name="lbl_theme_customizer_desc">Elige un fondo y ajusta desenfoque y brillo</string>
+    <string name="lbl_brightness">Brillo de fondo</string>
+    <string name="lbl_blur">Desenfoque</string>
+    <string name="lbl_reset_wallpaper">Restablecer</string>
+    <string name="lbl_wallpaper_saved">Fondo de pantalla actualizado</string>
+    <string name="lbl_choose_image">Seleccionar imagen</string>
+    <string name="set_key_custom_wallpaper">auxio_custom_wallpaper</string>
 </resources>
 

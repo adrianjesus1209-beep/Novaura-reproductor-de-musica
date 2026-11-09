@@ -19,10 +19,15 @@
 package org.oxycblt.auxio.ui
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
 import androidx.core.os.LocaleListCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import java.io.FileOutputStream
 import javax.inject.Inject
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.settings.Settings
@@ -52,26 +57,52 @@ interface UISettings : Settings<UISettings.Listener> {
     /** Ensure the configured language is applied. */
     fun applyCurrentLanguage()
 
+    /** Whether custom wallpaper is enabled. */
+    val customWallpaperEnabled: Boolean
+    /** Blur radius percentage for custom wallpaper (0 to 100). */
+    val customWallpaperBlur: Int
+    /** Brightness adjustment percentage for custom wallpaper (-100 to 100). */
+    val customWallpaperBrightness: Int
+
+    /** Save wallpaper preferences. */
+    fun setCustomWallpaper(enabled: Boolean, blur: Int, brightness: Int)
+
+    /** Copy and downsample an image from URI into internal storage. */
+    fun saveCustomWallpaperFromUri(sourceUri: Uri): Boolean
+
+    /** Get file pointing to the persisted custom wallpaper. */
+    fun getCustomWallpaperFile(): File
+
+    /** Clear custom wallpaper and disable it. */
+    fun clearCustomWallpaper()
+
     interface Listener {
         /** Called when [roundMode] changes. */
-        fun onRoundModeChanged()
+        fun onRoundModeChanged() {}
+
+        /** Called when custom wallpaper settings change. */
+        fun onCustomWallpaperChanged() {}
     }
 
     companion object {
         const val LANGUAGE_SYSTEM = 0
         const val LANGUAGE_SPANISH = 1
         const val LANGUAGE_ENGLISH = 2
+
+        const val DEFAULT_WALLPAPER_BLUR = 20
+        const val DEFAULT_WALLPAPER_BRIGHTNESS = -30
+        const val KEY_WALLPAPER_ENABLED = "auxio_custom_wallpaper_enabled"
+        const val KEY_WALLPAPER_BLUR = "auxio_custom_wallpaper_blur"
+        const val KEY_WALLPAPER_BRIGHTNESS = "auxio_custom_wallpaper_brightness"
     }
 }
 
-class UISettingsImpl @Inject constructor(@ApplicationContext context: Context) :
+class UISettingsImpl @Inject constructor(@ApplicationContext private val context: Context) :
     Settings.Impl<UISettings.Listener>(context), UISettings {
     override val theme: Int
         get() =
             sharedPreferences.getInt(
                 getString(R.string.set_key_theme),
-                // Novaura leads with a dark UI. Users can still switch to light or follow the
-                // system from settings, and anyone who already picked a theme keeps it.
                 AppCompatDelegate.MODE_NIGHT_YES,
             )
 
@@ -112,6 +143,78 @@ class UISettingsImpl @Inject constructor(@ApplicationContext context: Context) :
         applyLanguage(language)
     }
 
+    override val customWallpaperEnabled: Boolean
+        get() = sharedPreferences.getBoolean(UISettings.KEY_WALLPAPER_ENABLED, false)
+
+    override val customWallpaperBlur: Int
+        get() =
+            sharedPreferences.getInt(
+                UISettings.KEY_WALLPAPER_BLUR,
+                UISettings.DEFAULT_WALLPAPER_BLUR,
+            )
+
+    override val customWallpaperBrightness: Int
+        get() =
+            sharedPreferences.getInt(
+                UISettings.KEY_WALLPAPER_BRIGHTNESS,
+                UISettings.DEFAULT_WALLPAPER_BRIGHTNESS,
+            )
+
+    override fun setCustomWallpaper(enabled: Boolean, blur: Int, brightness: Int) {
+        sharedPreferences.edit {
+            putBoolean(UISettings.KEY_WALLPAPER_ENABLED, enabled)
+            putInt(UISettings.KEY_WALLPAPER_BLUR, blur)
+            putInt(UISettings.KEY_WALLPAPER_BRIGHTNESS, brightness)
+            apply()
+        }
+    }
+
+    override fun getCustomWallpaperFile(): File {
+        val dir = File(context.filesDir, "theme")
+        if (!dir.exists()) dir.mkdirs()
+        return File(dir, "custom_wallpaper.jpg")
+    }
+
+    override fun clearCustomWallpaper() {
+        val file = getCustomWallpaperFile()
+        if (file.exists()) file.delete()
+        sharedPreferences.edit {
+            putBoolean(UISettings.KEY_WALLPAPER_ENABLED, false)
+            apply()
+        }
+    }
+
+    override fun saveCustomWallpaperFromUri(sourceUri: Uri): Boolean {
+        return try {
+            val destination = getCustomWallpaperFile()
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                BitmapFactory.decodeStream(input, null, options)
+            }
+            val maxDim = 1920
+            var sampleSize = 1
+            while (
+                options.outWidth / sampleSize > maxDim || options.outHeight / sampleSize > maxDim
+            ) {
+                sampleSize *= 2
+            }
+            val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            val bitmap =
+                context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                    BitmapFactory.decodeStream(input, null, decodeOptions)
+                } ?: return false
+
+            FileOutputStream(destination).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            }
+            bitmap.recycle()
+            true
+        } catch (e: Exception) {
+            L.e("Failed to save custom wallpaper: $e")
+            false
+        }
+    }
+
     private fun applyLanguage(language: Int) {
         val targetLocales =
             when (language) {
@@ -146,9 +249,17 @@ class UISettingsImpl @Inject constructor(@ApplicationContext context: Context) :
     }
 
     override fun onSettingChanged(key: String, listener: UISettings.Listener) {
-        if (key == getString(R.string.set_key_round_mode)) {
-            L.d("Dispatching round mode setting change")
-            listener.onRoundModeChanged()
+        when (key) {
+            getString(R.string.set_key_round_mode) -> {
+                L.d("Dispatching round mode setting change")
+                listener.onRoundModeChanged()
+            }
+            UISettings.KEY_WALLPAPER_ENABLED,
+            UISettings.KEY_WALLPAPER_BLUR,
+            UISettings.KEY_WALLPAPER_BRIGHTNESS -> {
+                L.d("Dispatching custom wallpaper setting change")
+                listener.onCustomWallpaperChanged()
+            }
         }
     }
 

@@ -23,6 +23,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -31,12 +32,18 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.updatePadding
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.oxycblt.auxio.databinding.ActivityMainBinding
+import org.oxycblt.auxio.music.IndexingState
+import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.state.DeferredPlayback
+import org.oxycblt.auxio.search.SearchIndex
 import org.oxycblt.auxio.ui.UISettings
 import org.oxycblt.auxio.util.isNight
 import org.oxycblt.auxio.util.systemBarInsetsCompat
@@ -60,6 +67,10 @@ class MainActivity : AppCompatActivity() {
     private val playbackModel: PlaybackViewModel by viewModels()
     private val musicModel: MusicViewModel by viewModels()
     @Inject lateinit var uiSettings: UISettings
+    @Inject lateinit var musicRepository: MusicRepository
+    @Inject lateinit var searchIndex: SearchIndex
+
+    private var isGatekeeperDismissed = false
 
     private val appPermissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
@@ -88,10 +99,48 @@ class MainActivity : AppCompatActivity() {
         val binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setupEdgeToEdge(binding.root)
+        setupSplashGatekeeper(binding)
 
         requestAppPermissions()
 
         L.d("Activity created")
+    }
+
+    private fun setupSplashGatekeeper(binding: ActivityMainBinding) {
+        val startTime = SystemClock.uptimeMillis()
+
+        lifecycleScope.launch {
+            // Safety timeout: dismiss gatekeeper after at most 7 seconds in any edge case
+            launch {
+                delay(7000L)
+                dismissSplashGatekeeper(binding)
+            }
+
+            musicModel.indexingState.collect { state ->
+                val library = musicRepository.library
+                if (
+                    state is IndexingState.Completed ||
+                        (library != null && library.songs.isNotEmpty())
+                ) {
+                    if (library != null && !searchIndex.isReady) {
+                        searchIndex.build(library)
+                    }
+                    val elapsed = SystemClock.uptimeMillis() - startTime
+                    if (elapsed < 500L) {
+                        delay(500L - elapsed)
+                    }
+                    dismissSplashGatekeeper(binding)
+                }
+            }
+        }
+    }
+
+    private fun dismissSplashGatekeeper(binding: ActivityMainBinding) {
+        if (isGatekeeperDismissed) return
+        isGatekeeperDismissed = true
+        binding.splashGatekeeper.animate().alpha(0f).setDuration(350L).withEndAction {
+            binding.splashGatekeeper.visibility = View.GONE
+        }
     }
 
     private fun requestAppPermissions() {

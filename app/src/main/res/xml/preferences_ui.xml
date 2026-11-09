@@ -26,6 +26,12 @@
         app:key="@string/set_key_accent"
         app:title="@string/set_accent" />
 
+    <org.oxycblt.auxio.settings.ui.WrappedDialogPreference
+        app:icon="@drawable/ic_add_photo_24"
+        app:key="@string/set_key_custom_wallpaper"
+        app:summary="@string/lbl_theme_customizer_desc"
+        app:title="@string/lbl_theme_customizer" />
+
     <SwitchPreferenceCompat
         app:defaultValue="false"
         app:key="@string/set_key_black_theme"

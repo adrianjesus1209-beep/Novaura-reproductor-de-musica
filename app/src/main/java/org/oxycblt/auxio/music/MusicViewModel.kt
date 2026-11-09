@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.list.ListSettings
+import org.oxycblt.auxio.search.SearchIndex
 import org.oxycblt.auxio.util.Event
 import org.oxycblt.auxio.util.MutableEvent
 import org.oxycblt.musikr.Album
@@ -55,6 +56,7 @@ constructor(
     @ApplicationContext context: Context,
     private val listSettings: ListSettings,
     private val musicRepository: MusicRepository,
+    private val searchIndex: SearchIndex,
 ) : ViewModel(), MusicRepository.UpdateListener, MusicRepository.IndexingListener {
     private val externalPlaylistManager = ExternalPlaylistManager.from(context)
 
@@ -110,6 +112,9 @@ constructor(
                 library.songs.sumOf { it.size },
             )
         L.d("Updated statistics: ${statistics.value}")
+        viewModelScope.launch(Dispatchers.Default) {
+            searchIndex.build(library)
+        }
     }
 
     override fun onIndexingStateChanged() {
