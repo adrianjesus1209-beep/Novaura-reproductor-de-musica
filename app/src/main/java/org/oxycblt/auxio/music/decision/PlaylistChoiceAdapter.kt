@@ -19,8 +19,10 @@
 package org.oxycblt.auxio.music.decision
 
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
-import org.oxycblt.auxio.databinding.ItemPickerChoiceBinding
+import org.oxycblt.auxio.R
+import org.oxycblt.auxio.databinding.ItemYtmPlaylistChoiceBinding
 import org.oxycblt.auxio.list.ClickableListListener
 import org.oxycblt.auxio.list.adapter.FlexibleListAdapter
 import org.oxycblt.auxio.list.adapter.SimpleDiffCallback
@@ -52,15 +54,25 @@ class PlaylistChoiceAdapter(val listener: ClickableListListener<PlaylistChoice>)
  *
  * @author Alexander Capehart (OxygenCobalt)
  */
-class PlaylistChoiceViewHolder private constructor(private val binding: ItemPickerChoiceBinding) :
+class PlaylistChoiceViewHolder
+private constructor(private val binding: ItemYtmPlaylistChoiceBinding) :
     RecyclerView.ViewHolder(binding.root) {
     fun bind(choice: PlaylistChoice, listener: ClickableListListener<PlaylistChoice>) {
         listener.bind(choice, this)
-        binding.pickerImage.apply {
+        val context = binding.context
+        binding.choiceCover.apply {
             bind(choice.playlist)
             isActivated = choice.alreadyAdded
         }
-        binding.pickerName.text = choice.playlist.name.resolve(binding.context)
+        binding.choiceTitle.text = choice.playlist.name.resolve(context)
+        val count = choice.playlist.songs.size
+        binding.choiceTrackCount.text =
+            when (count) {
+                0 -> context.getString(R.string.lbl_tracks_count_zero)
+                1 -> context.getString(R.string.lbl_tracks_count_one)
+                else -> context.getString(R.string.lbl_tracks_count_many, count)
+            }
+        binding.choiceCheck.isVisible = choice.alreadyAdded
     }
 
     companion object {
@@ -72,7 +84,7 @@ class PlaylistChoiceViewHolder private constructor(private val binding: ItemPick
          */
         fun from(parent: ViewGroup) =
             PlaylistChoiceViewHolder(
-                ItemPickerChoiceBinding.inflate(parent.context.inflater, parent, false)
+                ItemYtmPlaylistChoiceBinding.inflate(parent.context.inflater, parent, false)
             )
 
         /** A comparator that can be used with DiffUtil. */
@@ -80,7 +92,8 @@ class PlaylistChoiceViewHolder private constructor(private val binding: ItemPick
             object : SimpleDiffCallback<PlaylistChoice>() {
                 override fun areContentsTheSame(oldItem: PlaylistChoice, newItem: PlaylistChoice) =
                     oldItem.playlist.name == newItem.playlist.name &&
-                        oldItem.alreadyAdded == newItem.alreadyAdded
+                        oldItem.alreadyAdded == newItem.alreadyAdded &&
+                        oldItem.playlist.songs.size == newItem.playlist.songs.size
             }
     }
 }

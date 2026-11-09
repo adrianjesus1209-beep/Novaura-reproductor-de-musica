@@ -531,5 +531,21 @@
     <string name="lbl_wallpaper_saved">Fondo de pantalla actualizado</string>
     <string name="lbl_choose_image">Seleccionar imagen</string>
     <string name="set_key_custom_wallpaper">auxio_custom_wallpaper</string>
+
+    <!-- Guardar en Playlist estilo YouTube Music -->
+    <string name="lbl_save_to_playlist_single">Guardar 1 canción en una playlist</string>
+    <string name="lbl_save_to_playlist_multiple">Guardar %d canciones en una playlist</string>
+    <string name="lbl_save_to_playlist_title">Guardar en una playlist</string>
+    <string name="lbl_liked_music">Música que te gustó</string>
+    <string name="lbl_new_playlist_pill">Nueva playlist</string>
+    <string name="lbl_tracks_count_zero">0 pistas</string>
+    <string name="lbl_tracks_count_one">1 pista</string>
+    <string name="lbl_tracks_count_many">%d pistas</string>
+    <string name="lbl_songs_count_zero">0 canciones</string>
+    <string name="lbl_songs_count_one">1 canción</string>
+    <string name="lbl_songs_count_many">%d canciones</string>
+    <string name="msg_added_to_playlist">Guardado en %s</string>
+    <string name="msg_added_to_liked_music">Añadida a Música que te gustó</string>
+    <string name="msg_removed_from_liked_music">Eliminada de Música que te gustó</string>
 </resources>
 

@@ -674,6 +674,22 @@
     <string name="lbl_wallpaper_saved">Wallpaper updated successfully</string>
     <string name="lbl_choose_image">Select image</string>
     <string name="set_key_custom_wallpaper">auxio_custom_wallpaper</string>
+
+    <!-- YouTube Music Save to Playlist -->
+    <string name="lbl_save_to_playlist_single">Save 1 song to a playlist</string>
+    <string name="lbl_save_to_playlist_multiple">Save %d songs to a playlist</string>
+    <string name="lbl_save_to_playlist_title">Save to a playlist</string>
+    <string name="lbl_liked_music">Liked music</string>
+    <string name="lbl_new_playlist_pill">New playlist</string>
+    <string name="lbl_tracks_count_zero">0 tracks</string>
+    <string name="lbl_tracks_count_one">1 track</string>
+    <string name="lbl_tracks_count_many">%d tracks</string>
+    <string name="lbl_songs_count_zero">0 songs</string>
+    <string name="lbl_songs_count_one">1 song</string>
+    <string name="lbl_songs_count_many">%d songs</string>
+    <string name="msg_added_to_playlist">Saved to %s</string>
+    <string name="msg_added_to_liked_music">Added to Liked music</string>
+    <string name="msg_removed_from_liked_music">Removed from Liked music</string>
 </resources>
 
 

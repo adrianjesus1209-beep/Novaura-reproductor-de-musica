@@ -29,6 +29,8 @@ import androidx.core.view.updatePadding
 import androidx.dynamicanimation.animation.SpringForce
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import androidx.navigation.findNavController
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
@@ -213,6 +215,22 @@ class PlaybackPanelFragment :
         }
         binding.playbackSkipNext.setOnClickListener { playbackModel.next() }
         binding.playbackShuffle.setOnClickListener { playbackModel.toggleShuffled() }
+        binding.btnPlaybackSave?.setOnClickListener {
+            val song = playbackModel.song.value ?: return@setOnClickListener
+            try {
+                val navController =
+                    requireActivity().findViewById<View>(R.id.explore_nav_host)?.findNavController()
+                        ?: findNavController()
+                navController.navigate(
+                    R.id.add_to_playlist_dialog,
+                    org.oxycblt.auxio.music.decision
+                        .AddToPlaylistDialogArgs(arrayOf(song.uid))
+                        .toBundle(),
+                )
+            } catch (e: Exception) {
+                L.w(e, "Failed to navigate to AddToPlaylistDialog")
+            }
+        }
         binding.playbackMore?.setOnClickListener {
             playbackModel.song.value?.let {
                 listModel.openMenu(R.menu.song, it, PlaySong.ByItself)
