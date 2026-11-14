@@ -56,6 +56,7 @@ data class OnlinePlayerState(
     val isRepeat: Boolean = false,
     val queue: List<OnlineSong> = emptyList(),
     val queueIndex: Int = -1,
+    val sourceTitle: String? = null,
 )
 
 @Singleton
@@ -64,6 +65,7 @@ class OnlinePlayerManager
 constructor(
     @ApplicationContext private val context: Context,
     private val downloadRepository: DownloadRepository,
+    private val onlinePlaylistManager: OnlinePlaylistManager,
 ) : Player.Listener {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -73,6 +75,7 @@ constructor(
 
     private val queue = mutableListOf<OnlineSong>()
     private var currentIndex = -1
+    private var currentSourceTitle: String? = null
 
     private val _playerState = MutableStateFlow(OnlinePlayerState())
     val playerState: StateFlow<OnlinePlayerState> = _playerState.asStateFlow()
@@ -96,8 +99,13 @@ constructor(
         }
     }
 
-    fun playQueue(songs: List<OnlineSong>, startIndex: Int = 0) {
+    fun playQueue(
+        songs: List<OnlineSong>,
+        startIndex: Int = 0,
+        sourceTitle: String? = null,
+    ) {
         if (songs.isEmpty()) return
+        currentSourceTitle = sourceTitle
         queue.clear()
         queue.addAll(songs)
         val validIndex = startIndex.coerceIn(0, songs.lastIndex)
@@ -117,15 +125,20 @@ constructor(
             return
         }
 
-        // Update queue indexing if song is in queue
+        // Update queue indexing if song is in queue, otherwise append to session queue
         val foundIndex = queue.indexOfFirst { it.webUrl == song.webUrl }
         if (foundIndex >= 0) {
             currentIndex = foundIndex
         } else {
-            queue.clear()
+            currentSourceTitle = null
             queue.add(song)
-            currentIndex = 0
+            while (queue.size > 50) {
+                queue.removeAt(0)
+            }
+            currentIndex = queue.lastIndex
         }
+
+        onlinePlaylistManager.recordPlay(song)
 
         // New song to play
         streamExtractionJob?.cancel()
@@ -143,6 +156,7 @@ constructor(
                 isRepeat = isRepeat,
                 queue = queue.toList(),
                 queueIndex = currentIndex,
+                sourceTitle = currentSourceTitle,
             )
 
         streamExtractionJob = scope.launch {

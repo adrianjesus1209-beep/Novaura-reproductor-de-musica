@@ -34,6 +34,7 @@ import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.MusicParent
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
+import org.oxycblt.musikr.tag.Name
 import timber.log.Timber as L
 
 /**
@@ -120,13 +121,21 @@ constructor(
         if (parent != null) {
             return parent.name.resolve(context)
         }
-        val songs = _sessionSongs.value
+        val currentKnownArtist = currentSong?.artists?.firstOrNull { it.name is Name.Known }
         val dominantArtist =
-            songs.flatMap { it.artists }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
-                ?: currentSong?.artists?.firstOrNull()
+            currentKnownArtist
+                ?: _sessionSongs.value
+                    .flatMap { it.artists }
+                    .filter { it.name is Name.Known }
+                    .groupingBy { it }
+                    .eachCount()
+                    .maxByOrNull { it.value }
+                    ?.key
 
         return if (dominantArtist != null) {
             context.getString(R.string.fmt_mix_artist, dominantArtist.name.resolve(context))
+        } else if (currentSong != null) {
+            context.getString(R.string.fmt_mix_artist, currentSong.name.resolve(context))
         } else {
             context.getString(R.string.lbl_all_songs)
         }

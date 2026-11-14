@@ -20,7 +20,7 @@
         android:id="@+id/splash_gatekeeper"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="?attr/colorSurface"
+        android:background="#08080A"
         android:clickable="true"
         android:focusable="true"
         android:visibility="visible">
@@ -30,24 +30,40 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:gravity="center"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:padding="24dp">
 
-            <ImageView
-                android:id="@+id/splash_logo"
-                android:layout_width="100dp"
-                android:layout_height="100dp"
-                android:contentDescription="@string/app_name"
-                android:src="@drawable/logo" />
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="108dp"
+                android:layout_height="108dp"
+                app:cardBackgroundColor="#000000"
+                app:cardCornerRadius="28dp"
+                app:cardElevation="12dp"
+                app:strokeColor="#22FFFFFF"
+                app:strokeWidth="1dp">
+
+                <ImageView
+                    android:id="@+id/splash_logo"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/app_name"
+                    android:padding="12dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/logo" />
+
+            </com.google.android.material.card.MaterialCardView>
 
             <TextView
                 android:id="@+id/splash_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="20dp"
                 android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.03"
                 android:text="@string/app_name"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="26sp" />
+                android:textColor="@android:color/white"
+                android:textSize="28sp"
+                android:textStyle="bold" />
 
             <com.google.android.material.progressindicator.CircularProgressIndicator
                 android:id="@+id/splash_progress"
@@ -56,7 +72,10 @@
                 android:layout_marginTop="32dp"
                 android:indeterminate="true"
                 app:indicatorColor="?attr/colorPrimary"
-                app:trackColor="?attr/colorSurfaceContainerHigh" />
+                app:indicatorSize="40dp"
+                app:trackColor="#26FFFFFF"
+                app:trackCornerRadius="4dp"
+                app:trackThickness="3.5dp" />
 
             <TextView
                 android:id="@+id/splash_status"
@@ -64,7 +83,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:text="@string/lbl_loading_library"
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="#B3FFFFFF"
                 android:textSize="14sp" />
 
         </LinearLayout>

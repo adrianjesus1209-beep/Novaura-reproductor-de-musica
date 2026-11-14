@@ -23,11 +23,18 @@
             android:id="@+id/track_cover"
             android:layout_width="44dp"
             android:layout_height="44dp"
-            android:visibility="gone"
             app:enablePlaybackIndicator="false"
             app:enableSelectionBadge="false"
-            app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.Small"
-            tools:visibility="visible" />
+            app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.Small" />
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/track_online_cover"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="#1F1F24"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Small" />
 
         <View
             android:id="@+id/track_playing_scrim"

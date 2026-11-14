@@ -3,6 +3,7 @@
     <!-- Info namespace | App labels -->
     <eat-comment />
 
+    <string name="app_name" translatable="false">Novaura</string>
     <string name="info_app_desc">A simple, rational music player for android.</string>
 
     <!-- Label Namespace | Static Labels -->

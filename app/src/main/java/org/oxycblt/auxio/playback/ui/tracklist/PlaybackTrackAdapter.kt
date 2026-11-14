@@ -168,6 +168,7 @@ class PlaybackTrackViewHolder(private val binding: ItemPlaybackTrackBinding) :
         val context = binding.root.context
 
         binding.trackCover.isVisible = true
+        binding.trackOnlineCover.isVisible = false
         binding.trackCover.bind(song)
         binding.trackNumber.isVisible = false
         binding.trackDuration.isVisible = false

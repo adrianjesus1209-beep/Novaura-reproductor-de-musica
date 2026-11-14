@@ -123,8 +123,10 @@ constructor(
     val playerState: StateFlow<OnlinePlayerState> = onlinePlayerManager.playerState
     val playerError: SharedFlow<String> = onlinePlayerManager.playerError
 
-    // Online Playlists
+    // Online Playlists & Listening History
     val onlinePlaylists: StateFlow<List<OnlinePlaylist>> = onlinePlaylistManager.playlists
+    val recentOnlineSongs: StateFlow<List<OnlineSong>> = onlinePlaylistManager.recentSongs
+    val onlinePlayCounts: StateFlow<Map<String, Int>> = onlinePlaylistManager.playCounts
 
     private var searchJob: Job? = null
 
@@ -197,17 +199,39 @@ constructor(
     fun addSongToPlaylist(playlistId: String, song: OnlineSong): Boolean =
         onlinePlaylistManager.addSongToPlaylist(playlistId, song)
 
+    fun addSongsToPlaylist(playlistId: String, songs: List<OnlineSong>): Int =
+        onlinePlaylistManager.addSongsToPlaylist(playlistId, songs)
+
     fun removeSongFromPlaylist(playlistId: String, songWebUrl: String) {
         onlinePlaylistManager.removeSongFromPlaylist(playlistId, songWebUrl)
     }
+
+    fun getFavoritesOnlinePlaylist(): OnlinePlaylist? = onlinePlaylistManager.getFavoritesPlaylist()
+
+    fun isOnlineFavorite(song: OnlineSong): Boolean = onlinePlaylistManager.isFavorite(song)
+
+    fun toggleOnlineFavorites(songs: List<OnlineSong>): Boolean =
+        onlinePlaylistManager.toggleFavorites(songs)
+
+    fun getOnlinePlayCount(song: OnlineSong): Int = onlinePlaylistManager.getPlayCount(song)
+
+    fun getMostPlayedOnlineSongs(limit: Int = 50): List<OnlineSong> =
+        onlinePlaylistManager.getMostPlayedSongs(limit)
+
+    fun generateOnlineMixTitle(currentSong: OnlineSong?, sourceTitle: String? = null): String =
+        onlinePlaylistManager.generateMixTitle(currentSong, sourceTitle)
 
     // --- Online Streaming Player Operations ---
     fun playOnline(song: OnlineSong) {
         onlinePlayerManager.play(song)
     }
 
-    fun playQueue(songs: List<OnlineSong>, startIndex: Int = 0) {
-        onlinePlayerManager.playQueue(songs, startIndex)
+    fun playQueue(
+        songs: List<OnlineSong>,
+        startIndex: Int = 0,
+        sourceTitle: String? = null,
+    ) {
+        onlinePlayerManager.playQueue(songs, startIndex, sourceTitle)
     }
 
     fun playQueueIndex(index: Int) {

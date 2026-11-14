@@ -37,6 +37,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import org.oxycblt.auxio.R
 import timber.log.Timber as L
 
 data class OnlinePlaylist(
@@ -50,14 +51,23 @@ data class OnlinePlaylist(
 class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val playlistFile by lazy { File(context.filesDir, "online_playlists.json") }
+    private val historyFile by lazy { File(context.filesDir, "online_history.json") }
+    private val countsFile by lazy { File(context.filesDir, "online_play_counts.json") }
     private val fileMutex = Mutex()
 
     private val _playlists = MutableStateFlow<List<OnlinePlaylist>>(emptyList())
     val playlists: StateFlow<List<OnlinePlaylist>> = _playlists.asStateFlow()
 
+    private val _recentSongs = MutableStateFlow<List<OnlineSong>>(emptyList())
+    val recentSongs: StateFlow<List<OnlineSong>> = _recentSongs.asStateFlow()
+
+    private val _playCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val playCounts: StateFlow<Map<String, Int>> = _playCounts.asStateFlow()
+
     init {
         scope.launch {
             loadPlaylists()
+            loadHistoryAndCounts()
         }
     }
 
@@ -194,6 +204,25 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
         return true
     }
 
+    fun addSongsToPlaylist(playlistId: String, songsToAdd: List<OnlineSong>): Int {
+        if (songsToAdd.isEmpty()) return 0
+        val playlist = _playlists.value.find { it.id == playlistId } ?: return 0
+        val existingUrls = playlist.songs.map { it.webUrl }.toHashSet()
+        val newSongs = songsToAdd.distinctBy { it.webUrl }.filter { it.webUrl !in existingUrls }
+        if (newSongs.isEmpty()) return 0
+
+        _playlists.value =
+            _playlists.value.map {
+                if (it.id == playlistId) {
+                    it.copy(songs = it.songs + newSongs)
+                } else {
+                    it
+                }
+            }
+        scope.launch { savePlaylists() }
+        return newSongs.size
+    }
+
     fun removeSongFromPlaylist(playlistId: String, songWebUrl: String) {
         _playlists.value =
             _playlists.value.map {
@@ -204,5 +233,167 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
                 }
             }
         scope.launch { savePlaylists() }
+    }
+
+    fun getFavoritesPlaylist(): OnlinePlaylist? =
+        _playlists.value.firstOrNull { it.name.equals(FAVORITES_NAME, ignoreCase = true) }
+
+    fun isFavorite(song: OnlineSong): Boolean =
+        getFavoritesPlaylist()?.songs?.any { it.webUrl == song.webUrl } == true
+
+    fun toggleFavorites(songs: List<OnlineSong>): Boolean {
+        if (songs.isEmpty()) return false
+        val favPlaylist = getFavoritesPlaylist() ?: createPlaylist(FAVORITES_NAME)
+        return if (songs.size == 1) {
+            val song = songs.first()
+            if (favPlaylist.songs.any { it.webUrl == song.webUrl }) {
+                removeSongFromPlaylist(favPlaylist.id, song.webUrl)
+                false
+            } else {
+                addSongToPlaylist(favPlaylist.id, song)
+                true
+            }
+        } else {
+            addSongsToPlaylist(favPlaylist.id, songs)
+            true
+        }
+    }
+
+    fun recordPlay(song: OnlineSong) {
+        val currentRecent =
+            _recentSongs.value.filterNot { it.webUrl == song.webUrl }.toMutableList()
+        currentRecent.add(song)
+        while (currentRecent.size > MAX_RECENT_SONGS) {
+            currentRecent.removeAt(0)
+        }
+        _recentSongs.value = currentRecent
+
+        val updatedCounts = _playCounts.value.toMutableMap()
+        updatedCounts[song.webUrl] = (updatedCounts[song.webUrl] ?: 0) + 1
+        _playCounts.value = updatedCounts
+
+        scope.launch { saveHistoryAndCounts() }
+    }
+
+    fun getPlayCount(song: OnlineSong): Int = _playCounts.value[song.webUrl] ?: 0
+
+    fun getMostPlayedSongs(limit: Int = 50): List<OnlineSong> {
+        val counts = _playCounts.value
+        val allKnown =
+            (_recentSongs.value + _playlists.value.flatMap { it.songs }).distinctBy { it.webUrl }
+        return allKnown
+            .filter { (counts[it.webUrl] ?: 0) > 0 }
+            .sortedByDescending { counts[it.webUrl] ?: 0 }
+            .take(limit)
+    }
+
+    fun generateMixTitle(currentSong: OnlineSong?, sourceTitle: String? = null): String {
+        if (!sourceTitle.isNullOrBlank()) {
+            return sourceTitle
+        }
+        val currentArtist =
+            currentSong?.artist?.takeIf {
+                it.isNotBlank() &&
+                    !it.contains("unknown", ignoreCase = true) &&
+                    !it.contains("desconocido", ignoreCase = true)
+            }
+        val dominantArtist =
+            currentArtist
+                ?: _recentSongs.value
+                    .mapNotNull { s ->
+                        s.artist.takeIf {
+                            it.isNotBlank() &&
+                                !it.contains("unknown", ignoreCase = true) &&
+                                !it.contains("desconocido", ignoreCase = true)
+                        }
+                    }
+                    .groupingBy { it }
+                    .eachCount()
+                    .maxByOrNull { it.value }
+                    ?.key
+
+        return if (dominantArtist != null) {
+            context.getString(R.string.fmt_mix_artist, dominantArtist)
+        } else if (currentSong != null && currentSong.title.isNotBlank()) {
+            context.getString(R.string.fmt_mix_artist, currentSong.title)
+        } else {
+            context.getString(R.string.lbl_all_songs)
+        }
+    }
+
+    private suspend fun loadHistoryAndCounts() =
+        withContext(Dispatchers.IO) {
+            fileMutex.withLock {
+                try {
+                    if (historyFile.exists()) {
+                        val array = JSONArray(historyFile.readText())
+                        val recent = mutableListOf<OnlineSong>()
+                        for (i in 0 until array.length()) {
+                            val sObj = array.getJSONObject(i)
+                            recent.add(
+                                OnlineSong(
+                                    id = sObj.optString("id"),
+                                    title = sObj.optString("title"),
+                                    artist = sObj.optString("artist"),
+                                    durationText = sObj.optString("durationText"),
+                                    durationSeconds = sObj.optLong("durationSeconds"),
+                                    thumbnailUrl =
+                                        sObj.optString("thumbnailUrl").takeIf { it.isNotBlank() },
+                                    webUrl = sObj.optString("webUrl"),
+                                )
+                            )
+                        }
+                        _recentSongs.value = recent
+                    }
+                    if (countsFile.exists()) {
+                        val obj = JSONObject(countsFile.readText())
+                        val map = mutableMapOf<String, Int>()
+                        val keys = obj.keys()
+                        while (keys.hasNext()) {
+                            val key = keys.next()
+                            map[key] = obj.optInt(key, 0)
+                        }
+                        _playCounts.value = map
+                    }
+                } catch (e: Exception) {
+                    L.e(e, "Failed to load online history and play counts")
+                }
+            }
+        }
+
+    private suspend fun saveHistoryAndCounts() =
+        withContext(Dispatchers.IO) {
+            fileMutex.withLock {
+                try {
+                    val hArr = JSONArray()
+                    for (s in _recentSongs.value) {
+                        hArr.put(
+                            JSONObject().apply {
+                                put("id", s.id)
+                                put("title", s.title)
+                                put("artist", s.artist)
+                                put("durationText", s.durationText)
+                                put("durationSeconds", s.durationSeconds)
+                                put("thumbnailUrl", s.thumbnailUrl.orEmpty())
+                                put("webUrl", s.webUrl)
+                            }
+                        )
+                    }
+                    historyFile.writeText(hArr.toString())
+
+                    val cObj = JSONObject()
+                    for ((url, count) in _playCounts.value) {
+                        cObj.put(url, count)
+                    }
+                    countsFile.writeText(cObj.toString())
+                } catch (e: Exception) {
+                    L.e(e, "Failed to save online history and play counts")
+                }
+            }
+        }
+
+    companion object {
+        const val FAVORITES_NAME = "Favoritos"
+        private const val MAX_RECENT_SONGS = 50
     }
 }

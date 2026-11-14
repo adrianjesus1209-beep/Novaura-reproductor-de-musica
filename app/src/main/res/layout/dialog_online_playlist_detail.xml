@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="16dp">
+
+    <com.google.android.material.bottomsheet.BottomSheetDragHandleView
+        android:id="@+id/detail_handle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <!-- Header Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="12dp">
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/detail_cover"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:background="#2A2A2D"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_playlist_24"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/detail_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:textColor="@android:color/white"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                tools:text="Favoritos" />
+
+            <TextView
+                android:id="@+id/detail_subtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#9E9EA4"
+                android:textSize="13sp"
+                tools:text="18 canciones" />
+        </LinearLayout>
+
+        <org.oxycblt.auxio.ui.RippleFixMaterialButton
+            android:id="@+id/detail_close"
+            style="@style/Widget.Material3Expressive.Button.IconButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:contentDescription="@string/lbl_cancel"
+            app:icon="@drawable/ic_close_24"
+            app:iconTint="@android:color/white" />
+    </LinearLayout>
+
+    <!-- Action Pills Row -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clipToPadding="false"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="12dp"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_detail_play"
+                style="@style/Widget.Material3.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginEnd="8dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="16dp"
+                android:text="@string/lbl_play"
+                android:textAllCaps="false"
+                android:textColor="#0F0F0F"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                app:backgroundTint="@android:color/white"
+                app:cornerRadius="18dp"
+                app:icon="@drawable/ic_play_24"
+                app:iconPadding="6dp"
+                app:iconSize="18dp"
+                app:iconTint="#0F0F0F" />
+
+            <LinearLayout
+                android:id="@+id/btn_detail_shuffle"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/bg_ytm_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingEnd="16dp">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:src="@drawable/ic_shuffle_off_24"
+                    app:tint="@android:color/white"
+                    tools:ignore="ContentDescription" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="@string/lbl_shuffle"
+                    android:textColor="@android:color/white"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btn_detail_save"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/bg_ytm_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingEnd="16dp">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:src="@drawable/ic_playlist_add_24"
+                    app:tint="@android:color/white"
+                    tools:ignore="ContentDescription" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="@string/lbl_save"
+                    android:textColor="@android:color/white"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btn_detail_download_all"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_ytm_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingEnd="16dp">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:src="@drawable/ic_download_24"
+                    app:tint="@android:color/white"
+                    tools:ignore="ContentDescription" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="@string/lbl_download"
+                    android:textColor="@android:color/white"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- Subtle Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#26FFFFFF" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="380dp">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/detail_recycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:overScrollMode="never"
+            android:paddingTop="6dp"
+            android:paddingBottom="24dp"
+            tools:listitem="@layout/item_playback_track" />
+
+        <TextView
+            android:id="@+id/detail_empty"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:padding="24dp"
+            android:text="@string/lng_empty_playlists"
+            android:textAlignment="center"
+            android:textColor="#9E9EA4"
+            android:textSize="14sp"
+            android:visibility="gone" />
+    </FrameLayout>
+
+</LinearLayout>

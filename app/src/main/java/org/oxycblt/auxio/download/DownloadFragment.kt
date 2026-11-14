@@ -28,7 +28,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
@@ -79,6 +78,7 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
     private var lastMiniPlayerIsPlaying: Boolean? = null
     private var lastMiniPlayerHasPrev: Boolean? = null
     private var lastMiniPlayerHasNext: Boolean? = null
+    private var playlistSortMode: Int = 0
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -137,6 +137,10 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         binding.btnCreateOnlinePlaylist.setOnClickListener {
             showCreatePlaylistPrompt()
         }
+        binding.btnOnlinePlaylistSort.setOnClickListener { view ->
+            showPlaylistSortMenu(view, binding)
+        }
+        setupSmartPlaylistRows(binding)
 
         // --- DOWNLOAD QUEUE BUTTONS ---
         binding.btnPauseAll.setOnClickListener {
@@ -221,7 +225,7 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
                         if (playbackModel.isPlaying.value) {
                             playbackModel.togglePlaying()
                         }
-                        downloadModel.playQueue(playlist.songs, 0)
+                        downloadModel.playQueue(playlist.songs, 0, playlist.name)
                         context?.showToast(getString(R.string.lbl_streaming))
                     } else {
                         context?.showToast(getString(R.string.lbl_no_download_results))
@@ -407,12 +411,43 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
             }
         }
 
-        // Observe online playlists
+        // Observe online playlists & smart rows
         viewLifecycleOwner.lifecycleScope.launch {
             downloadModel.onlinePlaylists.collectLatest { playlists ->
-                playlistAdapter.submitList(playlists)
-                binding.playlistsEmptyState.isVisible = playlists.isEmpty()
-                binding.playlistsRecycler.isVisible = playlists.isNotEmpty()
+                renderUserPlaylists(binding, playlists)
+                val favPlaylist = playlists.firstOrNull {
+                    it.name.equals(OnlinePlaylistManager.FAVORITES_NAME, ignoreCase = true)
+                }
+                val favCount = favPlaylist?.songs?.size ?: 0
+                binding.txtOnlineFavoritesCount.text =
+                    resources.getQuantityString(R.plurals.fmt_song_count, favCount, favCount)
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            downloadModel.recentOnlineSongs.collectLatest { recent ->
+                val count = recent.size
+                binding.txtOnlineRecentCount.text =
+                    resources.getQuantityString(R.plurals.fmt_song_count, count, count)
+                val mostPlayed = downloadModel.getMostPlayedOnlineSongs()
+                binding.txtOnlineMostPlayedCount.text =
+                    resources.getQuantityString(
+                        R.plurals.fmt_song_count,
+                        mostPlayed.size,
+                        mostPlayed.size,
+                    )
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            downloadModel.onlinePlayCounts.collectLatest {
+                val mostPlayed = downloadModel.getMostPlayedOnlineSongs()
+                binding.txtOnlineMostPlayedCount.text =
+                    resources.getQuantityString(
+                        R.plurals.fmt_song_count,
+                        mostPlayed.size,
+                        mostPlayed.size,
+                    )
             }
         }
 
@@ -551,98 +586,215 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         }
     }
 
-    private fun showAddToPlaylistDialog(song: OnlineSong) {
-        val playlists = downloadModel.onlinePlaylists.value
+    private fun setupSmartPlaylistRows(binding: FragmentDownloadBinding) {
+        binding.itemOnlineRecentlyPlayed.setOnClickListener {
+            val songs = downloadModel.recentOnlineSongs.value
+            OnlinePlaylistDetailBottomSheet.show(
+                parentFragmentManager,
+                getString(R.string.chip_queue_recent),
+                songs,
+            )
+        }
+        binding.btnOnlineRecentMenu.setOnClickListener { anchor ->
+            showSmartListMenu(
+                anchor,
+                getString(R.string.chip_queue_recent),
+                downloadModel.recentOnlineSongs.value,
+            )
+        }
 
-        val items = mutableListOf<String>()
-        items.add("➕ ${getString(R.string.lbl_create_online_playlist)}")
-        items.addAll(playlists.map { it.name })
+        binding.itemOnlineMostPlayed.setOnClickListener {
+            val songs = downloadModel.getMostPlayedOnlineSongs()
+            OnlinePlaylistDetailBottomSheet.show(
+                parentFragmentManager,
+                getString(R.string.lbl_most_played),
+                songs,
+            )
+        }
+        binding.btnOnlineMostPlayedMenu.setOnClickListener { anchor ->
+            showSmartListMenu(
+                anchor,
+                getString(R.string.lbl_most_played),
+                downloadModel.getMostPlayedOnlineSongs(),
+            )
+        }
 
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.lbl_add_to_online_playlist)
-            .setItems(items.toTypedArray()) { _, which ->
-                if (which == 0) {
-                    showCreatePlaylistPrompt { newPlaylist ->
-                        downloadModel.addSongToPlaylist(newPlaylist.id, song)
-                        context?.showToast(
-                            getString(R.string.lbl_song_added_to_playlist, newPlaylist.name)
-                        )
-                    }
-                } else {
-                    val target = playlists[which - 1]
-                    val added = downloadModel.addSongToPlaylist(target.id, song)
-                    if (added) {
-                        context?.showToast(
-                            getString(R.string.lbl_song_added_to_playlist, target.name)
-                        )
-                    } else {
-                        context?.showToast(getString(R.string.lbl_song_already_in_playlist))
-                    }
-                }
+        binding.itemOnlineFavorites.setOnClickListener {
+            val fav = downloadModel.getFavoritesOnlinePlaylist()
+            OnlinePlaylistDetailBottomSheet.show(
+                parentFragmentManager,
+                getString(R.string.lbl_favorites),
+                fav?.songs ?: emptyList(),
+                fav?.id,
+            )
+        }
+        binding.btnOnlineFavoritesMenu.setOnClickListener { anchor ->
+            val fav = downloadModel.getFavoritesOnlinePlaylist()
+            showSmartListMenu(
+                anchor,
+                getString(R.string.lbl_favorites),
+                fav?.songs ?: emptyList(),
+            )
+        }
+    }
+
+    private fun showSmartListMenu(anchorView: View, title: String, songs: List<OnlineSong>) {
+        val popup = PopupMenu(requireContext(), anchorView)
+        popup.menu.add(0, 1, 0, R.string.lbl_play)
+        popup.menu.add(0, 2, 1, R.string.lbl_shuffle)
+        popup.menu.add(0, 3, 2, R.string.lbl_save)
+        popup.menu.add(0, 4, 3, R.string.lbl_download)
+
+        popup.setOnMenuItemClickListener { item ->
+            if (songs.isEmpty()) {
+                context?.showToast(getString(R.string.lbl_no_download_results))
+                return@setOnMenuItemClickListener true
             }
-            .setNegativeButton(R.string.lbl_cancel, null)
-            .show()
+            when (item.itemId) {
+                1 -> {
+                    if (playbackModel.isPlaying.value) {
+                        playbackModel.togglePlaying()
+                    }
+                    downloadModel.playQueue(songs, 0, title)
+                    true
+                }
+                2 -> {
+                    if (playbackModel.isPlaying.value) {
+                        playbackModel.togglePlaying()
+                    }
+                    downloadModel.playQueue(songs.shuffled(), 0, title)
+                    true
+                }
+                3 -> {
+                    OnlineAddToPlaylistBottomSheet.show(parentFragmentManager, songs)
+                    true
+                }
+                4 -> {
+                    checkNotificationPermission()
+                    songs.forEach { downloadModel.download(it) }
+                    context?.showToast(getString(R.string.lbl_download_started, title))
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    private fun showPlaylistSortMenu(anchorView: View, binding: FragmentDownloadBinding) {
+        val popup = PopupMenu(requireContext(), anchorView)
+        popup.menu.add(0, 0, 0, R.string.lbl_name)
+        popup.menu.add(0, 1, 1, R.string.lbl_song_count)
+        popup.setOnMenuItemClickListener { item ->
+            playlistSortMode = item.itemId
+            renderUserPlaylists(binding, downloadModel.onlinePlaylists.value)
+            true
+        }
+        popup.show()
+    }
+
+    private fun renderUserPlaylists(
+        binding: FragmentDownloadBinding,
+        playlists: List<OnlinePlaylist>,
+    ) {
+        val userPlaylists = playlists.filterNot {
+            it.name.equals(OnlinePlaylistManager.FAVORITES_NAME, ignoreCase = true)
+        }
+        val sorted =
+            when (playlistSortMode) {
+                1 -> userPlaylists.sortedByDescending { it.songs.size }
+                else -> userPlaylists.sortedBy { it.name.lowercase(Locale.getDefault()) }
+            }
+        playlistAdapter.submitList(sorted)
+        binding.playlistsEmptyState.isVisible = sorted.isEmpty()
+        binding.playlistsRecycler.isVisible = sorted.isNotEmpty()
+    }
+
+    private fun showAddToPlaylistDialog(song: OnlineSong) {
+        OnlineAddToPlaylistBottomSheet.show(parentFragmentManager, listOf(song))
     }
 
     private fun showCreatePlaylistPrompt(onCreated: ((OnlinePlaylist) -> Unit)? = null) {
-        val input =
-            EditText(requireContext()).apply {
-                hint = getString(R.string.lbl_playlist_name_hint)
-                setSingleLine()
+        OnlineAddToPlaylistBottomSheet.showPlaylistNameDialog(
+            context = requireContext(),
+            inflater = layoutInflater,
+            titleRes = R.string.lbl_new_playlist,
+            initialName = "",
+            hintText = getString(R.string.lbl_playlist_name_hint),
+        ) { chosenName ->
+            if (chosenName.isNotEmpty()) {
+                val created = downloadModel.createOnlinePlaylist(chosenName)
+                onCreated?.invoke(created)
             }
-
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.lbl_create_online_playlist)
-            .setView(input)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val name = input.text?.toString()?.trim().orEmpty()
-                if (name.isNotEmpty()) {
-                    val created = downloadModel.createOnlinePlaylist(name)
-                    onCreated?.invoke(created)
-                }
-            }
-            .setNegativeButton(R.string.lbl_cancel, null)
-            .show()
+        }
     }
 
     private fun showPlaylistDetailsDialog(playlist: OnlinePlaylist) {
-        if (playlist.songs.isEmpty()) {
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle(playlist.name)
-                .setMessage("Esta lista está vacía. Añade canciones desde el buscador.")
-                .setPositiveButton(android.R.string.ok, null)
-                .show()
-            return
-        }
-
-        val titles = playlist.songs.map { "${it.title} - ${it.artist}" }.toTypedArray()
-
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(playlist.name)
-            .setItems(titles) { _, which ->
-                val song = playlist.songs[which]
-                if (playbackModel.isPlaying.value) {
-                    playbackModel.togglePlaying()
-                }
-                downloadModel.playQueue(playlist.songs, which)
-            }
-            .setPositiveButton(R.string.lbl_play_all) { _, _ ->
-                if (playbackModel.isPlaying.value) {
-                    playbackModel.togglePlaying()
-                }
-                downloadModel.playQueue(playlist.songs, 0)
-            }
-            .setNegativeButton(R.string.lbl_close, null)
-            .show()
+        OnlinePlaylistDetailBottomSheet.show(
+            parentFragmentManager,
+            playlist.name,
+            playlist.songs,
+            playlist.id,
+        )
     }
 
     private fun showPlaylistMenu(playlist: OnlinePlaylist, anchorView: View) {
         val popup = PopupMenu(requireContext(), anchorView)
-        popup.menu.add(0, 1, 0, R.string.lbl_delete_playlist)
+        popup.menu.add(0, 1, 0, R.string.lbl_play)
+        popup.menu.add(0, 2, 1, R.string.lbl_shuffle)
+        popup.menu.add(0, 3, 2, R.string.lbl_rename)
+        popup.menu.add(0, 4, 3, R.string.lbl_download)
+        popup.menu.add(0, 5, 4, R.string.lbl_delete_playlist)
 
         popup.setOnMenuItemClickListener { menuItem ->
             when (menuItem.itemId) {
                 1 -> {
+                    if (playlist.songs.isNotEmpty()) {
+                        if (playbackModel.isPlaying.value) {
+                            playbackModel.togglePlaying()
+                        }
+                        downloadModel.playQueue(playlist.songs, 0, playlist.name)
+                    } else {
+                        context?.showToast(getString(R.string.lbl_no_download_results))
+                    }
+                    true
+                }
+                2 -> {
+                    if (playlist.songs.isNotEmpty()) {
+                        if (playbackModel.isPlaying.value) {
+                            playbackModel.togglePlaying()
+                        }
+                        downloadModel.playQueue(playlist.songs.shuffled(), 0, playlist.name)
+                    } else {
+                        context?.showToast(getString(R.string.lbl_no_download_results))
+                    }
+                    true
+                }
+                3 -> {
+                    OnlineAddToPlaylistBottomSheet.showPlaylistNameDialog(
+                        context = requireContext(),
+                        inflater = layoutInflater,
+                        titleRes = R.string.lbl_rename_playlist,
+                        initialName = playlist.name,
+                        hintText = getString(R.string.lbl_playlist_name_hint),
+                    ) { newName ->
+                        if (newName.isNotEmpty()) {
+                            downloadModel.renameOnlinePlaylist(playlist.id, newName)
+                        }
+                    }
+                    true
+                }
+                4 -> {
+                    if (playlist.songs.isNotEmpty()) {
+                        checkNotificationPermission()
+                        playlist.songs.forEach { downloadModel.download(it) }
+                        context?.showToast(getString(R.string.lbl_download_started, playlist.name))
+                    } else {
+                        context?.showToast(getString(R.string.lbl_no_download_results))
+                    }
+                    true
+                }
+                5 -> {
                     MaterialAlertDialogBuilder(requireContext())
                         .setTitle(R.string.lbl_delete_playlist)
                         .setMessage(getString(R.string.msg_confirm_delete_playlist, playlist.name))

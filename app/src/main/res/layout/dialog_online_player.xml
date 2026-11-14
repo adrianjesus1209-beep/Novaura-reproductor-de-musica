@@ -41,10 +41,10 @@
     <FrameLayout
         android:id="@+id/online_player_cover_container"
         android:layout_width="match_parent"
-        android:layout_height="250dp"
+        android:layout_height="215dp"
         android:clipChildren="false"
         android:clipToPadding="false"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="4dp"
         android:paddingStart="65dp"
         android:paddingEnd="65dp"
         app:layout_constraintEnd_toEndOf="parent"
@@ -139,6 +139,49 @@
 
     </FrameLayout>
 
+    <!-- YouTube Music-style "Guardar" Pill Button below Cover -->
+    <LinearLayout
+        android:id="@+id/online_playback_actions_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="2dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/online_player_cover_container">
+
+        <LinearLayout
+            android:id="@+id/btn_online_playback_save"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_ytm_pill"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingEnd="16dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_playlist_add_24"
+                app:tint="@android:color/white" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/lbl_save"
+                android:textColor="@android:color/white"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+
     <!-- Waveform Seeker (Exact StyledSeekBar from Local Player) -->
     <org.oxycblt.auxio.playback.ui.StyledSeekBar
         android:id="@+id/online_player_seek_bar"
@@ -146,10 +189,10 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/spacing_medium"
         android:layout_marginEnd="@dimen/spacing_medium"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="4dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/online_player_cover_container" />
+        app:layout_constraintTop_toBottomOf="@+id/online_playback_actions_container" />
 
     <!-- Main Playback Controls Container Matching Offline Player -->
     <org.oxycblt.auxio.playback.ui.ForcedLTRFrameLayout
@@ -158,9 +201,9 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/spacing_medium"
         android:layout_marginEnd="@dimen/spacing_medium"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="4dp"
         android:layout_marginBottom="4dp"
-        android:minHeight="72dp"
+        android:minHeight="60dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/online_player_seek_bar"
@@ -228,19 +271,180 @@
 
     </org.oxycblt.auxio.playback.ui.ForcedLTRFrameLayout>
 
+    <!-- Queue Header: Reproduciendo desde + Guardar + Filter Chips -->
+    <LinearLayout
+        android:id="@+id/online_queue_header_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:orientation="vertical"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/online_player_controls_container">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="6dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="12dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/online_playing_from_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:singleLine="true"
+                    android:text="@string/lbl_playing_from"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/online_playing_from_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:singleLine="true"
+                    android:textColor="@android:color/white"
+                    android:textSize="15sp"
+                    tools:text="Mix de Dynamicduo" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/btn_online_queue_save"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_ytm_pill"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingEnd="16dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_playlist_add_24"
+                    app:tint="@android:color/white" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="@string/lbl_save"
+                    android:textColor="@android:color/white"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <HorizontalScrollView
+            android:id="@+id/online_queue_chips_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipToPadding="false"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="6dp"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/chip_online_all"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:background="@drawable/bg_ytm_chip_selected"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:fontFamily="sans-serif-medium"
+                    android:gravity="center"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:text="@string/chip_queue_all"
+                    android:textColor="@android:color/black"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/chip_online_recent"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_ytm_chip_unselected"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:fontFamily="sans-serif-medium"
+                    android:gravity="center"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:text="@string/chip_queue_recent"
+                    android:textColor="@android:color/white"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/chip_online_popular"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_ytm_chip_unselected"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:fontFamily="sans-serif-medium"
+                    android:gravity="center"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:text="@string/chip_queue_popular"
+                    android:textColor="@android:color/white"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/chip_online_discover"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_ytm_chip_unselected"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:fontFamily="sans-serif-medium"
+                    android:gravity="center"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:text="@string/chip_queue_discover"
+                    android:textColor="@android:color/white"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </HorizontalScrollView>
+    </LinearLayout>
+
     <!-- Bottom Queue Tracklist Matching Local Player -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/online_player_tracklist"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="2dp"
         android:clipToPadding="false"
         android:overScrollMode="never"
         android:paddingTop="2dp"
         android:paddingBottom="@dimen/spacing_medium"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/online_player_controls_container"
+        app:layout_constraintTop_toBottomOf="@+id/online_queue_header_container"
         tools:listitem="@layout/item_playback_track" />
 
     <View

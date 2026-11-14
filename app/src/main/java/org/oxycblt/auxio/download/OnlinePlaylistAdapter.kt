@@ -18,9 +18,11 @@
  
 package org.oxycblt.auxio.download
 
+import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -51,15 +53,24 @@ class OnlinePlaylistAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(playlist: OnlinePlaylist) {
+            val context = binding.root.context
             binding.playlistName.text = playlist.name
             val count = playlist.songs.size
-            binding.playlistSongCount.text = if (count == 1) "1 canción" else "$count canciones"
+            binding.playlistSongCount.text =
+                context.resources.getQuantityString(R.plurals.fmt_song_count, count, count)
 
             val firstCover =
                 playlist.songs.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
             if (firstCover.isNullOrEmpty()) {
+                val pad = (14 * context.resources.displayMetrics.density).toInt()
+                binding.playlistCover.scaleType = ImageView.ScaleType.CENTER_INSIDE
+                binding.playlistCover.setPadding(pad, pad, pad, pad)
+                binding.playlistCover.imageTintList = ColorStateList.valueOf(0xFF9E9EA4.toInt())
                 binding.playlistCover.setImageResource(R.drawable.ic_playlist_24)
             } else {
+                binding.playlistCover.scaleType = ImageView.ScaleType.CENTER_CROP
+                binding.playlistCover.setPadding(0, 0, 0, 0)
+                binding.playlistCover.imageTintList = null
                 ThumbnailLoader.load(binding.playlistCover, firstCover)
             }
 

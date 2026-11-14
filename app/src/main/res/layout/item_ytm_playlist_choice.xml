@@ -12,13 +12,27 @@
     android:paddingStart="16dp"
     android:paddingEnd="16dp">
 
-    <org.oxycblt.auxio.image.CoverView
-        android:id="@+id/choice_cover"
+    <FrameLayout
         android:layout_width="48dp"
-        android:layout_height="48dp"
-        app:enablePlaybackIndicator="false"
-        app:enableSelectionBadge="false"
-        app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.Medium" />
+        android:layout_height="48dp">
+
+        <org.oxycblt.auxio.image.CoverView
+            android:id="@+id/choice_cover"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            app:enablePlaybackIndicator="false"
+            app:enableSelectionBadge="false"
+            app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.Medium" />
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/choice_online_cover"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="#1F1F24"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium" />
+    </FrameLayout>
 
     <LinearLayout
         android:layout_width="0dp"

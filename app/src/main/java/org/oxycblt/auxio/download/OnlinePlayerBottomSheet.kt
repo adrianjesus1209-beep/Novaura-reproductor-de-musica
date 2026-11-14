@@ -26,8 +26,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.widget.EditText
-import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updatePadding
@@ -38,7 +36,6 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil3.ImageLoader
-import coil3.request.target
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
@@ -69,9 +66,17 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
     private var lastSongUrl: String? = null
     private var lastIsPlaying: Boolean? = null
     private var lastQueueIndex: Int? = null
+    private var activeQueueFilter: Int = FILTER_ALL
+    private var displayedQueueSongs: List<OnlineSong> = emptyList()
 
-    private val trackAdapter = OnlineTrackAdapter { index ->
-        downloadModel.playQueueIndex(index)
+    private val trackAdapter = OnlineTrackAdapter { clickedSong ->
+        val state = downloadModel.playerState.value
+        val idxInQueue = state.queue.indexOfFirst { it.webUrl == clickedSong.webUrl }
+        if (idxInQueue >= 0) {
+            downloadModel.playQueueIndex(idxInQueue)
+        } else {
+            downloadModel.playOnline(clickedSong)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -161,9 +166,30 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
         // --- FAVORITE HEART BUTTON ON COVER ---
         binding.onlinePlayerFavorite.setOnClickListener {
             val song = downloadModel.playerState.value.song ?: return@setOnClickListener
-            val isFav = toggleOnlineFavorite(song)
+            val isFav = downloadModel.toggleOnlineFavorites(listOf(song))
             updateFavoriteIcon(isFav)
+            context?.showToast(
+                getString(if (isFav) R.string.lng_favorite_added else R.string.lng_favorite_removed)
+            )
         }
+
+        // --- YOUTUBE MUSIC SAVE BUTTONS & FILTER CHIPS ---
+        binding.btnOnlinePlaybackSave.setOnClickListener {
+            val song = downloadModel.playerState.value.song ?: return@setOnClickListener
+            showAddToPlaylistDialog(song)
+        }
+
+        binding.btnOnlineQueueSave.setOnClickListener {
+            val state = downloadModel.playerState.value
+            val songsToSave = displayedQueueSongs.ifEmpty {
+                downloadModel.recentOnlineSongs.value.ifEmpty { state.queue }
+            }
+            if (songsToSave.isNotEmpty()) {
+                OnlineAddToPlaylistBottomSheet.show(parentFragmentManager, songsToSave)
+            }
+        }
+
+        setupQueueFilterChips()
 
         // --- PLAYBACK CONTROLS ---
         binding.onlinePlayerPlayPauseBtn.setOnClickListener {
@@ -199,7 +225,13 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
 
                     // Subtitle in Toolbar
                     binding.onlinePlayerToolbar.title = getString(R.string.lbl_playback)
-                    binding.onlinePlayerToolbar.subtitle = getString(R.string.lbl_all_songs)
+                    binding.onlinePlayerToolbar.subtitle =
+                        state.sourceTitle?.takeIf { it.isNotBlank() }
+                            ?: getString(R.string.lbl_all_songs)
+
+                    // Playing From Mix Title
+                    binding.onlinePlayingFromTitle.text =
+                        downloadModel.generateOnlineMixTitle(song, state.sourceTitle)
 
                     // Song Title & Artist in Cover Badge
                     binding.onlinePlayerFullTitle.text = song.title
@@ -207,7 +239,7 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
                     binding.onlinePlayerFullTitle.isSelected = true
 
                     // Favorite icon state
-                    updateFavoriteIcon(isOnlineFavorite(song))
+                    updateFavoriteIcon(downloadModel.isOnlineFavorite(song))
 
                     // Large Artwork and Ambient Background Blur
                     ThumbnailLoader.load(
@@ -223,7 +255,7 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
                 if (lastQueueIndex != state.queueIndex || lastIsPlaying != state.isPlaying) {
                     lastQueueIndex = state.queueIndex
                     lastIsPlaying = state.isPlaying
-                    trackAdapter.submitQueue(state.queue, state.queueIndex, state.isPlaying)
+                    refreshDisplayedQueue(state)
                 }
 
                 // Playback states & icons
@@ -260,32 +292,56 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
         downloadModel.seekOnline(positionMs)
     }
 
-    private fun isOnlineFavorite(song: OnlineSong): Boolean {
-        val favPlaylist =
-            downloadModel.onlinePlaylists.value.firstOrNull {
-                it.name.equals("Favoritos", ignoreCase = true)
+    private fun setupQueueFilterChips() {
+        val chips =
+            listOf(
+                FILTER_ALL to binding.chipOnlineAll,
+                FILTER_RECENT to binding.chipOnlineRecent,
+                FILTER_POPULAR to binding.chipOnlinePopular,
+                FILTER_DISCOVER to binding.chipOnlineDiscover,
+            )
+
+        fun updateChipStyles() {
+            chips.forEach { (filterId, chipView) ->
+                val selected = activeQueueFilter == filterId
+                chipView.setBackgroundResource(
+                    if (selected) R.drawable.bg_ytm_chip_selected
+                    else R.drawable.bg_ytm_chip_unselected
+                )
+                chipView.setTextColor(if (selected) Color.BLACK else Color.WHITE)
             }
-        return favPlaylist?.songs?.any { it.webUrl == song.webUrl } == true
+        }
+
+        chips.forEach { (filterId, chipView) ->
+            chipView.setOnClickListener {
+                activeQueueFilter = filterId
+                updateChipStyles()
+                refreshDisplayedQueue(downloadModel.playerState.value)
+            }
+        }
+        updateChipStyles()
     }
 
-    private fun toggleOnlineFavorite(song: OnlineSong): Boolean {
-        var favPlaylist =
-            downloadModel.onlinePlaylists.value.firstOrNull {
-                it.name.equals("Favoritos", ignoreCase = true)
+    private fun refreshDisplayedQueue(state: OnlinePlayerState) {
+        val baseQueue = state.queue
+        val recent = downloadModel.recentOnlineSongs.value
+        val filtered =
+            when (activeQueueFilter) {
+                FILTER_RECENT -> recent.ifEmpty { baseQueue }
+                FILTER_POPULAR ->
+                    baseQueue
+                        .ifEmpty { recent }
+                        .sortedByDescending { song ->
+                            downloadModel.getOnlinePlayCount(song) * 1_000_000L + song.viewCount
+                        }
+                FILTER_DISCOVER ->
+                    baseQueue
+                        .filter { downloadModel.getOnlinePlayCount(it) <= 1 }
+                        .ifEmpty { baseQueue.shuffled() }
+                else -> baseQueue
             }
-        if (favPlaylist == null) {
-            favPlaylist = downloadModel.createOnlinePlaylist("Favoritos")
-        }
-        val isAlreadyFav = favPlaylist.songs.any { it.webUrl == song.webUrl }
-        return if (isAlreadyFav) {
-            downloadModel.removeSongFromPlaylist(favPlaylist.id, song.webUrl)
-            context?.showToast(getString(R.string.lng_favorite_removed))
-            false
-        } else {
-            downloadModel.addSongToPlaylist(favPlaylist.id, song)
-            context?.showToast(getString(R.string.lng_favorite_added))
-            true
-        }
+        displayedQueueSongs = filtered
+        trackAdapter.submitQueue(filtered, state.song?.webUrl, state.isPlaying)
     }
 
     private fun updateFavoriteIcon(isFavorite: Boolean) {
@@ -313,57 +369,7 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
     }
 
     private fun showAddToPlaylistDialog(song: OnlineSong) {
-        val playlists = downloadModel.onlinePlaylists.value
-
-        val items = mutableListOf<String>()
-        items.add("➕ ${getString(R.string.lbl_create_online_playlist)}")
-        items.addAll(playlists.map { it.name })
-
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.lbl_add_to_online_playlist)
-            .setItems(items.toTypedArray()) { _, which ->
-                if (which == 0) {
-                    showCreatePlaylistPrompt { newPlaylist ->
-                        downloadModel.addSongToPlaylist(newPlaylist.id, song)
-                        context?.showToast(
-                            getString(R.string.lbl_song_added_to_playlist, newPlaylist.name)
-                        )
-                    }
-                } else {
-                    val target = playlists[which - 1]
-                    val added = downloadModel.addSongToPlaylist(target.id, song)
-                    if (added) {
-                        context?.showToast(
-                            getString(R.string.lbl_song_added_to_playlist, target.name)
-                        )
-                    } else {
-                        context?.showToast(getString(R.string.lbl_song_already_in_playlist))
-                    }
-                }
-            }
-            .setNegativeButton(R.string.lbl_cancel, null)
-            .show()
-    }
-
-    private fun showCreatePlaylistPrompt(onCreated: (OnlinePlaylist) -> Unit) {
-        val input =
-            EditText(requireContext()).apply {
-                hint = getString(R.string.lbl_playlist_name_hint)
-                setSingleLine()
-            }
-
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.lbl_create_online_playlist)
-            .setView(input)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                val name = input.text?.toString()?.trim().orEmpty()
-                if (name.isNotEmpty()) {
-                    val created = downloadModel.createOnlinePlaylist(name)
-                    onCreated(created)
-                }
-            }
-            .setNegativeButton(R.string.lbl_cancel, null)
-            .show()
+        OnlineAddToPlaylistBottomSheet.show(parentFragmentManager, listOf(song))
     }
 
     private fun formatTime(millis: Long): String {
@@ -380,21 +386,25 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
 
     companion object {
         const val TAG = "OnlinePlayerBottomSheet"
+        private const val FILTER_ALL = 0
+        private const val FILTER_RECENT = 1
+        private const val FILTER_POPULAR = 2
+        private const val FILTER_DISCOVER = 3
     }
 
     /**
      * An adapter that renders online queue songs using the exact item_playback_track layout from
-     * offline mode.
+     * offline mode with YouTube Music-style thumbnails and active row highlight.
      */
-    private class OnlineTrackAdapter(private val onItemClick: (Int) -> Unit) :
+    private class OnlineTrackAdapter(private val onItemClick: (OnlineSong) -> Unit) :
         ListAdapter<OnlineSong, OnlineTrackAdapter.ViewHolder>(DiffCallback) {
 
-        private var activeIndex = -1
+        private var activeSongUrl: String? = null
         private var isPlaying = false
 
-        fun submitQueue(queue: List<OnlineSong>, currentIndex: Int, playing: Boolean) {
-            val notifyNeeded = activeIndex != currentIndex || isPlaying != playing
-            activeIndex = currentIndex
+        fun submitQueue(queue: List<OnlineSong>, currentSongUrl: String?, playing: Boolean) {
+            val notifyNeeded = activeSongUrl != currentSongUrl || isPlaying != playing
+            activeSongUrl = currentSongUrl
             isPlaying = playing
             submitList(queue) {
                 if (notifyNeeded) {
@@ -411,21 +421,30 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val song = getItem(position)
-            val isCurrent = position == activeIndex
+            val isCurrent = song.webUrl == activeSongUrl
 
             holder.binding.apply {
-                trackNumber.text = "${position + 1}."
+                trackCover.isVisible = false
+                trackOnlineCover.isVisible = true
+                ThumbnailLoader.load(trackOnlineCover, song.thumbnailUrl)
+
                 trackName.text = song.title
-                trackSubtitle.text = song.artist
-                trackDuration.text = song.durationText
+                trackSubtitle.isVisible = true
+                trackSubtitle.text =
+                    if (song.durationText.isNotBlank()) {
+                        "${song.artist} • ${song.durationText}"
+                    } else {
+                        song.artist
+                    }
+                trackNumber.isVisible = false
+                trackDuration.isVisible = false
                 trackDragHandle.isVisible = true
 
-                val goldColor = ContextCompat.getColor(root.context, R.color.player_accent_gold)
-                val mutedColor = 0x80FFFFFF.toInt()
                 val anim = trackEqualizerIcon.drawable as? AnimationDrawable
 
                 if (isCurrent) {
-                    trackNumber.isVisible = false
+                    root.setBackgroundColor(0x1FFFFFFF)
+                    trackPlayingScrim.isVisible = true
                     trackEqualizerIcon.isVisible = true
                     if (isPlaying) {
                         trackEqualizerIcon.setImageResource(R.drawable.ic_playing_indicator_24)
@@ -435,20 +454,21 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
                         anim?.stop()
                         trackEqualizerIcon.setImageResource(R.drawable.ic_paused_indicator_24)
                     }
-                    trackName.setTextColor(goldColor)
-                    trackDuration.setTextColor(goldColor)
-                } else {
-                    anim?.stop()
-                    trackEqualizerIcon.isVisible = false
-                    trackNumber.isVisible = true
                     trackName.setTextColor(Color.WHITE)
-                    trackDuration.setTextColor(mutedColor)
+                    trackSubtitle.setTextColor(0xCCFFFFFF.toInt())
+                } else {
+                    root.setBackgroundColor(Color.TRANSPARENT)
+                    anim?.stop()
+                    trackPlayingScrim.isVisible = false
+                    trackEqualizerIcon.isVisible = false
+                    trackName.setTextColor(Color.WHITE)
+                    trackSubtitle.setTextColor(0x99FFFFFF.toInt())
                 }
 
                 root.setOnClickListener {
                     val pos = holder.bindingAdapterPosition
                     if (pos != RecyclerView.NO_POSITION) {
-                        onItemClick(pos)
+                        onItemClick(getItem(pos))
                     }
                 }
             }

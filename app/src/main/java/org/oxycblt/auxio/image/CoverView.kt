@@ -514,12 +514,13 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
         size: Size,
         shapeAppearanceModel: ShapeAppearanceModel,
     ) {
+        val errorImage =
+            StyledDrawable(context, context.getDrawableCompat(errorRes), iconSize).asImage()
         val request =
             ImageRequest.Builder(context)
                 .data(img(size))
-                .error(
-                    StyledDrawable(context, context.getDrawableCompat(errorRes), iconSize).asImage()
-                )
+                .error(errorImage)
+                .fallback(errorImage)
                 .target(image)
 
         val bounds = RectF(0f, 0f, size.width.toFloat(), size.height.toFloat())
