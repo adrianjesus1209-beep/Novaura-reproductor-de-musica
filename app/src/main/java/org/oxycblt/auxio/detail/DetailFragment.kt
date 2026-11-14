@@ -27,6 +27,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.findNavController
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.transition.MaterialSharedAxis
+import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -38,6 +39,8 @@ import org.oxycblt.auxio.list.ListFragment
 import org.oxycblt.auxio.list.ListViewModel
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.playback.PlaybackViewModel
+import org.oxycblt.auxio.ui.UISettings
+import org.oxycblt.auxio.ui.WallpaperHelper
 import org.oxycblt.auxio.util.getDimenPixels
 import org.oxycblt.auxio.util.systemBarInsetsCompat
 import org.oxycblt.musikr.Music
@@ -47,6 +50,7 @@ abstract class DetailFragment<P : MusicParent, C : Music> :
     ListFragment<C, FragmentDetailBinding>(),
     DetailListAdapter.Listener<C>,
     AppBarLayout.OnOffsetChangedListener {
+    @Inject lateinit var uiSettings: UISettings
     protected val detailModel: DetailViewModel by activityViewModels()
     override val listModel: ListViewModel by activityViewModels()
     override val musicModel: MusicViewModel by activityViewModels()
@@ -85,6 +89,7 @@ abstract class DetailFragment<P : MusicParent, C : Music> :
         saveStateInMemory(binding)
 
         // --- UI SETUP ---
+        applyWallpaperBackground(binding)
         binding.detailAppbar?.addOnOffsetChangedListener(this)
 
         val pane = binding.detailPane
@@ -125,6 +130,20 @@ abstract class DetailFragment<P : MusicParent, C : Music> :
         spacingSmall = requireContext().getDimenPixels(R.dimen.spacing_small)
     }
 
+    override fun onResume() {
+        super.onResume()
+        binding?.let(::applyWallpaperBackground)
+    }
+
+    private fun applyWallpaperBackground(binding: FragmentDetailBinding) {
+        WallpaperHelper.applySecondaryWallpaperBackground(
+            binding.detailCoordinator ?: binding.detailConstraint,
+            uiSettings,
+            binding.detailAppbar,
+            binding.detailToolbar,
+        )
+    }
+
     override fun onDestroyBinding(binding: FragmentDetailBinding) {
         // see onBindingCreated
         saveStateInMemory(binding)
@@ -146,6 +165,7 @@ abstract class DetailFragment<P : MusicParent, C : Music> :
     override fun onOffsetChanged(appBarLayout: AppBarLayout, verticalOffset: Int) {
         val binding = requireBinding()
         val range = appBarLayout.totalScrollRange
+        if (range == 0) return
         val ratio = abs(verticalOffset.toFloat()) / range.toFloat()
 
         val outRatio = min(ratio * 2, 1f)

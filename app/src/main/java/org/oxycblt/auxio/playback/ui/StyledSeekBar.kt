@@ -100,6 +100,7 @@ constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
         set(value) {
             val to = max(value, 1)
             internalDurationDs = to
+            internalPositionDs = internalPositionDs.coerceIn(0L, to)
             isEnabled = value > 0
             binding.seekBarWaveform.isEnabled = isEnabled
             val progress = if (to > 0) internalPositionDs.toFloat() / to.toFloat() else 0f

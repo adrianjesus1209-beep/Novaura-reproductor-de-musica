@@ -27,10 +27,8 @@
             android:layout_height="match_parent"
             android:background="@drawable/ui_widget_cover_rounded"
             android:clipToOutline="true"
-            android:padding="12dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_novaura_stat_24"
-            android:tint="#FFFFFF"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_remote_default_cover_24"
             tools:ignore="ContentDescription" />
     </FrameLayout>
 
@@ -50,7 +48,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:singleLine="true"
-            android:text="Novaura"
+            android:text="@string/info_app_name"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -63,7 +61,7 @@
             android:layout_marginTop="1dp"
             android:ellipsize="end"
             android:singleLine="true"
-            android:text="Toca ▶ para reproducir"
+            android:text="@string/lbl_widget_tap_to_play"
             android:textColor="#B3FFFFFF"
             android:textSize="12sp" />
 

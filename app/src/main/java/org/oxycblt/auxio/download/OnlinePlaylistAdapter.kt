@@ -63,6 +63,7 @@ class OnlinePlaylistAdapter(
                 playlist.songs.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
             if (firstCover.isNullOrEmpty()) {
                 val pad = (14 * context.resources.displayMetrics.density).toInt()
+                binding.playlistCover.tag = null
                 binding.playlistCover.scaleType = ImageView.ScaleType.CENTER_INSIDE
                 binding.playlistCover.setPadding(pad, pad, pad, pad)
                 binding.playlistCover.imageTintList = ColorStateList.valueOf(0xFF9E9EA4.toInt())

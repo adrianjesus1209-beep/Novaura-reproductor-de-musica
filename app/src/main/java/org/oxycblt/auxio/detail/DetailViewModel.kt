@@ -468,11 +468,15 @@ constructor(
         val editedPlaylist = (editedPlaylist.value ?: return false).toMutableList()
         val realFrom = from - 1
         val realTo = to - 1
-        if (realFrom !in editedPlaylist.indices || realTo !in editedPlaylist.indices) {
+        if (
+            realFrom !in editedPlaylist.indices ||
+                realTo !in editedPlaylist.indices ||
+                realFrom == realTo
+        ) {
             return false
         }
         L.d("Moving playlist song from $realFrom [$from] to $realTo [$to]")
-        editedPlaylist.add(realFrom, editedPlaylist.removeAt(realTo))
+        editedPlaylist.add(realTo, editedPlaylist.removeAt(realFrom))
         this.editedPlaylist.value = editedPlaylist
         refreshPlaylist(playlist.uid, UpdateInstructions.Move(from, to))
         return true

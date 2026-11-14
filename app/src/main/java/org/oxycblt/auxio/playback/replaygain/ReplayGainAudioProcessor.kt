@@ -18,6 +18,7 @@
  
 package org.oxycblt.auxio.playback.replaygain
 
+import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.Player
@@ -45,19 +46,15 @@ import timber.log.Timber as L
  *
  * @author Alexander Capehart (OxygenCobalt)
  */
-@OptIn(markerClass = [UnstableApi::class])
+@OptIn(UnstableApi::class)
 class ReplayGainAudioProcessor
 @Inject
 constructor(
     private val playbackManager: PlaybackStateManager,
     private val playbackSettings: PlaybackSettings,
 ) : BaseAudioProcessor(), PlaybackStateManager.Listener, PlaybackSettings.Listener {
-    private var volume = 1f
-        set(value) {
-            field = value
-            // Processed bytes are no longer valid, flush the stream
-            flush()
-        }
+    @Volatile private var volume = 1f
+    @Volatile private var configuredEncoding = C.ENCODING_PCM_16BIT
 
     fun attach() {
         playbackManager.addListener(this)
@@ -170,42 +167,72 @@ constructor(
     override fun onConfigure(
         inputAudioFormat: AudioProcessor.AudioFormat
     ): AudioProcessor.AudioFormat {
-        if (inputAudioFormat.encoding == C.ENCODING_PCM_16BIT) {
-            // AudioProcessor is only provided 16-bit PCM audio data, so that's the only
-            // encoding we need to check for.
-            // TODO: Convert to a low-level audio processor capable of handling any kind of
-            //  PCM data, once ExoPlayer can support it.
-            return inputAudioFormat
+        return when (inputAudioFormat.encoding) {
+            C.ENCODING_PCM_16BIT,
+            C.ENCODING_PCM_24BIT,
+            C.ENCODING_PCM_32BIT,
+            C.ENCODING_PCM_FLOAT -> {
+                configuredEncoding = inputAudioFormat.encoding
+                inputAudioFormat
+            }
+            else -> {
+                L.w(
+                    "Bypassing ReplayGain for unsupported PCM encoding: ${inputAudioFormat.encoding}"
+                )
+                AudioProcessor.AudioFormat.NOT_SET
+            }
         }
-
-        throw AudioProcessor.UnhandledAudioFormatException(inputAudioFormat)
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val pos = inputBuffer.position()
         val limit = inputBuffer.limit()
         val buffer = replaceOutputBuffer(limit - pos)
+        val currentVolume = volume
 
-        if (volume == 1f) {
-            // Nothing to adjust, just copy the audio data.
-            // isActive is technically a much better way of doing a no-op like this, but since
-            // the adjustment can change during playback I'm largely forced to do this.
+        if (currentVolume == 1f) {
             buffer.put(inputBuffer.slice())
         } else {
-            for (i in pos until limit step 2) {
-                // 16-bit PCM audio, deserialize a little-endian short.
-                var sample = inputBuffer.getLeShort(i)
-                // Ensure we clamp the values to the minimum and maximum values possible
-                // for the encoding. This prevents issues where samples amplified beyond
-                // 1 << 16 will end up becoming truncated during the conversion to a short,
-                // resulting in popping.
-                sample =
-                    (sample * volume)
-                        .toInt()
-                        .coerceAtLeast(Short.MIN_VALUE.toInt())
-                        .coerceAtMost(Short.MAX_VALUE.toInt())
-                        .toShort()
-                buffer.putLeShort(sample)
+            when (configuredEncoding) {
+                C.ENCODING_PCM_16BIT -> {
+                    for (i in pos until limit step 2) {
+                        val sample = inputBuffer.getLeShort(i)
+                        val scaled =
+                            (sample * currentVolume)
+                                .toInt()
+                                .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                                .toShort()
+                        buffer.putLeShort(scaled)
+                    }
+                }
+                C.ENCODING_PCM_24BIT -> {
+                    for (i in pos until limit step 3) {
+                        val sample = inputBuffer.getLeInt24(i)
+                        val scaled =
+                            (sample.toDouble() * currentVolume)
+                                .coerceIn(MIN_INT24.toDouble(), MAX_INT24.toDouble())
+                                .toInt()
+                        buffer.putLeInt24(scaled)
+                    }
+                }
+                C.ENCODING_PCM_32BIT -> {
+                    for (i in pos until limit step 4) {
+                        val sample = inputBuffer.getLeInt32(i)
+                        val scaled =
+                            (sample.toDouble() * currentVolume)
+                                .coerceIn(Int.MIN_VALUE.toDouble(), Int.MAX_VALUE.toDouble())
+                                .toInt()
+                        buffer.putLeInt32(scaled)
+                    }
+                }
+                C.ENCODING_PCM_FLOAT -> {
+                    for (i in pos until limit step 4) {
+                        val sample = Float.fromBits(inputBuffer.getLeInt32(i))
+                        val scaled = (sample * currentVolume).coerceIn(-1f, 1f)
+                        buffer.putLeInt32(scaled.toRawBits())
+                    }
+                }
+                else -> buffer.put(inputBuffer.slice())
             }
         }
 
@@ -213,21 +240,44 @@ constructor(
         buffer.flip()
     }
 
-    /**
-     * Always read a little-endian [Short] from the [ByteBuffer] at the given index.
-     *
-     * @param at The index to read the [Short] from.
-     */
+    /** Always read a little-endian [Short] from the [ByteBuffer] at [at]. */
     private fun ByteBuffer.getLeShort(at: Int) =
         get(at + 1).toInt().shl(8).or(get(at).toInt().and(0xFF)).toShort()
 
-    /**
-     * Always write a little-endian [Short] at the end of the [ByteBuffer].
-     *
-     * @param short The [Short] to write.
-     */
+    /** Always write a little-endian [Short] at the end of the [ByteBuffer]. */
     private fun ByteBuffer.putLeShort(short: Short) {
         put(short.toByte())
         put(short.toInt().shr(8).toByte())
+    }
+
+    private fun ByteBuffer.getLeInt24(at: Int): Int {
+        val b0 = get(at).toInt() and 0xFF
+        val b1 = get(at + 1).toInt() and 0xFF
+        val b2 = get(at + 2).toInt()
+        return (b2 shl 16) or (b1 shl 8) or b0
+    }
+
+    private fun ByteBuffer.putLeInt24(value: Int) {
+        put((value and 0xFF).toByte())
+        put(((value ushr 8) and 0xFF).toByte())
+        put(((value shr 16) and 0xFF).toByte())
+    }
+
+    private fun ByteBuffer.getLeInt32(at: Int): Int =
+        (get(at).toInt() and 0xFF) or
+            ((get(at + 1).toInt() and 0xFF) shl 8) or
+            ((get(at + 2).toInt() and 0xFF) shl 16) or
+            (get(at + 3).toInt() shl 24)
+
+    private fun ByteBuffer.putLeInt32(value: Int) {
+        put((value and 0xFF).toByte())
+        put(((value ushr 8) and 0xFF).toByte())
+        put(((value ushr 16) and 0xFF).toByte())
+        put(((value shr 24) and 0xFF).toByte())
+    }
+
+    private companion object {
+        const val MIN_INT24 = -(1 shl 23)
+        const val MAX_INT24 = (1 shl 23) - 1
     }
 }

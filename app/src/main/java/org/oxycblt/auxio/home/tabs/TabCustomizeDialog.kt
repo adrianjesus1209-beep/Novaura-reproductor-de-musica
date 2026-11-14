@@ -73,7 +73,9 @@ class TabCustomizeDialog :
         binding.tabRecycler.apply {
             adapter = tabAdapter
             touchHelper =
-                ItemTouchHelper(TabDragCallback(tabAdapter)).also { it.attachToRecyclerView(this) }
+                ItemTouchHelper(TabDragCallback(tabAdapter)).also {
+                    it.attachToRecyclerView(this)
+                }
         }
     }
 
@@ -85,6 +87,8 @@ class TabCustomizeDialog :
 
     override fun onDestroyBinding(binding: DialogTabsBinding) {
         super.onDestroyBinding(binding)
+        touchHelper?.attachToRecyclerView(null)
+        touchHelper = null
         binding.tabRecycler.adapter = null
     }
 
@@ -92,6 +96,7 @@ class TabCustomizeDialog :
         // We will need the exact index of the tab to update on in order to
         // notify the adapter of the change.
         val index = tabAdapter.tabs.indexOfFirst { it.type == item.type }
+        if (index < 0) return
         val old = tabAdapter.tabs[index]
         val new =
             when (old) {

@@ -20,8 +20,10 @@ package org.oxycblt.musikr.cache.db
 
 import android.content.Context
 import android.net.Uri
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.oxycblt.musikr.cache.Audio
 import org.oxycblt.musikr.cache.Cache
 import org.oxycblt.musikr.cache.CacheResult
@@ -32,6 +34,7 @@ import org.oxycblt.musikr.fs.Components
 import org.oxycblt.musikr.fs.File
 import org.oxycblt.musikr.fs.Path
 import org.oxycblt.musikr.fs.Volume
+import org.oxycblt.musikr.fs.path.VolumeManager
 import org.oxycblt.musikr.metadata.Properties
 import org.oxycblt.musikr.tag.parse.ParsedTags
 
@@ -40,7 +43,11 @@ import org.oxycblt.musikr.tag.parse.ParsedTags
  *
  * Create an instance with [from].
  */
-class DBCache private constructor(private val readDao: CacheReadDao) : Cache {
+class DBCache
+private constructor(
+    private val readDao: CacheReadDao,
+    private val volumeManager: VolumeManager?,
+) : Cache {
     @Volatile private var mapping: Map<Uri, CachedFileData>? = null
     private val mappingLock = Mutex()
 
@@ -48,7 +55,10 @@ class DBCache private constructor(private val readDao: CacheReadDao) : Cache {
         val currentMapping =
             mapping
                 ?: mappingLock.withLock {
-                    mapping ?: readDao.selectAllSongs().associateBy { it.uri }.also { mapping = it }
+                    mapping
+                        ?: withContext(Dispatchers.IO) { readDao.selectAllSongs() }
+                            .associateBy { it.uri }
+                            .also { mapping = it }
                 }
         val dbSong = currentMapping[file.uri] ?: return CacheResult.Miss(file)
         if (dbSong.modifiedMs != file.modifiedMs) {
@@ -58,16 +68,21 @@ class DBCache private constructor(private val readDao: CacheReadDao) : Cache {
         return CacheResult.Hit(song)
     }
 
-    override suspend fun readAll(): List<CachedFile> {
-        val allSongs = readDao.selectAllSongs()
-        return allSongs.map { it.toCachedFile() }
-    }
+    override suspend fun readAll(): List<CachedFile> =
+        withContext(Dispatchers.IO) {
+            val allSongs = readDao.selectAllSongs()
+            val volumes = volumeManager?.getVolumes().orEmpty()
+            val internalVolume = volumeManager?.getInternalVolume()
+            allSongs.map { it.toCachedFile(volumes = volumes, internalVolume = internalVolume) }
+        }
 
-    internal fun invalidate() {
-        mapping = null
+    internal suspend fun invalidate() {
+        mappingLock.withLock { mapping = null }
     }
 
     companion object {
+        internal const val INTERNAL_VOLUME_MARKER = "__internal__"
+
         /**
          * Create a new instance of [DBCache] from the given [context].
          *
@@ -77,11 +92,12 @@ class DBCache private constructor(private val readDao: CacheReadDao) : Cache {
          * @param context The context to use to create the Room database.
          * @return A new instance of [DBCache].
          */
-        fun from(context: Context) = from(CacheDatabase.from(context))
+        fun from(context: Context) = from(CacheDatabase.from(context), VolumeManager.from(context))
 
-        internal fun from(db: CacheDatabase) = DBCache(db.readDao())
+        internal fun from(db: CacheDatabase, volumeManager: VolumeManager? = null) =
+            DBCache(db.readDao(), volumeManager)
 
-        internal fun from(readDao: CacheReadDao) = DBCache(readDao)
+        internal fun from(readDao: CacheReadDao) = DBCache(readDao, null)
     }
 }
 
@@ -131,7 +147,7 @@ private constructor(private val inner: DBCache, private val writeDao: CacheWrite
          */
         fun from(context: Context): MutableDBCache {
             val db = CacheDatabase.from(context)
-            return MutableDBCache(DBCache.from(db), db.writeDao())
+            return MutableDBCache(DBCache.from(db, VolumeManager.from(context)), db.writeDao())
         }
 
         internal fun from(inner: DBCache, writeDao: CacheWriteDao) = MutableDBCache(inner, writeDao)
@@ -170,17 +186,38 @@ private fun CachedFile.toDbData() =
         replayGainTrackAdjustment = audio?.tags?.replayGainTrackAdjustment,
         replayGainAlbumAdjustment = audio?.tags?.replayGainAlbumAdjustment,
         coverId = audio?.coverId,
+        volumeName =
+            when (val volume = file.path.volume) {
+                is Volume.Internal -> DBCache.INTERNAL_VOLUME_MARKER
+                is Volume.External -> volume.mediaStoreName ?: volume.id
+                is Volume.ThirdParty -> null
+            },
+        unixPath = file.path.components.unixString,
+        size = file.size,
     )
 
-private fun CachedFileData.toCachedFile(fileOverride: File? = null): CachedFile {
+private fun CachedFileData.toCachedFile(
+    fileOverride: File? = null,
+    volumes: List<Volume> = emptyList(),
+    internalVolume: Volume? = null,
+): CachedFile {
     val file =
         fileOverride
             ?: run {
-                val path =
-                    Path(
-                        Volume.ThirdParty(uri),
-                        Components.parseUnix(uri.path ?: "/"),
-                    )
+                val resolvedVolume =
+                    when (volumeName) {
+                        DBCache.INTERNAL_VOLUME_MARKER -> internalVolume
+                        null -> null
+                        else ->
+                            volumes.find {
+                                it.mediaStoreName == volumeName ||
+                                    (it is Volume.External && it.id == volumeName)
+                            }
+                    } ?: Volume.ThirdParty(uri)
+                val resolvedComponents =
+                    unixPath?.takeIf { it.isNotEmpty() }?.let(Components::parseUnix)
+                        ?: Components.parseUnix(uri.path ?: "/")
+                val path = Path(resolvedVolume, resolvedComponents)
                 File(
                     uri = uri,
                     path = path,
@@ -190,7 +227,7 @@ private fun CachedFileData.toCachedFile(fileOverride: File? = null): CachedFile 
                         },
                     modifiedMs = modifiedMs,
                     mimeType = mimeType ?: "audio/*",
-                    size = 0L,
+                    size = size,
                     parent = null,
                 )
             }

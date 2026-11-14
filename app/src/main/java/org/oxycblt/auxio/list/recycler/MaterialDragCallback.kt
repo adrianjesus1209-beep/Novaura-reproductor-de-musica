@@ -191,10 +191,17 @@ abstract class MaterialDragCallback : ItemTouchHelper.Callback() {
             }
         }
 
-        // Reset translations. We do not call the default implementation, so we must do
-        // this ourselves.
+        // Reset translations and visual swipe state. We do not call the default implementation, so
+        // we must do this ourselves.
+        holder.delete.isInvisible = true
+        (holder.roundableBackground as? MaterialShapeDrawable)?.setCornerSize(0f)
         holder.body.translationX = 0f
         holder.root.translationY = 0f
+    }
+
+    fun cancelAnimations() {
+        itemAnims.values.forEach { it.cancel() }
+        itemAnims.clear()
     }
 
     // Long-press events are too buggy, only allow dragging with the handle.

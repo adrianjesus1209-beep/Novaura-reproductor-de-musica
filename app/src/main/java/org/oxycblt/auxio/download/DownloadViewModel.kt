@@ -139,15 +139,24 @@ constructor(
         }
         searchJob =
             viewModelScope.launch(Dispatchers.IO) {
+                val thisJob = kotlin.coroutines.coroutineContext[Job]
                 _isSearching.value = true
                 try {
                     val results = downloadRepository.search(query)
-                    _searchResults.value = results
+                    if (kotlinx.coroutines.currentCoroutineContext()[Job] === searchJob) {
+                        _searchResults.value = results
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     L.e(e, "Error searching: $query")
-                    _searchResults.value = emptyList()
+                    if (kotlinx.coroutines.currentCoroutineContext()[Job] === searchJob) {
+                        _searchResults.value = emptyList()
+                    }
                 } finally {
-                    _isSearching.value = false
+                    if (thisJob === searchJob) {
+                        _isSearching.value = false
+                    }
                 }
             }
     }
@@ -268,6 +277,5 @@ constructor(
 
     override fun onCleared() {
         super.onCleared()
-        onlinePlayerManager.stop()
     }
 }

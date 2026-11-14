@@ -18,6 +18,7 @@
  
 package org.oxycblt.auxio.download
 
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -31,6 +32,8 @@ class NewPipeDownloader(
         OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
             .followRedirects(true)
             .followSslRedirects(true)
             .build()
@@ -59,7 +62,7 @@ class NewPipeDownloader(
         }
 
         return client.newCall(okHttpBuilder.build()).execute().use { response ->
-            val responseBodyString = response.body?.string()
+            val responseBodyString = readBoundedBody(response.body)
             val responseCode = response.code
             val responseMessage = response.message
             val responseHeaders = response.headers.toMultimap()
@@ -75,7 +78,22 @@ class NewPipeDownloader(
         }
     }
 
+    private fun readBoundedBody(body: okhttp3.ResponseBody?): String {
+        if (body == null) return ""
+        val contentLength = body.contentLength()
+        if (contentLength > MAX_RESPONSE_BYTES) {
+            throw IOException("Extractor response too large: $contentLength bytes")
+        }
+        val source = body.source()
+        source.request(MAX_RESPONSE_BYTES + 1L)
+        if (source.buffer.size > MAX_RESPONSE_BYTES) {
+            throw IOException("Extractor response exceeded max size of $MAX_RESPONSE_BYTES bytes")
+        }
+        return body.string()
+    }
+
     companion object {
+        private const val MAX_RESPONSE_BYTES = 16L * 1024L * 1024L
         private val instance = NewPipeDownloader()
 
         fun getInstance(): NewPipeDownloader = instance

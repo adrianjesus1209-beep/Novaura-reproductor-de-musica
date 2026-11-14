@@ -63,8 +63,8 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
 
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         super.onLayout(changed, l, t, r, b)
-        topDivider.layout(l, spacingMedium, r, spacingMedium + topDivider.measuredHeight)
-        bottomDivider.layout(l, measuredHeight - bottomDivider.measuredHeight, r, b)
+        topDivider.layout(0, spacingMedium, width, spacingMedium + topDivider.measuredHeight)
+        bottomDivider.layout(0, height - bottomDivider.measuredHeight, width, height)
         // Make sure we initialize the dividers here before we start drawing.
         invalidateDividers()
     }
@@ -92,11 +92,12 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
     }
 
     private fun invalidateDividers() {
-        val lmm = layoutManager as LinearLayoutManager
+        val lmm = layoutManager as? LinearLayoutManager ?: return
+        val count = lmm.itemCount
         // Top divider should only be visible when the first item has gone off-screen.
-        topDivider.isInvisible = lmm.findFirstCompletelyVisibleItemPosition() < 1
-        // Bottom divider should only be visible when the lsat item is completely on-screen.
+        topDivider.isInvisible = count == 0 || lmm.findFirstCompletelyVisibleItemPosition() < 1
+        // Bottom divider should only be visible when the last item is completely on-screen.
         bottomDivider.isInvisible =
-            lmm.findLastCompletelyVisibleItemPosition() == (lmm.itemCount - 1)
+            count == 0 || lmm.findLastCompletelyVisibleItemPosition() >= (count - 1)
     }
 }

@@ -77,6 +77,7 @@ abstract class CoverCompositionFetcher(
                 .toList()
         if (bitmaps.size < 4) {
             val first = bitmaps.firstOrNull() ?: return null
+            bitmaps.drop(1).forEach { runCatching { it.recycle() } }
             return ImageFetchResult(
                 image = first.toDrawable(context.resources).asImage(),
                 isSampled = true,

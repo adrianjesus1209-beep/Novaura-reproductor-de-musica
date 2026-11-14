@@ -45,6 +45,7 @@ import com.google.android.material.tabs.TabLayoutMediator
 import com.google.android.material.transition.MaterialSharedAxis
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentHomeBinding
 import org.oxycblt.auxio.detail.DetailViewModel
@@ -109,15 +110,25 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
     private var mostPlayedAdapter: MostPlayedTracksAdapter? = null
     private var topArtistsAdapter: TopArtistsAdapter? = null
     private var currentNavTab = HomeViewModel.NAV_TAB_HOME
+    private var tabMediator: TabLayoutMediator? = null
     private var storagePermissionLauncher: ActivityResultLauncher<String>? = null
     private var getContentLauncher: ActivityResultLauncher<String>? = null
     private var pendingImportTarget: Playlist? = null
+    private var pendingImportTargetUid: Music.UID? = null
     private var hasRequestedPermission = false
     private var pendingPermissionRescan = false
     private var emptyLibraryCardDismissed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        savedInstanceState?.let { state ->
+            hasRequestedPermission = state.getBoolean(KEY_HAS_REQUESTED_PERMISSION, false)
+            pendingPermissionRescan = state.getBoolean(KEY_PENDING_PERMISSION_RESCAN, false)
+            emptyLibraryCardDismissed = state.getBoolean(KEY_EMPTY_LIBRARY_DISMISSED, false)
+            pendingImportTargetUid =
+                state.getString(KEY_PENDING_IMPORT_TARGET_UID)?.let { Music.UID.fromString(it) }
+        }
 
         enterTransition = MaterialSharedAxis(MaterialSharedAxis.Z, true)
         returnTransition = MaterialSharedAxis(MaterialSharedAxis.Z, false)
@@ -140,14 +151,30 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
 
         getContentLauncher =
             registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+                val target =
+                    pendingImportTarget
+                        ?: pendingImportTargetUid?.let { uid ->
+                            homeModel.playlistList.value.find { it.uid == uid }
+                        }
+                pendingImportTarget = null
+                pendingImportTargetUid = null
                 if (uri == null) {
                     L.w("No URI returned from file picker")
                     return@registerForActivityResult
                 }
 
                 L.d("Received playlist URI $uri")
-                musicModel.importPlaylist(uri, pendingImportTarget)
+                musicModel.importPlaylist(uri, target)
             }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_HAS_REQUESTED_PERMISSION, hasRequestedPermission)
+        outState.putBoolean(KEY_PENDING_PERMISSION_RESCAN, pendingPermissionRescan)
+        outState.putBoolean(KEY_EMPTY_LIBRARY_DISMISSED, emptyLibraryCardDismissed)
+        val uidStr = (pendingImportTarget?.uid ?: pendingImportTargetUid)?.toString()
+        outState.putString(KEY_PENDING_IMPORT_TARGET_UID, uidStr)
     }
 
     override fun onCreateBinding(inflater: LayoutInflater) = FragmentHomeBinding.inflate(inflater)
@@ -266,7 +293,8 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
 
     override fun onDestroyBinding(binding: FragmentHomeBinding) {
         super.onDestroyBinding(binding)
-        storagePermissionLauncher = null
+        tabMediator?.detach()
+        tabMediator = null
         mostPlayedAdapter = null
         topArtistsAdapter = null
         binding.homeNormalToolbar.setOnMenuItemClickListener(null)
@@ -470,12 +498,14 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
         }
 
         // Set up the mapping between the ViewPager and TabLayout.
-        TabLayoutMediator(
-                binding.homeTabs,
-                binding.homePager,
-                NamedTabStrategy(homeModel.currentTabTypes),
-            )
-            .attach()
+        tabMediator?.detach()
+        tabMediator =
+            TabLayoutMediator(
+                    binding.homeTabs,
+                    binding.homePager,
+                    NamedTabStrategy(homeModel.currentTabTypes),
+                )
+                .also { it.attach() }
     }
 
     private fun updateCurrentTab(tabType: MusicType) {
@@ -707,6 +737,7 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                 }
             }
         findNavController().navigateSafe(directions)
+        musicModel.playlistDecision.consume()
     }
 
     private fun handlePlaylistMessage(message: PlaylistMessage?) {
@@ -841,5 +872,16 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                 MusicType.GENRES -> GenreListFragment()
                 MusicType.PLAYLISTS -> PlaylistListFragment()
             }
+    }
+
+    private companion object {
+        const val KEY_HAS_REQUESTED_PERMISSION =
+            BuildConfig.APPLICATION_ID + ".home.HAS_REQUESTED_PERMISSION"
+        const val KEY_PENDING_PERMISSION_RESCAN =
+            BuildConfig.APPLICATION_ID + ".home.PENDING_PERMISSION_RESCAN"
+        const val KEY_EMPTY_LIBRARY_DISMISSED =
+            BuildConfig.APPLICATION_ID + ".home.EMPTY_LIBRARY_DISMISSED"
+        const val KEY_PENDING_IMPORT_TARGET_UID =
+            BuildConfig.APPLICATION_ID + ".home.PENDING_IMPORT_TARGET_UID"
     }
 }

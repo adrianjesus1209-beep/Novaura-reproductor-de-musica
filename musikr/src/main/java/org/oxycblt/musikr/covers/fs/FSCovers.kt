@@ -69,9 +69,9 @@ class FSCovers(private val context: Context) : Covers<FDCover> {
                     withContext(Dispatchers.IO) {
                         try {
                             if (uri.scheme == "file") {
-                                val path = uri.path ?: return@withContext false
-                                val file = java.io.File(path)
-                                file.exists() && file.length() > 0
+                                val file =
+                                    resolveAllowedFile(context, uri) ?: return@withContext false
+                                file.isFile && file.length() > 0
                             } else {
                                 context.contentResolver.openFileDescriptor(uri, "r")?.also {
                                     it.close()
@@ -237,8 +237,8 @@ private class FolderCoverImpl(private val context: Context, private val uri: Uri
         withContext(Dispatchers.IO) {
             if (uri.scheme == "file") {
                 try {
-                    val path = uri.path ?: return@withContext null
-                    java.io.FileInputStream(java.io.File(path))
+                    val file = resolveAllowedFile(context, uri) ?: return@withContext null
+                    java.io.FileInputStream(file)
                 } catch (e: Exception) {
                     null
                 }
@@ -252,11 +252,8 @@ private class FolderCoverImpl(private val context: Context, private val uri: Uri
         withContext(Dispatchers.IO) {
             if (uri.scheme == "file") {
                 try {
-                    val path = uri.path ?: return@withContext null
-                    ParcelFileDescriptor.open(
-                        java.io.File(path),
-                        ParcelFileDescriptor.MODE_READ_ONLY,
-                    )
+                    val file = resolveAllowedFile(context, uri) ?: return@withContext null
+                    ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
                 } catch (e: Exception) {
                     null
                 }
@@ -272,4 +269,23 @@ private class FolderCoverImpl(private val context: Context, private val uri: Uri
     }
 
     override fun hashCode(): Int = id.hashCode()
+}
+
+private val allowedImageExtensions = setOf("jpg", "jpeg", "png", "webp", "bmp", "gif")
+
+private fun resolveAllowedFile(context: Context, uri: Uri): java.io.File? {
+    val path = uri.path ?: return null
+    val candidate = java.io.File(path).canonicalFile
+    val ext = candidate.extension.lowercase()
+    if (ext !in allowedImageExtensions) {
+        return null
+    }
+    val dataDir = context.applicationInfo?.dataDir?.let { java.io.File(it).canonicalFile }
+    if (dataDir != null && candidate.path.startsWith(dataDir.path + java.io.File.separator)) {
+        val downloadCoversDir = java.io.File(context.filesDir, "download_covers").canonicalFile
+        if (!candidate.path.startsWith(downloadCoversDir.path + java.io.File.separator)) {
+            return null
+        }
+    }
+    return candidate
 }

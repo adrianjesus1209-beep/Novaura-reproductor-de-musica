@@ -79,8 +79,8 @@ constructor(
         val uid = MediaSessionUID.fromString(mediaId ?: return) ?: return
         val parentUid =
             extras?.getString(MusicBrowser.KEY_CHILD_OF)?.let { MediaSessionUID.fromString(it) }
-        val command = expandUidIntoCommand(uid, parentUid)
-        playbackManager.play(requireNotNull(command) { "Invalid playback configuration" })
+        val command = expandUidIntoCommand(uid, parentUid) ?: return
+        playbackManager.play(command)
     }
 
     //    override fun onPrepareFromSearch(query: String?, extras: Bundle?) {
@@ -88,11 +88,13 @@ constructor(
     // STUB, can't tell when this is called
     //    }
 
-    override fun onPlayFromSearch(query: String, extras: Bundle) {
+    override fun onPlayFromSearch(query: String?, extras: Bundle?) {
         super.onPlayFromSearch(query, extras)
         val library = musicRepository.library ?: return
-        val command = expandSearchInfoCommand(query.ifBlank { null }, extras, library)
-        playbackManager.play(requireNotNull(command) { "Invalid playback configuration" })
+        val command =
+            expandSearchInfoCommand(query?.ifBlank { null }, extras ?: Bundle.EMPTY, library)
+                ?: return
+        playbackManager.play(command)
     }
 
     override fun onAddQueueItem(description: MediaDescriptionCompat) {
@@ -183,14 +185,22 @@ constructor(
 
     override fun onStop() {
         // Get the service to shut down with the ACTION_EXIT intent
-        context.sendBroadcast(Intent(PlaybackActions.ACTION_EXIT))
+        context.sendBroadcast(
+            Intent(PlaybackActions.ACTION_EXIT)
+                .setPackage(context.packageName)
+                .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
+        )
     }
 
     override fun onCustomAction(action: String, extras: Bundle?) {
         super.onCustomAction(action, extras)
         // Service already handles intents from the old notification actions, easier to
         // plug into that system.
-        context.sendBroadcast(Intent(action))
+        context.sendBroadcast(
+            Intent(action)
+                .setPackage(context.packageName)
+                .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
+        )
     }
 
     private fun expandUidIntoCommand(
@@ -224,7 +234,8 @@ constructor(
                     library.songs.maxByOrNull {
                         fuzzy(it.name, songQuery) +
                             fuzzy(it.album.name, albumQuery) +
-                            it.artists.maxOf { artist -> fuzzy(artist.name, artistQuery) }
+                            (it.artists.maxOfOrNull { artist -> fuzzy(artist.name, artistQuery) }
+                                ?: 0.0)
                     }
                 if (best != null) {
                     return expandSongIntoCommand(best, null)
@@ -236,7 +247,8 @@ constructor(
                 val best =
                     library.albums.maxByOrNull {
                         fuzzy(it.name, albumQuery) +
-                            it.artists.maxOf { artist -> fuzzy(artist.name, artistQuery) }
+                            (it.artists.maxOfOrNull { artist -> fuzzy(artist.name, artistQuery) }
+                                ?: 0.0)
                     }
                 if (best != null) {
                     return commandFactory.album(best, ShuffleMode.OFF)
@@ -289,12 +301,22 @@ constructor(
     private fun expandSongIntoCommand(music: Song, parent: MusicParent?) =
         when (parent) {
             is Album -> commandFactory.songFromAlbum(music, ShuffleMode.IMPLICIT)
-            is Artist ->
+            is Artist -> {
+                val primaryArtist = music.artists.firstOrNull()
                 commandFactory.songFromArtist(music, parent, ShuffleMode.IMPLICIT)
-                    ?: commandFactory.songFromArtist(music, music.artists[0], ShuffleMode.IMPLICIT)
-            is Genre ->
+                    ?: primaryArtist?.let {
+                        commandFactory.songFromArtist(music, it, ShuffleMode.IMPLICIT)
+                    }
+                    ?: commandFactory.songFromAll(music, ShuffleMode.IMPLICIT)
+            }
+            is Genre -> {
+                val primaryGenre = music.genres.firstOrNull()
                 commandFactory.songFromGenre(music, parent, ShuffleMode.IMPLICIT)
-                    ?: commandFactory.songFromGenre(music, music.genres[0], ShuffleMode.IMPLICIT)
+                    ?: primaryGenre?.let {
+                        commandFactory.songFromGenre(music, it, ShuffleMode.IMPLICIT)
+                    }
+                    ?: commandFactory.songFromAll(music, ShuffleMode.IMPLICIT)
+            }
             is Playlist -> commandFactory.songFromPlaylist(music, parent, ShuffleMode.IMPLICIT)
             null -> commandFactory.songFromAll(music, ShuffleMode.IMPLICIT)
         }

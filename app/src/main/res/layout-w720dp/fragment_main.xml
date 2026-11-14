@@ -78,7 +78,8 @@
     <View
         android:id="@+id/main_scrim"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:visibility="invisible" />
 
     <View
         android:id="@+id/main_sheet_scrim"
@@ -104,8 +105,7 @@
         <androidx.constraintlayout.widget.ConstraintLayout
             style="@style/Widget.Auxio.DisableDropShadows"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="horizontal">
+            android:layout_height="match_parent">
 
             <androidx.fragment.app.FragmentContainerView
                 android:id="@+id/playback_panel_fragment"
@@ -129,10 +129,7 @@
                     android:gravity="center"
                     android:text="@string/lbl_queue"
                     android:textAppearance="?attr/textAppearanceLabelLargeEmphasized"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    app:layout_constraintBottom_toBottomOf="@+id/handle"
-                    app:layout_constraintEnd_toEndOf="@+id/handle"
-                    app:layout_constraintStart_toStartOf="parent" />
+                    android:textColor="?attr/colorOnSurfaceVariant" />
 
                 <androidx.fragment.app.FragmentContainerView
                     android:id="@+id/queue_fragment"

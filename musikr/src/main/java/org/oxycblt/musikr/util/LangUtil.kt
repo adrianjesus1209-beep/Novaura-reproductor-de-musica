@@ -22,6 +22,7 @@ import java.security.MessageDigest
 import java.util.UUID
 import kotlin.coroutines.CoroutineContext
 import kotlin.reflect.KClass
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +40,8 @@ fun CoroutineScope.tryAsync(
         try {
             block()
             Result.success(Unit)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Throwable) {
             Result.failure(e)
         }
@@ -54,6 +57,9 @@ fun <T> CoroutineScope.tryAsyncWith(
             block(channel)
             channel.close()
             Result.success(Unit)
+        } catch (e: CancellationException) {
+            channel.cancel(e)
+            throw e
         } catch (e: Throwable) {
             channel.close(e)
             Result.failure(e)
@@ -72,6 +78,9 @@ fun <T, R> CoroutineScope.map(
                 block(item)?.let { output.send(it) }
             }
             output.close()
+        } catch (e: CancellationException) {
+            output.cancel(e)
+            throw e
         } catch (e: Throwable) {
             // The output must be closed even when the transform throws, otherwise the next
             // pipeline stage waits on this channel forever and the whole index hangs with no
@@ -104,6 +113,9 @@ fun <T, R> CoroutineScope.mapParallel(
             }
             deferreds.tryAwaitAll()
             output.close()
+        } catch (e: CancellationException) {
+            output.cancel(e)
+            throw e
         } catch (e: Throwable) {
             // A single unparseable file used to stop only its own worker, leaving the output
             // channel open. The next stage then blocked on it indefinitely, so the index never

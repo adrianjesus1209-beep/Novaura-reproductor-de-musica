@@ -112,7 +112,7 @@ constructor(
             // If we have a specific icon to use, make sure it is set in the view.
             val resourceId = entryIcons?.getResourceId(index, -1) ?: -1
             if (resourceId > -1) {
-                (holder.findViewById(android.R.id.icon) as ImageView).setImageResource(resourceId)
+                (holder.findViewById(android.R.id.icon) as? ImageView)?.setImageResource(resourceId)
             }
         }
     }
@@ -137,7 +137,9 @@ constructor(
      * @param index The index of the new value within [values]. Must be valid.
      */
     fun setValueIndex(index: Int) {
-        setValue(values[index])
+        if (index in values.indices) {
+            setValue(values[index])
+        }
     }
 
     private fun setValue(value: Int) {

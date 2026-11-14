@@ -80,6 +80,7 @@ class PlaylistListFragment :
     override val musicModel: MusicViewModel by activityViewModels()
     override val playbackModel: PlaybackViewModel by activityViewModels()
     private val playlistAdapter = PlaylistAdapter(this)
+    private var activePopup: PopupMenu? = null
 
     override fun onCreateBinding(inflater: LayoutInflater) =
         FragmentPlaylistListBinding.inflate(inflater)
@@ -162,6 +163,8 @@ class PlaylistListFragment :
 
     override fun onDestroyBinding(binding: FragmentPlaylistListBinding) {
         super.onDestroyBinding(binding)
+        activePopup?.dismiss()
+        activePopup = null
         binding.homeRecycler.apply {
             adapter = null
             popupProvider = null
@@ -211,6 +214,7 @@ class PlaylistListFragment :
     }
 
     private fun showSmartMenu(anchor: View, songsProvider: () -> List<Song>) {
+        activePopup?.dismiss()
         val songs = songsProvider()
         val popup = PopupMenu(requireContext(), anchor)
         val playItem = popup.menu.add(0, 1, 0, R.string.lbl_play)
@@ -226,6 +230,12 @@ class PlaylistListFragment :
             }
             true
         }
+        popup.setOnDismissListener {
+            if (activePopup === popup) {
+                activePopup = null
+            }
+        }
+        activePopup = popup
         popup.show()
     }
 
@@ -306,11 +316,6 @@ class PlaylistListFragment :
         } else if (isIndexing) {
             binding.homeNoMusicMsg.text = getString(R.string.lng_scanning_music)
             binding.homeNoMusicAction.isVisible = false
-        } else if (!empty && playlists.isEmpty()) {
-            binding.homeNoMusicMsg.text = getString(R.string.lng_empty_playlists)
-            binding.homeNoMusicAction.isVisible = true
-            binding.homeNoMusicAction.text = getString(R.string.lbl_new_playlist)
-            binding.homeNoMusicAction.setOnClickListener { musicModel.createPlaylist() }
         } else {
             binding.homeNoMusicMsg.text = getString(R.string.lng_empty_playlists)
             binding.homeNoMusicAction.isVisible = true

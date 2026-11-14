@@ -13,7 +13,7 @@
         app:useSimpleSummaryProvider="true" />
 
     <org.oxycblt.auxio.settings.ui.IntListPreference
-        app:defaultValue="@integer/theme_auto"
+        app:defaultValue="@integer/theme_dark"
         app:entries="@array/entries_theme"
         app:entryIcons="@array/icons_theme"
         app:entryValues="@array/values_theme"

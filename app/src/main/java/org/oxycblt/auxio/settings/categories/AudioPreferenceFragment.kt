@@ -19,6 +19,7 @@
 package org.oxycblt.auxio.settings.categories
 
 import androidx.navigation.fragment.findNavController
+import dagger.hilt.android.AndroidEntryPoint
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.settings.BasePreferenceFragment
 import org.oxycblt.auxio.settings.ui.WrappedDialogPreference
@@ -30,6 +31,7 @@ import timber.log.Timber as L
  *
  * @author Alexander Capehart (OxygenCobalt)
  */
+@AndroidEntryPoint
 class AudioPreferenceFragment : BasePreferenceFragment(R.xml.preferences_audio) {
 
     override fun onOpenDialogPreference(preference: WrappedDialogPreference) {

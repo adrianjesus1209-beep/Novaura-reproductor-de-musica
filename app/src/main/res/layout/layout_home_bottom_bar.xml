@@ -79,7 +79,7 @@
                 android:layout_gravity="center"
                 android:contentDescription="@string/lbl_songs"
                 android:src="@drawable/ic_song_24"
-                app:tint="#88FFFFFF" />
+                app:tint="?attr/colorOnSurfaceVariant" />
 
         </FrameLayout>
 
@@ -92,7 +92,7 @@
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
             android:text="@string/lbl_songs"
-            android:textColor="#88FFFFFF"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="10sp" />
 
     </LinearLayout>
@@ -122,7 +122,7 @@
                 android:layout_gravity="center"
                 android:contentDescription="@string/lbl_albums"
                 android:src="@drawable/ic_album_24"
-                app:tint="#88FFFFFF" />
+                app:tint="?attr/colorOnSurfaceVariant" />
 
         </FrameLayout>
 
@@ -135,7 +135,7 @@
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
             android:text="@string/lbl_albums"
-            android:textColor="#88FFFFFF"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="10sp" />
 
     </LinearLayout>
@@ -165,7 +165,7 @@
                 android:layout_gravity="center"
                 android:contentDescription="@string/lbl_artists"
                 android:src="@drawable/ic_artist_24"
-                app:tint="#88FFFFFF" />
+                app:tint="?attr/colorOnSurfaceVariant" />
 
         </FrameLayout>
 
@@ -178,7 +178,7 @@
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
             android:text="@string/lbl_artists"
-            android:textColor="#88FFFFFF"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="10sp" />
 
     </LinearLayout>
@@ -208,7 +208,7 @@
                 android:layout_gravity="center"
                 android:contentDescription="@string/lbl_playlists"
                 android:src="@drawable/ic_playlist_24"
-                app:tint="#88FFFFFF" />
+                app:tint="?attr/colorOnSurfaceVariant" />
 
         </FrameLayout>
 
@@ -221,7 +221,7 @@
             android:fontFamily="sans-serif-medium"
             android:maxLines="1"
             android:text="@string/lbl_tab_playlists"
-            android:textColor="#88FFFFFF"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="10sp" />
 
     </LinearLayout>

@@ -622,8 +622,8 @@
     <dialog
         android:id="@+id/add_to_playlist_dialog"
         android:name="org.oxycblt.auxio.music.decision.AddToPlaylistDialog"
-        android:label="new_playlist_dialog"
-        tools:layout="@layout/dialog_playlist_name">
+        android:label="add_to_playlist_dialog"
+        tools:layout="@layout/dialog_add_to_playlist">
         <argument
             android:name="songUids"
             app:argType="org.oxycblt.musikr.Music$UID[]" />

@@ -63,7 +63,7 @@
         android:focusable="true"
         app:cardCornerRadius="24dp"
         app:cardElevation="4dp"
-        app:strokeColor="#26FFFFFF"
+        app:strokeColor="?attr/colorOutlineVariant"
         app:strokeWidth="1dp">
 
         <FrameLayout

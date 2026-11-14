@@ -21,11 +21,13 @@ package org.oxycblt.auxio.playback.service
 import android.content.Context
 import android.content.Intent
 import android.media.audiofx.AudioEffect
+import android.os.Bundle
 import android.provider.OpenableColumns
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.audio.AudioProcessor
@@ -44,6 +46,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -51,6 +54,7 @@ import kotlinx.coroutines.yield
 import org.oxycblt.auxio.image.ImageSettings
 import org.oxycblt.auxio.music.FavoritesManager
 import org.oxycblt.auxio.music.MusicRepository
+import org.oxycblt.auxio.playback.EqualizerController
 import org.oxycblt.auxio.playback.PlaybackSettings
 import org.oxycblt.auxio.playback.audio.AudioLevelProcessor
 import org.oxycblt.auxio.playback.persist.PersistenceRepository
@@ -80,6 +84,7 @@ class ExoPlaybackStateHolder(
     private val musicRepository: MusicRepository,
     private val imageSettings: ImageSettings,
     private val favoritesManager: FavoritesManager,
+    private val equalizerController: EqualizerController,
 ) :
     PlaybackStateHolder,
     Player.Listener,
@@ -91,7 +96,7 @@ class ExoPlaybackStateHolder(
     private val restoreScope = CoroutineScope(Dispatchers.IO + saveJob)
     private var currentSaveJob: Job? = null
     private var openAudioEffectSession = false
-    private var lastErrorMediaItemIndex = C.INDEX_UNSET
+    private val failedMediaItemIndices = mutableSetOf<Int>()
 
     var sessionOngoing = false
         private set
@@ -103,10 +108,20 @@ class ExoPlaybackStateHolder(
         replayGainProcessor.attach()
         playbackSettings.registerListener(this)
         imageSettings.registerListener(this)
+        equalizerController.attachSession(player.audioSessionId)
     }
 
     fun release() {
+        val pendingSnapshot = if (sessionOngoing) playbackManager.toSavedState() else null
+        currentSaveJob?.cancel()
+        currentSaveJob = null
         saveJob.cancel()
+        if (pendingSnapshot != null) {
+            CoroutineScope(Dispatchers.IO + NonCancellable).launch {
+                persistenceRepository.saveState(pendingSnapshot)
+            }
+        }
+        equalizerController.releaseSession()
         playbackManager.unregisterStateHolder(this)
         musicRepository.removeUpdateListener(this)
         player.removeListener(this)
@@ -122,8 +137,14 @@ class ExoPlaybackStateHolder(
     override val progression: Progression
         get() {
             val mediaItem = player.currentMediaItem ?: return Progression.nil()
-            val duration = mediaItem.mediaMetadata.extras?.getLong("durationMs") ?: Long.MAX_VALUE
-            val clampedPosition = player.currentPosition.coerceAtLeast(0).coerceAtMost(duration)
+            val extras = mediaItem.mediaMetadata.extras
+            val duration =
+                if (extras != null && extras.containsKey(EXTRA_DURATION_MS)) {
+                    extras.getLong(EXTRA_DURATION_MS).coerceAtLeast(0L)
+                } else {
+                    Long.MAX_VALUE
+                }
+            val clampedPosition = player.currentPosition.coerceIn(0L, duration)
             return Progression.from(player.playWhenReady, player.isPlaying, clampedPosition)
         }
 
@@ -270,6 +291,7 @@ class ExoPlaybackStateHolder(
 
     override fun newPlayback(command: PlaybackCommand) {
         parent = command.parent
+        failedMediaItemIndices.clear()
         val items = command.queue.map { it.buildMediaItem() }
         runCatching {
                 // Force a clean player lifecycle per track, mirroring a MediaPlayer
@@ -357,7 +379,7 @@ class ExoPlaybackStateHolder(
 
     override fun goto(index: Int) {
         val indices = player.unscrambleQueueIndices()
-        if (indices.isEmpty()) {
+        if (index !in indices.indices) {
             return
         }
 
@@ -395,23 +417,17 @@ class ExoPlaybackStateHolder(
 
     override fun move(from: Int, to: Int, ack: StateAck.Move) {
         val indices = player.unscrambleQueueIndices()
-        if (indices.isEmpty()) {
+        if (from !in indices.indices || to !in indices.indices || from == to) {
             return
         }
 
-        val trueFrom = indices[from]
-        val trueTo = indices[to]
-        // ExoPlayer does not actually update it's ShuffleOrder when moving items. Retain a
-        // semblance of "normalcy" by doing a weird no-op swap that actually moves the item.
-        when {
-            trueFrom > trueTo -> {
-                player.moveMediaItem(trueFrom, trueTo)
-                player.moveMediaItem(trueTo + 1, trueFrom)
-            }
-            trueTo > trueFrom -> {
-                player.moveMediaItem(trueFrom, trueTo)
-                player.moveMediaItem(trueTo - 1, trueFrom)
-            }
+        if (player.shuffleModeEnabled) {
+            val reordered = indices.toMutableList()
+            val moved = reordered.removeAt(from)
+            reordered.add(to, moved)
+            player.setShuffleOrder(BetterShuffleOrder(reordered.toIntArray()))
+        } else {
+            player.moveMediaItem(indices[from], indices[to])
         }
         playbackManager.ack(this, ack)
         deferSave()
@@ -419,13 +435,14 @@ class ExoPlaybackStateHolder(
 
     override fun remove(at: Int, ack: StateAck.Remove) {
         val indices = player.unscrambleQueueIndices()
-        if (indices.isEmpty()) {
+        if (at !in indices.indices) {
             return
         }
 
         val trueIndex = indices[at]
         val songWillChange = player.currentMediaItemIndex == trueIndex
         player.removeMediaItem(trueIndex)
+        failedMediaItemIndices.clear()
         if (songWillChange && !playbackSettings.rememberPause) {
             player.play()
         }
@@ -447,6 +464,8 @@ class ExoPlaybackStateHolder(
             sendNewPlaybackEvent = true
         }
         if (rawQueue != resolveQueue()) {
+            val shouldKeepPlaying = player.mediaItemCount > 0 && player.playWhenReady
+            failedMediaItemIndices.clear()
             player.setMediaItems(rawQueue.heap.map { it.buildMediaItem() })
             if (rawQueue.isShuffled) {
                 player.shuffleModeEnabled = true
@@ -454,9 +473,11 @@ class ExoPlaybackStateHolder(
             } else {
                 player.shuffleModeEnabled = false
             }
-            player.seekTo(rawQueue.heapIndex, C.TIME_UNSET)
+            if (rawQueue.heapIndex in rawQueue.heap.indices) {
+                player.seekTo(rawQueue.heapIndex, C.TIME_UNSET)
+            }
             player.prepare()
-            player.pause()
+            player.playWhenReady = shouldKeepPlaying
             sendNewPlaybackEvent = true
             shouldSeek = true
         }
@@ -498,12 +519,18 @@ class ExoPlaybackStateHolder(
     }
 
     override fun reset(ack: StateAck.NewPlayback) {
+        failedMediaItemIndices.clear()
         player.setMediaItems(listOf())
         playbackManager.ack(this, ack)
         deferSave()
     }
 
     // --- PLAYER OVERRIDES ---
+
+    override fun onAudioSessionIdChanged(audioSessionId: Int) {
+        super.onAudioSessionIdChanged(audioSessionId)
+        equalizerController.attachSession(audioSessionId)
+    }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
         super.onPlayWhenReadyChanged(playWhenReady, reason)
@@ -530,9 +557,18 @@ class ExoPlaybackStateHolder(
     override fun onPlaybackStateChanged(playbackState: Int) {
         super.onPlaybackStateChanged(playbackState)
 
-        if (playbackState == Player.STATE_ENDED && player.repeatMode == Player.REPEAT_MODE_OFF) {
-            goto(0)
+        if (playbackState == Player.STATE_READY) {
+            failedMediaItemIndices.clear()
+        } else if (
+            playbackState == Player.STATE_ENDED && player.repeatMode == Player.REPEAT_MODE_OFF
+        ) {
             player.pause()
+            val firstQueueIndex = player.unscrambleQueueIndices().firstOrNull()
+            if (firstQueueIndex != null && firstQueueIndex in 0 until player.mediaItemCount) {
+                player.seekTo(firstQueueIndex, C.TIME_UNSET)
+                playbackManager.ack(this, StateAck.IndexMoved)
+                deferSave()
+            }
         }
     }
 
@@ -575,21 +611,19 @@ class ExoPlaybackStateHolder(
         }
         L.e("[PLAYBACK_ERROR] stacktrace:\n${error.stackTraceToString()}")
 
-        // Avoid getting stuck retrying the same item forever: if the same item fails twice in a
-        // row, stop playback instead of skipping in an infinite loop.
-        if (lastErrorMediaItemIndex == failingIndex) {
-            L.e("[PLAYBACK_ERROR] Repeated error on the same media item, stopping playback")
-            player.stop()
-            player.setMediaItems(listOf())
-            lastErrorMediaItemIndex = C.INDEX_UNSET
-            sessionOngoing = false
-            playbackManager.ack(this, StateAck.NewPlayback)
-            playbackManager.ack(this, StateAck.SessionEnded)
+        // Avoid getting stuck retrying failed items infinitely (including under REPEAT_MODE_ALL
+        // when >= 2 tracks fail consecutively).
+        val repeatedFailure =
+            failingIndex == C.INDEX_UNSET ||
+                !failedMediaItemIndices.add(failingIndex) ||
+                failedMediaItemIndices.size >= player.mediaItemCount
+        if (repeatedFailure) {
+            L.e("[PLAYBACK_ERROR] Repeated or total queue failure, stopping playback")
+            stopAfterError()
             return
         }
-        lastErrorMediaItemIndex = failingIndex
 
-        // If there's any issue, just go to the next song.
+        // If there's any issue, try advancing to the next item if available.
         if (player.hasNextMediaItem()) {
             L.d("[PLAYBACK_ERROR] Skipping to the next media item after failure")
             player.seekToNextMediaItem()
@@ -597,10 +631,18 @@ class ExoPlaybackStateHolder(
             player.play()
             playbackManager.ack(this, StateAck.IndexMoved)
         } else {
-            L.d("[PLAYBACK_ERROR] Last item failed, restarting the queue")
-            player.prepare()
-            playbackManager.next()
+            L.d("[PLAYBACK_ERROR] Last item failed with no next item, stopping playback")
+            stopAfterError()
         }
+    }
+
+    private fun stopAfterError() {
+        player.stop()
+        player.setMediaItems(listOf())
+        failedMediaItemIndices.clear()
+        sessionOngoing = false
+        playbackManager.ack(this, StateAck.NewPlayback)
+        playbackManager.ack(this, StateAck.SessionEnded)
     }
 
     private fun broadcastAudioEffectAction(event: String) {
@@ -638,7 +680,8 @@ class ExoPlaybackStateHolder(
     private fun save(cb: () -> Unit) {
         saveJob {
             if (sessionOngoing) {
-                persistenceRepository.saveState(playbackManager.toSavedState())
+                val snapshot = withContext(Dispatchers.Main) { playbackManager.toSavedState() }
+                withContext(NonCancellable) { persistenceRepository.saveState(snapshot) }
             }
             withContext(Dispatchers.Main) { cb() }
         }
@@ -651,7 +694,8 @@ class ExoPlaybackStateHolder(
             yield()
             L.d("Committing saved state")
             if (sessionOngoing) {
-                persistenceRepository.saveState(playbackManager.toSavedState())
+                val snapshot = withContext(Dispatchers.Main) { playbackManager.toSavedState() }
+                withContext(NonCancellable) { persistenceRepository.saveState(snapshot) }
             }
         }
     }
@@ -665,30 +709,39 @@ class ExoPlaybackStateHolder(
     }
 
     private fun Song.buildMediaItem() =
-        MediaItem.Builder().setUri(uri).setTag(this).build().also {
-            val scheme = uri.scheme
-            if (scheme != "content") {
-                // The player only accepts Content URIs built from MediaStore IDs. Flag any
-                // legacy file:///absolute-path URI so the blocking failure is diagnosable.
-                L.w(
-                    "[PLAYBACK_ERROR] NON_CONTENT_URI song=\"$name\" uri=$uri " +
-                        "scheme=${scheme ?: "null"}"
-                )
+        MediaItem.Builder()
+            .setUri(uri)
+            .setTag(this)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setExtras(Bundle().apply { putLong(EXTRA_DURATION_MS, durationMs) })
+                    .build()
+            )
+            .build()
+            .also {
+                val scheme = uri.scheme
+                if (scheme != "content") {
+                    // The player only accepts Content URIs built from MediaStore IDs. Flag any
+                    // legacy file:///absolute-path URI so the blocking failure is diagnosable.
+                    L.w(
+                        "[PLAYBACK_ERROR] NON_CONTENT_URI song=\"$name\" uri=$uri " +
+                            "scheme=${scheme ?: "null"}"
+                    )
+                }
             }
-        }
 
     private val MediaItem.song: Song?
         get() = this.localConfiguration?.tag as? Song?
 
     private fun Player.unscrambleQueueIndices(): List<Int> {
         val timeline = currentTimeline
-        if (timeline.isEmpty) {
+        val currentMediaItemIndex = currentMediaItemIndex
+        if (timeline.isEmpty || currentMediaItemIndex !in 0 until timeline.windowCount) {
             return emptyList()
         }
         val queue = mutableListOf<Int>()
 
         // Add the active queue item.
-        val currentMediaItemIndex = currentMediaItemIndex
         queue.add(currentMediaItemIndex)
 
         // Fill queue alternating with next and/or previous queue items.
@@ -739,6 +792,7 @@ class ExoPlaybackStateHolder(
         private val musicRepository: MusicRepository,
         private val imageSettings: ImageSettings,
         private val favoritesManager: FavoritesManager,
+        private val equalizerController: EqualizerController,
     ) {
         fun create(): ExoPlaybackStateHolder {
             // Since Auxio is a music player, only specify an audio renderer to save
@@ -789,11 +843,13 @@ class ExoPlaybackStateHolder(
                 musicRepository,
                 imageSettings,
                 favoritesManager,
+                equalizerController,
             )
         }
     }
 
     private companion object {
         const val SAVE_BUFFER = 5000L
+        const val EXTRA_DURATION_MS = "durationMs"
     }
 }

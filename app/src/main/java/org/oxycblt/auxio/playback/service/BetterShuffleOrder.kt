@@ -47,11 +47,17 @@ class BetterShuffleOrder(private val shuffled: IntArray) : ShuffleOrder {
     }
 
     override fun getNextIndex(index: Int): Int {
+        if (index !in indexInShuffled.indices) {
+            return C.INDEX_UNSET
+        }
         var shuffledIndex = indexInShuffled[index]
         return if (++shuffledIndex < shuffled.size) shuffled[shuffledIndex] else C.INDEX_UNSET
     }
 
     override fun getPreviousIndex(index: Int): Int {
+        if (index !in indexInShuffled.indices) {
+            return C.INDEX_UNSET
+        }
         var shuffledIndex = indexInShuffled[index]
         return if (--shuffledIndex >= 0) shuffled[shuffledIndex] else C.INDEX_UNSET
     }
@@ -94,7 +100,7 @@ class BetterShuffleOrder(private val shuffled: IntArray) : ShuffleOrder {
         }
         if (insertionIndex < shuffled.size) {
             for (i in 0 until insertionCount) {
-                newShuffled[pivot + i + 1] = insertionIndex + i + 1
+                newShuffled[pivot + i + 1] = insertionIndex + i
             }
         } else {
             for (i in 0 until insertionCount) {
@@ -132,7 +138,7 @@ class BetterShuffleOrder(private val shuffled: IntArray) : ShuffleOrder {
                 shuffled[i] = shuffled[swapIndex]
                 shuffled[swapIndex] = i
             }
-            if (startIndex != -1) {
+            if (startIndex in shuffled.indices) {
                 val startIndexInShuffled = shuffled.indexOf(startIndex)
                 val temp = shuffled[0]
                 shuffled[0] = shuffled[startIndexInShuffled]

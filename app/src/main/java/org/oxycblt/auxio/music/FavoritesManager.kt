@@ -57,14 +57,18 @@ constructor(
     }
 
     override fun onMusicChanges(changes: MusicRepository.Changes) {
-        refreshFavorites()
+        if (changes.deviceLibrary) {
+            refreshFavorites()
+        }
     }
 
+    @Synchronized
     private fun refreshFavorites() {
         val resolved = resolveFavoriteSongs()
         _favoriteSongs.value = resolved
     }
 
+    @Synchronized
     private fun resolveFavoriteSongs(): List<Song> {
         val library = musicRepository.library ?: return emptyList()
         val uids = _favoriteUids.value
@@ -99,12 +103,13 @@ constructor(
         for (item in list) {
             array.put(item)
         }
-        prefs.edit().putString(KEY_FAVORITES_JSON, array.toString()).commit()
+        prefs.edit().putString(KEY_FAVORITES_JSON, array.toString()).apply()
         _favoriteUids.value = list
         refreshFavorites()
     }
 
     /** Returns whether the given song is in favorites. */
+    @Synchronized
     fun isFavorite(songUid: Music.UID): Boolean {
         return _favoriteUids.value.contains(songUid.toString())
     }
@@ -156,10 +161,41 @@ constructor(
         }
     }
 
+    /** Batch-updates favorite status for multiple songs in a single persistence write. */
+    @Synchronized
+    fun setFavorites(songUids: Collection<Music.UID>, favorite: Boolean) {
+        if (songUids.isEmpty()) return
+        val current = _favoriteUids.value.toMutableList()
+        var changed = false
+        if (favorite) {
+            val currentSet = current.toHashSet()
+            val toPrepend = ArrayList<String>(songUids.size)
+            for (songUid in songUids) {
+                val uidStr = songUid.toString()
+                if (currentSet.add(uidStr)) {
+                    toPrepend.add(uidStr)
+                }
+            }
+            if (toPrepend.isNotEmpty()) {
+                current.addAll(0, toPrepend)
+                changed = true
+            }
+        } else {
+            val uidSet = songUids.mapTo(HashSet(songUids.size)) { it.toString() }
+            if (current.removeAll { it in uidSet }) {
+                changed = true
+            }
+        }
+        if (changed) {
+            saveFavorites(current)
+        }
+    }
+
     /**
      * Resolves the current favorite songs against the active music library. Songs are returned in
      * the order they were favorited.
      */
+    @Synchronized
     fun getFavoriteSongs(): List<Song> {
         val cached = _favoriteSongs.value
         if (cached.isNotEmpty()) {

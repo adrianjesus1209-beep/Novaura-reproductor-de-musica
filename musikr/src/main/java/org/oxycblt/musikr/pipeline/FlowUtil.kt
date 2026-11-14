@@ -18,6 +18,7 @@
  
 package org.oxycblt.musikr.pipeline
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -25,6 +26,8 @@ internal fun <T, R> Flow<T>.tryMap(transform: suspend (T) -> R): Flow<R> = flow 
     collect { value ->
         try {
             emit(transform(value))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             throw PipelineException(value, e)
         }

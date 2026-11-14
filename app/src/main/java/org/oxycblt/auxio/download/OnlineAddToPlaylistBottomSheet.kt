@@ -19,7 +19,6 @@
 package org.oxycblt.auxio.download
 
 import android.content.Context
-import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -186,16 +185,14 @@ class OnlineAddToPlaylistBottomSheet :
         }
     }
 
-    @Suppress("DEPRECATION")
     private fun extractSongsArgument(): List<OnlineSong> {
         val args = arguments ?: return emptyList()
-        val list =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                args.getSerializable(ARG_SONGS, ArrayList::class.java)
-            } else {
-                args.getSerializable(ARG_SONGS) as? ArrayList<*>
-            }
-        return list?.filterIsInstance<OnlineSong>() ?: emptyList()
+        return androidx.core.os.BundleCompat.getParcelableArrayList(
+                args,
+                ARG_SONGS,
+                OnlineSong::class.java,
+            )
+            ?.toList() ?: emptyList()
     }
 
     private data class OnlinePlaylistChoiceItem(
@@ -235,6 +232,7 @@ class OnlineAddToPlaylistBottomSheet :
                 val firstThumb =
                     playlist.songs.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
                 if (firstThumb.isNullOrEmpty()) {
+                    binding.choiceOnlineCover.tag = null
                     binding.choiceOnlineCover.scaleType = ImageView.ScaleType.CENTER_INSIDE
                     binding.choiceOnlineCover.setImageResource(R.drawable.ic_playlist_24)
                 } else {

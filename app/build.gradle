@@ -31,8 +31,8 @@ android {
 
     defaultConfig {
         applicationId "com.novaura.music"
-        versionName "1.4.6.3"
-        versionCode 74
+        versionName "1.4.6.4"
+        versionCode 75
 
         minSdk min_sdk
         // randomly flickers between deprecated and required depending on what mood my gradle is in
@@ -48,6 +48,7 @@ android {
         // stubs in the unit-test android.jar throw on every call, so let the few Log paths inside
         // media3 return defaults instead of failing the test.
         unitTests.returnDefaultValues = true
+        unitTests.includeAndroidResources = true
     }
 
     compileOptions {
@@ -90,12 +91,28 @@ android {
         }
     }
 
+    androidResources {
+        localeFilters += ["en", "es"]
+    }
+
     packagingOptions {
         jniLibs {
             excludes += ['**/kotlin/**', '**/okhttp3/**']
         }
         resources {
-            excludes += ['DebugProbesKt.bin', 'kotlin-tooling-metadata.json', '**/kotlin/**', '**/okhttp3/**', 'META-INF/*.version']
+            excludes += [
+                'DebugProbesKt.bin',
+                'kotlin-tooling-metadata.json',
+                '**/kotlin/**',
+                '**/okhttp3/**',
+                'META-INF/*.version',
+                'META-INF/LICENSE*',
+                'META-INF/NOTICE*',
+                'META-INF/DEPENDENCIES',
+                'META-INF/AL2.0',
+                'META-INF/LGPL2.1',
+                '**/*.proto'
+            ]
         }
     }
 
@@ -166,8 +183,6 @@ dependencies {
     // Media
     implementation "androidx.media:media:1.8.0"
 
-    // Android Auto
-    implementation "androidx.car.app:app:1.7.0"
 
     // Preferences
     implementation "androidx.preference:preference-ktx:1.2.1"
@@ -230,4 +245,8 @@ dependencies {
     // --- TESTS ---
 
     testImplementation "junit:junit:4.13.2"
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$kotlin_coroutines_version"
+    testImplementation "io.mockk:mockk:1.14.11"
+    testImplementation "androidx.test:core-ktx:1.7.0"
+    testImplementation "org.robolectric:robolectric:4.16.1"
 }

@@ -176,6 +176,7 @@ class DownloadAdapter(
                 binding.songDownloadButton.visibility = View.VISIBLE
                 binding.songDownloadButton.setIconResource(R.drawable.ic_check_24)
                 binding.songDownloadButton.isEnabled = false
+                binding.songDownloadButton.setOnClickListener(null)
             } else if (isDownloading) {
                 val progress = progressMap[song.webUrl] ?: 0
                 binding.songDownloadButton.visibility = View.GONE

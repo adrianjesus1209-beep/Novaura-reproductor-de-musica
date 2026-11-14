@@ -24,6 +24,7 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import java.util.Locale
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.ItemDownloadQueueBinding
 
@@ -61,6 +62,7 @@ class DownloadQueueAdapter(
                 DownloadStatus.DOWNLOADING -> {
                     binding.queueSongStatus.text =
                         String.format(
+                            Locale.getDefault(),
                             "%d%% • %s",
                             item.progress,
                             context.getString(R.string.lbl_status_downloading),
@@ -72,6 +74,7 @@ class DownloadQueueAdapter(
                 DownloadStatus.PAUSED -> {
                     binding.queueSongStatus.text =
                         String.format(
+                            Locale.getDefault(),
                             "%d%% • %s",
                             item.progress,
                             context.getString(R.string.lbl_status_paused),

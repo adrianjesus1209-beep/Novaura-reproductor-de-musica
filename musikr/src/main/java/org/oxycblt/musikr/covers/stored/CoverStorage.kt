@@ -81,21 +81,43 @@ interface CoverStorage {
          * @return A [CoverStorage] instance.
          */
         suspend fun at(dir: File): CoverStorage {
-            withContext(Dispatchers.IO) {
-                check(dir.exists() && dir.isDirectory) { "Not a existent directory" }
-            }
-            return FSCoverStorage(dir)
+            val initialFiles =
+                withContext(Dispatchers.IO) {
+                    check(dir.exists() && dir.isDirectory) { "Not a existent directory" }
+                    dir.list()?.filter(::isSafeFlatFileName) ?: emptyList()
+                }
+            return FSCoverStorage(dir, initialFiles)
         }
     }
 }
 
-private class FSCoverStorage(private val dir: File) : CoverStorage {
+private fun isSafeFlatFileName(name: String): Boolean =
+    name.isNotEmpty() &&
+        name != "." &&
+        name != ".." &&
+        !name.contains('/') &&
+        !name.contains('\\') &&
+        !name.contains('\u0000') &&
+        !name.endsWith(".tmp")
+
+private fun resolveSafeChild(dir: File, name: String): File? {
+    if (!isSafeFlatFileName(name)) {
+        return null
+    }
+    return try {
+        val canonicalDir = dir.canonicalFile
+        val candidate = File(canonicalDir, name).canonicalFile
+        if (candidate.parentFile == canonicalDir) candidate else null
+    } catch (_: IOException) {
+        null
+    }
+}
+
+private class FSCoverStorage(private val dir: File, initialFiles: List<String>) : CoverStorage {
     private val fileMutexes = mutableMapOf<String, Mutex>()
     private val mapMutex = Mutex()
     private val existingFiles =
-        java.util.concurrent.ConcurrentHashMap.newKeySet<String>().apply {
-            dir.list()?.let { addAll(it) }
-        }
+        java.util.concurrent.ConcurrentHashMap.newKeySet<String>().apply { addAll(initialFiles) }
 
     private suspend fun getMutexForFile(file: String): Mutex {
         return mapMutex.withLock { fileMutexes.getOrPut(file) { Mutex() } }
@@ -103,31 +125,38 @@ private class FSCoverStorage(private val dir: File) : CoverStorage {
 
     override suspend fun find(name: String): FDCover? =
         withContext(Dispatchers.IO) {
+            val targetFile = resolveSafeChild(dir, name) ?: return@withContext null
             try {
-                if (existingFiles.contains(name)) {
-                    FSStoredCover(File(dir, name))
-                } else if (File(dir, name).exists()) {
+                if (existingFiles.contains(name) && targetFile.exists()) {
+                    FSStoredCover(targetFile)
+                } else if (targetFile.exists()) {
                     existingFiles.add(name)
-                    FSStoredCover(File(dir, name))
+                    FSStoredCover(targetFile)
                 } else {
+                    existingFiles.remove(name)
                     null
                 }
-            } catch (e: IOException) {
+            } catch (_: IOException) {
                 null
             }
         }
 
     override suspend fun write(name: String, block: suspend (OutputStream) -> Unit): FDCover {
+        val targetFile =
+            withContext(Dispatchers.IO) { resolveSafeChild(dir, name) }
+                ?: throw IOException("Unsafe cover filename: $name")
         val fileMutex = getMutexForFile(name)
         return fileMutex.withLock {
-            val targetFile = File(dir, name)
             if (!targetFile.exists()) {
                 withContext(Dispatchers.IO) {
-                    val tempFile = File(dir, "$name.tmp")
+                    val tempFile = File(targetFile.parentFile, "$name.tmp")
 
                     try {
                         tempFile.outputStream().use { block(it) }
-                        tempFile.renameTo(targetFile)
+                        if (!tempFile.renameTo(targetFile)) {
+                            tempFile.copyTo(targetFile, overwrite = true)
+                            tempFile.delete()
+                        }
                         existingFiles.add(name)
                         FSStoredCover(targetFile)
                     } catch (e: IOException) {
@@ -136,6 +165,7 @@ private class FSCoverStorage(private val dir: File) : CoverStorage {
                     }
                 }
             } else {
+                existingFiles.add(name)
                 FSStoredCover(targetFile)
             }
         }
@@ -143,12 +173,25 @@ private class FSCoverStorage(private val dir: File) : CoverStorage {
 
     override suspend fun ls(exclude: Set<String>): List<String> =
         withContext(Dispatchers.IO) {
-            dir.listFiles { _, name -> !exclude.contains(name) }?.map { it.name } ?: emptyList()
+            dir.listFiles { _, name ->
+                    isSafeFlatFileName(name) && !exclude.contains(name)
+                }
+                ?.map { it.name } ?: emptyList()
         }
 
     override suspend fun rm(name: String) {
+        val targetFile = withContext(Dispatchers.IO) { resolveSafeChild(dir, name) } ?: return
         existingFiles.remove(name)
-        withContext(Dispatchers.IO) { File(dir, name).deleteRecursively() }
+        val fileMutex = getMutexForFile(name)
+        fileMutex.withLock {
+            withContext(Dispatchers.IO) { targetFile.deleteRecursively() }
+        }
+        mapMutex.withLock {
+            val current = fileMutexes[name]
+            if (current != null && !current.isLocked) {
+                fileMutexes.remove(name)
+            }
+        }
     }
 }
 

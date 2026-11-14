@@ -32,23 +32,37 @@ import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import org.oxycblt.musikr.tag.Date
 import org.oxycblt.musikr.util.correctWhitespace
 import org.oxycblt.musikr.util.splitEscaped
 
-@Database(entities = [CachedFileData::class], version = 70, exportSchema = false)
+@Database(entities = [CachedFileData::class], version = 71, exportSchema = false)
 internal abstract class CacheDatabase : RoomDatabase() {
     abstract fun readDao(): CacheReadDao
 
     abstract fun writeDao(): CacheWriteDao
 
     companion object {
+        private val MIGRATION_70_71 =
+            object : Migration(70, 71) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE CachedFileData ADD COLUMN volumeName TEXT")
+                    db.execSQL("ALTER TABLE CachedFileData ADD COLUMN unixPath TEXT")
+                    db.execSQL(
+                        "ALTER TABLE CachedFileData ADD COLUMN size INTEGER NOT NULL DEFAULT 0"
+                    )
+                }
+            }
+
         fun from(context: Context) =
             Room.databaseBuilder(
                     context.applicationContext,
                     CacheDatabase::class.java,
                     "music_cache.db",
                 )
+                .addMigrations(MIGRATION_70_71)
                 .fallbackToDestructiveMigration(true)
                 .build()
     }
@@ -119,6 +133,9 @@ internal data class CachedFileData(
     val replayGainTrackAdjustment: Float?,
     val replayGainAlbumAdjustment: Float?,
     val coverId: String?,
+    val volumeName: String? = null,
+    val unixPath: String? = null,
+    val size: Long = 0L,
 ) {
     object Converters {
         @TypeConverter

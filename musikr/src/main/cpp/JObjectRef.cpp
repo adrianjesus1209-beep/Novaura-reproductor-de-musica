@@ -17,12 +17,19 @@
  */
  
 #include "JObjectRef.h"
+#include "util.h"
 
 JObjectRef::JObjectRef(JNIEnv *env, jobject object) : env(env), object(object) {
+    checkJniException(env, "Pending JNI exception constructing JObjectRef");
+    if (object == nullptr) {
+        throw std::runtime_error("JObjectRef initialized with null jobject");
+    }
 }
 
 JObjectRef::~JObjectRef() {
-    env->DeleteLocalRef(object);
+    if (object != nullptr) {
+        env->DeleteLocalRef(object);
+    }
 }
 
 jobject& JObjectRef::operator*() {

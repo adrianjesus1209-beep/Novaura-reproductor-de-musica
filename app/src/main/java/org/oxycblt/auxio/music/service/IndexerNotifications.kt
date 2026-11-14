@@ -58,9 +58,10 @@ class IndexingNotification(private val context: Context) :
      * Update this notification with the new music loading state.
      *
      * @param progress The new music loading state to display in the notification.
+     * @param force True if the caller requires the notification immediately regardless of throttle.
      * @return true if the notification updated, false otherwise
      */
-    fun updateIndexingState(progress: IndexingProgress): Boolean {
+    fun updateIndexingState(progress: IndexingProgress, force: Boolean = false): Boolean {
         when (progress) {
             is IndexingProgress.Indeterminate -> {
                 // Indeterminate state, use a vaguer description and in-determinate progress.
@@ -75,20 +76,24 @@ class IndexingNotification(private val context: Context) :
             is IndexingProgress.Songs -> {
                 // Determinate state, show an active progress meter. Since these updates arrive
                 // highly rapidly, only update every 1.5 seconds to prevent notification rate
-                // limiting.
+                // limiting unless forced (e.g., initial foreground promotion).
                 val now = SystemClock.elapsedRealtime()
-                if (lastUpdateTime > -1 && (now - lastUpdateTime) < 1500) {
+                if (!force && lastUpdateTime > -1 && (now - lastUpdateTime) < 1500) {
                     return false
                 }
-                lastUpdateTime = SystemClock.elapsedRealtime()
+                lastUpdateTime = now
                 L.d("Updating state to $progress")
                 setContentText(
                     context.getString(R.string.fmt_indexing, progress.loaded, progress.explored)
                 )
-                setProgress(progress.loaded, progress.explored, false)
+                setProgress(progress.explored, progress.loaded, false)
                 return true
             }
         }
+    }
+
+    fun reset() {
+        lastUpdateTime = -1L
     }
 }
 

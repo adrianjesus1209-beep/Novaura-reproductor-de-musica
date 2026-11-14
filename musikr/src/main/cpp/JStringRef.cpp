@@ -18,17 +18,27 @@
  
 #include "JStringRef.h"
 #include "util.h"
+#include <limits>
 
 JStringRef::JStringRef(JNIEnv *env, jstring jString) : env(env), string(jString) {
 }
 
 JStringRef::JStringRef(JNIEnv *env, const TagLib::String string) : env(env) {
     TagLib::ByteVector utf16 = string.data(TagLib::String::UTF16LE);
+    size_t charCount = utf16.size() / 2;
+    if (charCount
+            > static_cast<size_t>(std::numeric_limits < jsize > ::max())) {
+        throw std::runtime_error("TagLib string exceeds maximum jsize");
+    }
     const jchar empty = 0;
     const jchar *chars =
             utf16.isEmpty() ?
                     &empty : reinterpret_cast<const jchar*>(utf16.data());
-    this->string = env->NewString(chars, static_cast<jsize>(utf16.size() / 2));
+    this->string = env->NewString(chars, static_cast<jsize>(charCount));
+    checkJniException(env, "NewString threw JNI exception");
+    if (this->string == nullptr) {
+        throw std::runtime_error("NewString returned null");
+    }
 }
 
 JStringRef::~JStringRef() {
@@ -42,13 +52,17 @@ TagLib::String JStringRef::copy() {
         return TagLib::String();
     }
     jsize length = env->GetStringLength(string);
+    if (length <= 0) {
+        return TagLib::String();
+    }
     const jchar *chars = env->GetStringChars(string, nullptr);
     if (chars == nullptr) {
+        checkJniException(env, "GetStringChars threw JNI exception");
         return TagLib::String();
     }
     TagLib::String result(
             TagLib::ByteVector(reinterpret_cast<const char*>(chars),
-                    static_cast<unsigned int>(length * 2)),
+                    static_cast<unsigned int>(length) * 2),
             TagLib::String::UTF16LE);
     env->ReleaseStringChars(string, chars);
     return result;

@@ -24,6 +24,8 @@ import java.text.Normalizer
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.musikr.Album
@@ -73,127 +75,157 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
         val normalizedName: String,
     )
 
+    private class IndexSnapshot(
+        val songs: List<IndexedSong> = emptyList(),
+        val albums: List<IndexedAlbum> = emptyList(),
+        val artists: List<IndexedArtist> = emptyList(),
+        val genres: List<IndexedGenre> = emptyList(),
+        val playlists: List<IndexedPlaylist> = emptyList(),
+    )
+
     @Volatile
     var isReady: Boolean = false
         private set
 
-    private var indexedSongs: List<IndexedSong> = emptyList()
-    private var indexedAlbums: List<IndexedAlbum> = emptyList()
-    private var indexedArtists: List<IndexedArtist> = emptyList()
-    private var indexedGenres: List<IndexedGenre> = emptyList()
-    private var indexedPlaylists: List<IndexedPlaylist> = emptyList()
+    private val buildMutex = Mutex()
+    @Volatile private var snapshot = IndexSnapshot()
 
     /** Builds the pre-normalized in-memory index from the loaded [Library]. */
     suspend fun build(library: Library) =
         withContext(Dispatchers.Default) {
-            L.d("Building in-memory SearchIndex for ${library.songs.size} songs")
-            val startTime = System.currentTimeMillis()
+            buildMutex.withLock {
+                L.d("Building in-memory SearchIndex for ${library.songs.size} songs")
+                val startTime = System.currentTimeMillis()
 
-            val songsList = ArrayList<IndexedSong>(library.songs.size)
-            for (song in library.songs) {
-                val resolvedName = song.name.resolve(context)
-                val normalizedName = normalizeString(resolvedName)
-                val sortName = song.name.sort?.let { normalizeString(it) }
-                val artistName =
-                    song.artists.firstOrNull()?.name?.resolve(context)?.let { normalizeString(it) }
-                val albumName = normalizeString(song.album.name.resolve(context))
-                val pathName = song.path.name?.let { normalizeString(it) }
+                val songsList = ArrayList<IndexedSong>(library.songs.size)
+                for (song in library.songs) {
+                    val resolvedName = song.name.resolve(context)
+                    val normalizedName = normalizeString(resolvedName)
+                    val sortName = song.name.sort?.let { normalizeString(it) }
+                    val artistName =
+                        song.artists.firstOrNull()?.name?.resolve(context)?.let {
+                            normalizeString(it)
+                        }
+                    val albumName = normalizeString(song.album.name.resolve(context))
+                    val pathName = song.path.name?.let { normalizeString(it) }
 
-                songsList.add(
-                    IndexedSong(
-                        song = song,
-                        normalizedName = normalizedName,
-                        sortName = sortName,
-                        normalizedArtist = artistName,
-                        normalizedAlbum = albumName,
-                        pathName = pathName,
+                    songsList.add(
+                        IndexedSong(
+                            song = song,
+                            normalizedName = normalizedName,
+                            sortName = sortName,
+                            normalizedArtist = artistName,
+                            normalizedAlbum = albumName,
+                            pathName = pathName,
+                        )
                     )
+                }
+
+                val albumsList = ArrayList<IndexedAlbum>(library.albums.size)
+                for (album in library.albums) {
+                    val resolvedName = album.name.resolve(context)
+                    val normalizedName = normalizeString(resolvedName)
+                    val sortName = (album.name as? Name.Known)?.sort?.let { normalizeString(it) }
+                    val artistName =
+                        album.artists.firstOrNull()?.name?.resolve(context)?.let {
+                            normalizeString(it)
+                        }
+                    albumsList.add(
+                        IndexedAlbum(
+                            album = album,
+                            normalizedName = normalizedName,
+                            sortName = sortName,
+                            normalizedArtist = artistName,
+                        )
+                    )
+                }
+
+                val artistsList = ArrayList<IndexedArtist>(library.artists.size)
+                for (artist in library.artists) {
+                    val resolvedName = artist.name.resolve(context)
+                    val normalizedName = normalizeString(resolvedName)
+                    val sortName = (artist.name as? Name.Known)?.sort?.let { normalizeString(it) }
+                    artistsList.add(
+                        IndexedArtist(
+                            artist = artist,
+                            normalizedName = normalizedName,
+                            sortName = sortName,
+                        )
+                    )
+                }
+
+                val genresList = ArrayList<IndexedGenre>(library.genres.size)
+                for (genre in library.genres) {
+                    val resolvedName = genre.name.resolve(context)
+                    genresList.add(
+                        IndexedGenre(
+                            genre = genre,
+                            normalizedName = normalizeString(resolvedName),
+                        )
+                    )
+                }
+
+                val playlistsList = ArrayList<IndexedPlaylist>(library.playlists.size)
+                for (playlist in library.playlists) {
+                    val resolvedName = playlist.name.resolve(context)
+                    playlistsList.add(
+                        IndexedPlaylist(
+                            playlist = playlist,
+                            normalizedName = normalizeString(resolvedName),
+                        )
+                    )
+                }
+
+                snapshot =
+                    IndexSnapshot(
+                        songs = songsList,
+                        albums = albumsList,
+                        artists = artistsList,
+                        genres = genresList,
+                        playlists = playlistsList,
+                    )
+                isReady = true
+
+                val tookMs = System.currentTimeMillis() - startTime
+                L.d(
+                    "SearchIndex built in ${tookMs}ms: ${songsList.size} songs, ${albumsList.size} albums, ${artistsList.size} artists"
                 )
             }
-
-            val albumsList = ArrayList<IndexedAlbum>(library.albums.size)
-            for (album in library.albums) {
-                val resolvedName = album.name.resolve(context)
-                val normalizedName = normalizeString(resolvedName)
-                val sortName = (album.name as? Name.Known)?.sort?.let { normalizeString(it) }
-                val artistName =
-                    album.artists.firstOrNull()?.name?.resolve(context)?.let { normalizeString(it) }
-                albumsList.add(
-                    IndexedAlbum(
-                        album = album,
-                        normalizedName = normalizedName,
-                        sortName = sortName,
-                        normalizedArtist = artistName,
-                    )
-                )
-            }
-
-            val artistsList = ArrayList<IndexedArtist>(library.artists.size)
-            for (artist in library.artists) {
-                val resolvedName = artist.name.resolve(context)
-                val normalizedName = normalizeString(resolvedName)
-                val sortName = (artist.name as? Name.Known)?.sort?.let { normalizeString(it) }
-                artistsList.add(
-                    IndexedArtist(
-                        artist = artist,
-                        normalizedName = normalizedName,
-                        sortName = sortName,
-                    )
-                )
-            }
-
-            val genresList = ArrayList<IndexedGenre>(library.genres.size)
-            for (genre in library.genres) {
-                val resolvedName = genre.name.resolve(context)
-                genresList.add(
-                    IndexedGenre(
-                        genre = genre,
-                        normalizedName = normalizeString(resolvedName),
-                    )
-                )
-            }
-
-            val playlistsList = ArrayList<IndexedPlaylist>(library.playlists.size)
-            for (playlist in library.playlists) {
-                val resolvedName = playlist.name.resolve(context)
-                playlistsList.add(
-                    IndexedPlaylist(
-                        playlist = playlist,
-                        normalizedName = normalizeString(resolvedName),
-                    )
-                )
-            }
-
-            indexedSongs = songsList
-            indexedAlbums = albumsList
-            indexedArtists = artistsList
-            indexedGenres = genresList
-            indexedPlaylists = playlistsList
-            isReady = true
-
-            val tookMs = System.currentTimeMillis() - startTime
-            L.d(
-                "SearchIndex built in ${tookMs}ms: ${songsList.size} songs, ${albumsList.size} albums, ${artistsList.size} artists"
-            )
         }
 
     fun searchSongs(query: String, filterCollection: Collection<Song>?): List<Song> {
+        val currentSnapshot = snapshot
         val cleanQuery = normalizeString(query)
-        if (cleanQuery.isEmpty()) return emptyList()
+        val rawQuery = query.trim().lowercase()
+        if (cleanQuery.isEmpty() && rawQuery.isEmpty()) return emptyList()
 
         val allowedSet = filterCollection?.toSet()
         val results = ArrayList<Song>()
 
-        for (item in indexedSongs) {
+        for (item in currentSnapshot.songs) {
             if (allowedSet != null && !allowedSet.contains(item.song)) continue
 
-            if (
-                item.normalizedName.contains(cleanQuery) ||
-                    (item.sortName != null && item.sortName.contains(cleanQuery)) ||
-                    (item.normalizedArtist != null && item.normalizedArtist.contains(cleanQuery)) ||
-                    (item.normalizedAlbum != null && item.normalizedAlbum.contains(cleanQuery)) ||
-                    (item.pathName != null && item.pathName.contains(cleanQuery))
-            ) {
+            val matches =
+                if (cleanQuery.isNotEmpty()) {
+                    item.normalizedName.contains(cleanQuery) ||
+                        (item.sortName != null && item.sortName.contains(cleanQuery)) ||
+                        (item.normalizedArtist != null &&
+                            item.normalizedArtist.contains(cleanQuery)) ||
+                        (item.normalizedAlbum != null &&
+                            item.normalizedAlbum.contains(cleanQuery)) ||
+                        (item.pathName != null && item.pathName.contains(cleanQuery))
+                } else {
+                    item.song.name.resolve(context).lowercase().contains(rawQuery) ||
+                        (item.song.artists
+                            .firstOrNull()
+                            ?.name
+                            ?.resolve(context)
+                            ?.lowercase()
+                            ?.contains(rawQuery) == true) ||
+                        item.song.album.name.resolve(context).lowercase().contains(rawQuery) ||
+                        (item.song.path.name?.lowercase()?.contains(rawQuery) == true)
+                }
+            if (matches) {
                 results.add(item.song)
             }
         }
@@ -201,20 +233,33 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
     }
 
     fun searchAlbums(query: String, filterCollection: Collection<Album>?): List<Album> {
+        val currentSnapshot = snapshot
         val cleanQuery = normalizeString(query)
-        if (cleanQuery.isEmpty()) return emptyList()
+        val rawQuery = query.trim().lowercase()
+        if (cleanQuery.isEmpty() && rawQuery.isEmpty()) return emptyList()
 
         val allowedSet = filterCollection?.toSet()
         val results = ArrayList<Album>()
 
-        for (item in indexedAlbums) {
+        for (item in currentSnapshot.albums) {
             if (allowedSet != null && !allowedSet.contains(item.album)) continue
 
-            if (
-                item.normalizedName.contains(cleanQuery) ||
-                    (item.sortName != null && item.sortName.contains(cleanQuery)) ||
-                    (item.normalizedArtist != null && item.normalizedArtist.contains(cleanQuery))
-            ) {
+            val matches =
+                if (cleanQuery.isNotEmpty()) {
+                    item.normalizedName.contains(cleanQuery) ||
+                        (item.sortName != null && item.sortName.contains(cleanQuery)) ||
+                        (item.normalizedArtist != null &&
+                            item.normalizedArtist.contains(cleanQuery))
+                } else {
+                    item.album.name.resolve(context).lowercase().contains(rawQuery) ||
+                        (item.album.artists
+                            .firstOrNull()
+                            ?.name
+                            ?.resolve(context)
+                            ?.lowercase()
+                            ?.contains(rawQuery) == true)
+                }
+            if (matches) {
                 results.add(item.album)
             }
         }
@@ -222,19 +267,25 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
     }
 
     fun searchArtists(query: String, filterCollection: Collection<Artist>?): List<Artist> {
+        val currentSnapshot = snapshot
         val cleanQuery = normalizeString(query)
-        if (cleanQuery.isEmpty()) return emptyList()
+        val rawQuery = query.trim().lowercase()
+        if (cleanQuery.isEmpty() && rawQuery.isEmpty()) return emptyList()
 
         val allowedSet = filterCollection?.toSet()
         val results = ArrayList<Artist>()
 
-        for (item in indexedArtists) {
+        for (item in currentSnapshot.artists) {
             if (allowedSet != null && !allowedSet.contains(item.artist)) continue
 
-            if (
-                item.normalizedName.contains(cleanQuery) ||
-                    (item.sortName != null && item.sortName.contains(cleanQuery))
-            ) {
+            val matches =
+                if (cleanQuery.isNotEmpty()) {
+                    item.normalizedName.contains(cleanQuery) ||
+                        (item.sortName != null && item.sortName.contains(cleanQuery))
+                } else {
+                    item.artist.name.resolve(context).lowercase().contains(rawQuery)
+                }
+            if (matches) {
                 results.add(item.artist)
             }
         }
@@ -242,16 +293,24 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
     }
 
     fun searchGenres(query: String, filterCollection: Collection<Genre>?): List<Genre> {
+        val currentSnapshot = snapshot
         val cleanQuery = normalizeString(query)
-        if (cleanQuery.isEmpty()) return emptyList()
+        val rawQuery = query.trim().lowercase()
+        if (cleanQuery.isEmpty() && rawQuery.isEmpty()) return emptyList()
 
         val allowedSet = filterCollection?.toSet()
         val results = ArrayList<Genre>()
 
-        for (item in indexedGenres) {
+        for (item in currentSnapshot.genres) {
             if (allowedSet != null && !allowedSet.contains(item.genre)) continue
 
-            if (item.normalizedName.contains(cleanQuery)) {
+            val matches =
+                if (cleanQuery.isNotEmpty()) {
+                    item.normalizedName.contains(cleanQuery)
+                } else {
+                    item.genre.name.resolve(context).lowercase().contains(rawQuery)
+                }
+            if (matches) {
                 results.add(item.genre)
             }
         }
@@ -259,16 +318,24 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
     }
 
     fun searchPlaylists(query: String, filterCollection: Collection<Playlist>?): List<Playlist> {
+        val currentSnapshot = snapshot
         val cleanQuery = normalizeString(query)
-        if (cleanQuery.isEmpty()) return emptyList()
+        val rawQuery = query.trim().lowercase()
+        if (cleanQuery.isEmpty() && rawQuery.isEmpty()) return emptyList()
 
         val allowedSet = filterCollection?.toSet()
         val results = ArrayList<Playlist>()
 
-        for (item in indexedPlaylists) {
+        for (item in currentSnapshot.playlists) {
             if (allowedSet != null && !allowedSet.contains(item.playlist)) continue
 
-            if (item.normalizedName.contains(cleanQuery)) {
+            val matches =
+                if (cleanQuery.isNotEmpty()) {
+                    item.normalizedName.contains(cleanQuery)
+                } else {
+                    item.playlist.name.resolve(context).lowercase().contains(rawQuery)
+                }
+            if (matches) {
                 results.add(item.playlist)
             }
         }

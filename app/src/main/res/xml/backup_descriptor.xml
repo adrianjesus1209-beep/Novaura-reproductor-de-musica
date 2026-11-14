@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!-- Cache databases are useless between devices, drop them -->
+    <!-- Cache databases and large local theme artwork are useless/bloated between devices -->
     <exclude
         domain="database"
         path="music_cache.db" />
+    <exclude
+        domain="database"
+        path="playback_persistence.db" />
+    <exclude
+        domain="file"
+        path="theme" />
 </full-backup-content>

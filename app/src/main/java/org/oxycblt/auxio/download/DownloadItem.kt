@@ -18,7 +18,8 @@
  
 package org.oxycblt.auxio.download
 
-import java.io.Serializable
+import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
 
 enum class DownloadStatus {
     QUEUED,
@@ -29,10 +30,11 @@ enum class DownloadStatus {
     ERROR,
 }
 
+@Parcelize
 data class DownloadItem(
     val song: OnlineSong,
     val progress: Int = 0,
     val status: DownloadStatus = DownloadStatus.QUEUED,
     val errorMessage: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
-) : Serializable
+) : Parcelable

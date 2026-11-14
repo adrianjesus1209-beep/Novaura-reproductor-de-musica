@@ -80,7 +80,11 @@ class AddToPlaylistDialog :
         // --- VIEWMODEL SETUP ---
         pickerModel.setSongsToAdd(args.songUids)
         musicModel.playlistDecision.consume()
-        collectImmediately(pickerModel.currentSongsToAdd, ::updatePendingSongs)
+        collectImmediately(
+            pickerModel.currentSongsToAdd,
+            pickerModel.isAwaitingLibrary,
+            ::updatePendingSongs,
+        )
         collectImmediately(pickerModel.playlistAddChoices, ::updatePlaylistChoices)
         collectImmediately(favoritesManager.favoriteUids) { updateFavoritesUI() }
     }
@@ -92,7 +96,18 @@ class AddToPlaylistDialog :
 
     override fun onClick(item: PlaylistChoice, viewHolder: RecyclerView.ViewHolder) {
         val songs = pickerModel.currentSongsToAdd.value ?: return
-        musicModel.addToPlaylist(songs, item.playlist)
+        val existingSongs = item.playlist.songs.toSet()
+        val songsToAdd = songs.filterNot(existingSongs::contains)
+        if (item.alreadyAdded || songsToAdd.isEmpty()) {
+            Toast.makeText(
+                    requireContext(),
+                    R.string.lbl_song_already_in_playlist,
+                    Toast.LENGTH_SHORT,
+                )
+                .show()
+            return
+        }
+        musicModel.addToPlaylist(songsToAdd, item.playlist)
         val playlistName = item.playlist.name.resolve(requireContext())
         Toast.makeText(
                 requireContext(),
@@ -129,9 +144,7 @@ class AddToPlaylistDialog :
                 }
             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
         } else {
-            for (song in songs) {
-                favoritesManager.setFavorite(song.uid, true)
-            }
+            favoritesManager.setFavorites(songs.map { it.uid }, true)
             Toast.makeText(
                     context,
                     getString(R.string.msg_added_to_liked_music),
@@ -142,8 +155,12 @@ class AddToPlaylistDialog :
         dismiss()
     }
 
-    private fun updatePendingSongs(songs: List<Song>?) {
+    private fun updatePendingSongs(songs: List<Song>?, isAwaitingLibrary: Boolean) {
         if (songs == null) {
+            if (isAwaitingLibrary) {
+                L.d("Waiting for library before showing playlist choices")
+                return
+            }
             L.d("No songs to show choices for, dismissing")
             dismiss()
             return

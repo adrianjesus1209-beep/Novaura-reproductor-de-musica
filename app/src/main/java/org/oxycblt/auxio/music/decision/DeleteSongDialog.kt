@@ -20,6 +20,8 @@ package org.oxycblt.auxio.music.decision
 
 import android.Manifest
 import android.app.Activity
+import android.app.RecoverableSecurityException
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.DocumentsContract
@@ -55,12 +57,30 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
 
     private lateinit var songsToDelete: List<Song>
     private var pendingMediaStoreSongs: List<Song> = emptyList()
+    private var pendingMediaStoreUris: List<Uri> = emptyList()
     private var hasAutoLaunched = false
 
     private val deleteLauncher =
         registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
-                performDelete(pendingMediaStoreSongs)
+                if (
+                    Build.VERSION.SDK_INT == Build.VERSION_CODES.Q &&
+                        pendingMediaStoreSongs.isNotEmpty()
+                ) {
+                    processAndroid10Deletions(pendingMediaStoreSongs)
+                    return@registerForActivityResult
+                }
+                if (pendingMediaStoreSongs.isNotEmpty()) {
+                    performDelete(pendingMediaStoreSongs)
+                } else if (pendingMediaStoreUris.isNotEmpty()) {
+                    // Process death cleared resolved Song objects before approval returned.
+                    for (uri in pendingMediaStoreUris) {
+                        runCatching {
+                            requireContext().contentResolver.delete(uri, null, null)
+                        }
+                    }
+                    musicModel.refresh()
+                }
             }
             findNavController().navigateUp()
         }
@@ -84,6 +104,12 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
                 Music.UID.fromString(it)?.let { uid -> musicModel.findSong(uid) }
             }
         }
+        val savedUris = savedInstanceState?.getStringArrayList(KEY_PENDING_MEDIA_STORE_URIS)
+        if (savedUris != null) {
+            pendingMediaStoreUris = savedUris.mapNotNull {
+                runCatching { Uri.parse(it) }.getOrNull()
+            }
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -93,6 +119,12 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
             outState.putStringArrayList(
                 KEY_PENDING_MEDIA_STORE_SONGS,
                 ArrayList(pendingMediaStoreSongs.map { it.uid.toString() }),
+            )
+        }
+        if (pendingMediaStoreUris.isNotEmpty()) {
+            outState.putStringArrayList(
+                KEY_PENDING_MEDIA_STORE_URIS,
+                ArrayList(pendingMediaStoreUris.map { it.toString() }),
             )
         }
     }
@@ -184,16 +216,16 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
         }
 
         pendingMediaStoreSongs = mediaStoreSongs
+        pendingMediaStoreUris = mediaStoreSongs.map { it.uri }
 
         when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
                 // Android 11+: Ask the user directly to delete the media files.
                 try {
-                    val mediaStoreUris = mediaStoreSongs.map { it.uri }
                     val pendingIntent =
                         MediaStore.createDeleteRequest(
                             requireContext().contentResolver,
-                            mediaStoreUris,
+                            pendingMediaStoreUris,
                         )
                     val request = IntentSenderRequest.Builder(pendingIntent.intentSender).build()
                     deleteLauncher.launch(request)
@@ -203,28 +235,49 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
                     findNavController().navigateUp()
                 }
             }
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
-                // Android 10: Ask the user to grant write access to the media files.
-                try {
-                    val mediaStoreUris = mediaStoreSongs.map { it.uri }
-                    val pendingIntent =
-                        MediaStore.createWriteRequest(
-                            requireContext().contentResolver,
-                            mediaStoreUris,
-                        )
-                    val request = IntentSenderRequest.Builder(pendingIntent.intentSender).build()
-                    deleteLauncher.launch(request)
-                } catch (e: Exception) {
-                    L.e(e, "createWriteRequest failed on Android 10")
-                    performDelete(mediaStoreSongs)
-                    findNavController().navigateUp()
-                }
+            Build.VERSION.SDK_INT == Build.VERSION_CODES.Q -> {
+                // Android 10: Attempt direct deletion and prompt per-item
+                // RecoverableSecurityException.
+                processAndroid10Deletions(mediaStoreSongs)
             }
             else -> {
                 // Android 9 and below: WRITE_EXTERNAL_STORAGE is required.
                 permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
         }
+    }
+
+    private fun processAndroid10Deletions(remaining: List<Song>) {
+        if (Build.VERSION.SDK_INT != Build.VERSION_CODES.Q) return
+        val deletedSoFar = mutableListOf<Song>()
+        val contentResolver = requireContext().contentResolver
+        for ((index, song) in remaining.withIndex()) {
+            try {
+                val rows = contentResolver.delete(song.uri, null, null)
+                if (rows > 0) {
+                    deletedSoFar.add(song)
+                }
+            } catch (e: RecoverableSecurityException) {
+                if (deletedSoFar.isNotEmpty()) {
+                    performDelete(deletedSoFar)
+                }
+                val rest = remaining.subList(index, remaining.size)
+                pendingMediaStoreSongs = rest
+                pendingMediaStoreUris = rest.map { it.uri }
+                val request =
+                    IntentSenderRequest.Builder(e.userAction.actionIntent.intentSender).build()
+                deleteLauncher.launch(request)
+                return
+            } catch (e: Exception) {
+                L.w(e, "Failed direct Android 10 delete for ${song.uri}")
+            }
+        }
+        if (deletedSoFar.isNotEmpty()) {
+            performDelete(deletedSoFar)
+        } else {
+            performDelete(remaining)
+        }
+        findNavController().navigateUp()
     }
 
     private fun performDelete(songs: List<Song>) {
@@ -242,5 +295,6 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
     private companion object {
         const val KEY_AUTO_LAUNCHED = "auto_launched"
         const val KEY_PENDING_MEDIA_STORE_SONGS = "pending_media_store_songs"
+        const val KEY_PENDING_MEDIA_STORE_URIS = "pending_media_store_uris"
     }
 }

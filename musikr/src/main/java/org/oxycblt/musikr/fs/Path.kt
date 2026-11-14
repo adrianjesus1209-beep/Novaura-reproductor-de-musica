@@ -20,7 +20,6 @@ package org.oxycblt.musikr.fs
 
 import android.content.Context
 import android.net.Uri
-import java.io.File
 
 /**
  * An abstraction of an android file system path, including the volume and relative path.
@@ -101,7 +100,7 @@ value class Components private constructor(val components: List<String>) {
 
     /** Formats these components using the unix file separator (/) */
     val unixString: String
-        get() = components.joinToString(File.separator)
+        get() = components.joinToString("/")
 
     /** Formats these components using the windows file separator (\). */
     val windowsString: String
@@ -123,7 +122,7 @@ value class Components private constructor(val components: List<String>) {
      */
     fun child(name: String) =
         if (name.isNotEmpty()) {
-            Components(components + name.trimSlashes())
+            Components(components + name.trimStart('/', '\\').trimEnd('/', '\\'))
         } else {
             this
         }
@@ -167,7 +166,7 @@ value class Components private constructor(val components: List<String>) {
          * @return The [Components] instance.
          */
         fun parseUnix(path: String) =
-            Components(path.trimSlashes().split(File.separatorChar).filter { it.isNotEmpty() })
+            Components(path.trimSlashes('/').split('/').filter { it.isNotEmpty() })
 
         /**
          * Parses a path string into a [Components] instance by the windows path separator.
@@ -176,10 +175,10 @@ value class Components private constructor(val components: List<String>) {
          * @return The [Components] instance.
          */
         fun parseWindows(path: String) =
-            Components(path.trimSlashes().split('\\').filter { it.isNotEmpty() })
+            Components(path.trimSlashes('\\').split('\\').filter { it.isNotEmpty() })
 
         fun root() = Components(emptyList())
 
-        private fun String.trimSlashes() = trimStart(File.separatorChar).trimEnd(File.separatorChar)
+        private fun String.trimSlashes(separator: Char) = trimStart(separator).trimEnd(separator)
     }
 }

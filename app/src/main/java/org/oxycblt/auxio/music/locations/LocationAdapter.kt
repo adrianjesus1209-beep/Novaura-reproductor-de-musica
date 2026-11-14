@@ -84,6 +84,7 @@ class LocationAdapter<T : Location>(private val listener: Listener) :
     fun remove(location: T) {
         L.d("Removing $location")
         val idx = _locations.indexOf(location)
+        if (idx < 0) return
         _locations.removeAt(idx)
         if (_locations.isEmpty()) {
             notifyItemChanged(0)

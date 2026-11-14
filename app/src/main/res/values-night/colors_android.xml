@@ -15,4 +15,14 @@
 
     <!-- Novaura splash background -->
     <color name="splash_background">#000000</color>
+
+    <!-- Adaptive glass & wallpaper scrim colors (Dark mode) -->
+    <color name="ui_glass_nav_bg">#E6121212</color>
+    <color name="ui_glass_nav_stroke">#1AFFFFFF</color>
+    <color name="ui_glass_pill_bg">#26FFFFFF</color>
+    <color name="ui_glass_pill_stroke">#20FFFFFF</color>
+    <color name="ui_glass_card_start">#1E1E22</color>
+    <color name="ui_glass_card_end">#121214</color>
+    <color name="ui_glass_stats_bg">#33202020</color>
+    <color name="ui_secondary_wallpaper_scrim">#C0101012</color>
 </resources>

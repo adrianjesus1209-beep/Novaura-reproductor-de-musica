@@ -29,12 +29,15 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import com.google.android.material.transition.MaterialFadeThrough
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentAboutBinding
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.playback.formatDurationMs
+import org.oxycblt.auxio.ui.UISettings
 import org.oxycblt.auxio.ui.ViewBindingFragment
+import org.oxycblt.auxio.ui.WallpaperHelper
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.openInBrowser
 import org.oxycblt.auxio.util.startIntent
@@ -47,6 +50,7 @@ import org.oxycblt.auxio.util.systemBarInsetsCompat
  */
 @AndroidEntryPoint
 class AboutFragment : ViewBindingFragment<FragmentAboutBinding>() {
+    @Inject lateinit var uiSettings: UISettings
     private val musicModel: MusicViewModel by activityViewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,6 +65,7 @@ class AboutFragment : ViewBindingFragment<FragmentAboutBinding>() {
         super.onBindingCreated(binding, savedInstanceState)
 
         // --- UI SETUP ---
+        applyWallpaperBackground(binding)
         binding.aboutToolbar.setNavigationOnClickListener { findNavController().navigateUp() }
         binding.aboutContents.setOnApplyWindowInsetsListener { view, insets ->
             view.updatePadding(bottom = insets.systemBarInsetsCompat.bottom)
@@ -84,6 +89,19 @@ class AboutFragment : ViewBindingFragment<FragmentAboutBinding>() {
 
         // VIEWMODEL SETUP
         collectImmediately(musicModel.statistics, ::updateStatistics)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        binding?.let(::applyWallpaperBackground)
+    }
+
+    private fun applyWallpaperBackground(binding: FragmentAboutBinding) {
+        WallpaperHelper.applySecondaryWallpaperBackground(
+            binding.root,
+            uiSettings,
+            binding.aboutAppbar,
+        )
     }
 
     private fun updateStatistics(statistics: MusicViewModel.Statistics?) {

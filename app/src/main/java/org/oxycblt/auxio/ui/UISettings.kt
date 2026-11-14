@@ -20,7 +20,6 @@ package org.oxycblt.auxio.ui
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
@@ -136,11 +135,11 @@ class UISettingsImpl @Inject constructor(@ApplicationContext private val context
             putInt(getString(R.string.set_key_language), language)
             apply()
         }
-        applyLanguage(language)
+        applyLanguage(language, fromUserSelection = true)
     }
 
     override fun applyCurrentLanguage() {
-        applyLanguage(language)
+        applyLanguage(language, fromUserSelection = false)
     }
 
     override val customWallpaperEnabled: Boolean
@@ -187,27 +186,25 @@ class UISettingsImpl @Inject constructor(@ApplicationContext private val context
     override fun saveCustomWallpaperFromUri(sourceUri: Uri): Boolean {
         return try {
             val destination = getCustomWallpaperFile()
-            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            context.contentResolver.openInputStream(sourceUri)?.use { input ->
-                BitmapFactory.decodeStream(input, null, options)
+            val parentDir = destination.parentFile
+            if (parentDir != null && !parentDir.exists()) {
+                parentDir.mkdirs()
             }
-            val maxDim = 1920
-            var sampleSize = 1
-            while (
-                options.outWidth / sampleSize > maxDim || options.outHeight / sampleSize > maxDim
-            ) {
-                sampleSize *= 2
-            }
-            val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
             val bitmap =
-                context.contentResolver.openInputStream(sourceUri)?.use { input ->
-                    BitmapFactory.decodeStream(input, null, decodeOptions)
-                } ?: return false
-
-            FileOutputStream(destination).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                WallpaperHelper.decodeSampledUriSync(context, sourceUri, 1920) ?: return false
+            val tempFile = File(parentDir, "${destination.name}.tmp")
+            try {
+                FileOutputStream(tempFile).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                    out.flush()
+                }
+            } finally {
+                bitmap.recycle()
             }
-            bitmap.recycle()
+            if (!tempFile.renameTo(destination)) {
+                tempFile.copyTo(destination, overwrite = true)
+                tempFile.delete()
+            }
             true
         } catch (e: Exception) {
             L.e("Failed to save custom wallpaper: $e")
@@ -215,7 +212,10 @@ class UISettingsImpl @Inject constructor(@ApplicationContext private val context
         }
     }
 
-    private fun applyLanguage(language: Int) {
+    private fun applyLanguage(language: Int, fromUserSelection: Boolean) {
+        if (language == UISettings.LANGUAGE_SYSTEM && !fromUserSelection) {
+            return
+        }
         val targetLocales =
             when (language) {
                 UISettings.LANGUAGE_SPANISH -> LocaleListCompat.forLanguageTags("es")

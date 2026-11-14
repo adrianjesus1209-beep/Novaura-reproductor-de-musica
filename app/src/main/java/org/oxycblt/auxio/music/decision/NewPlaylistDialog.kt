@@ -72,11 +72,9 @@ class NewPlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNameBi
                 val context = requireContext().applicationContext
                 // TODO: Navigate to playlist if there are songs in it
                 musicModel.createPlaylist(name, pendingPlaylist.songs, pendingPlaylist.reason)
-                findNavController().apply {
-                    navigateUp()
-                    // Do an additional navigation away from the playlist addition dialog, if
-                    // needed. If that dialog isn't present, this should be a no-op. Hopefully.
-                    navigateUp()
+                val navController = findNavController()
+                if (!navController.popBackStack(R.id.add_to_playlist_dialog, true)) {
+                    navController.navigateUp()
                 }
                 Toast.makeText(
                         context,
@@ -101,12 +99,28 @@ class NewPlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNameBi
         musicModel.playlistDecision.consume()
         pickerModel.setPendingPlaylist(requireContext(), args.songUids, args.template, args.reason)
 
-        collectImmediately(pickerModel.currentPendingNewPlaylist, ::updatePendingPlaylist)
-        collectImmediately(pickerModel.chosenName, ::updateChosenName)
+        collectImmediately(
+            pickerModel.currentPendingNewPlaylist,
+            pickerModel.isAwaitingLibrary,
+            ::updatePendingPlaylist,
+        )
+        collectImmediately(
+            pickerModel.chosenName,
+            pickerModel.isAwaitingLibrary,
+            ::updateChosenName,
+        )
     }
 
-    private fun updatePendingPlaylist(pendingNewPlaylist: PendingNewPlaylist?) {
+    private fun updatePendingPlaylist(
+        pendingNewPlaylist: PendingNewPlaylist?,
+        isAwaitingLibrary: Boolean,
+    ) {
         if (pendingNewPlaylist == null) {
+            if (isAwaitingLibrary) {
+                L.d("Waiting for library before initializing new playlist dialog")
+                updateChosenName(pickerModel.chosenName.value, isAwaitingLibrary)
+                return
+            }
             L.d("No playlist to create, leaving")
             findNavController().navigateUp()
             return
@@ -122,18 +136,19 @@ class NewPlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNameBi
         } else {
             binding.playlistName.hint = pendingNewPlaylist.preferredName
         }
+        updateChosenName(pickerModel.chosenName.value, isAwaitingLibrary)
     }
 
     override fun onStart() {
         super.onStart()
-        (dialog as? AlertDialog)?.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled =
-            pickerModel.chosenName.value is ChosenName.Valid ||
-                pickerModel.chosenName.value is ChosenName.Empty
+        updateChosenName(pickerModel.chosenName.value, pickerModel.isAwaitingLibrary.value)
     }
 
-    private fun updateChosenName(chosenName: ChosenName) {
+    private fun updateChosenName(chosenName: ChosenName, isAwaitingLibrary: Boolean) {
         (dialog as? AlertDialog)?.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled =
-            chosenName is ChosenName.Valid || chosenName is ChosenName.Empty
+            !isAwaitingLibrary &&
+                pickerModel.currentPendingNewPlaylist.value != null &&
+                (chosenName is ChosenName.Valid || chosenName is ChosenName.Empty)
     }
 
     private companion object {

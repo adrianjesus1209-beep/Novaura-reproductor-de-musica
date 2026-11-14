@@ -17,16 +17,29 @@
  */
  
 #include "JClassRef.h"
+#include "util.h"
+
 JClassRef::JClassRef(JNIEnv *env, const char *classpath) : env(env) {
     clazz = env->FindClass(classpath);
+    checkJniException(env, "FindClass threw JNI exception");
+    if (clazz == nullptr) {
+        throw std::runtime_error("FindClass returned null");
+    }
 }
 
 JClassRef::~JClassRef() {
-    env->DeleteLocalRef(clazz);
+    if (clazz != nullptr) {
+        env->DeleteLocalRef(clazz);
+    }
 }
 
 jmethodID JClassRef::method(const char *name, const char *signature) {
-    return env->GetMethodID(clazz, name, signature);
+    jmethodID id = env->GetMethodID(clazz, name, signature);
+    checkJniException(env, "GetMethodID threw JNI exception");
+    if (id == nullptr) {
+        throw std::runtime_error("GetMethodID returned null");
+    }
+    return id;
 }
 
 jclass& JClassRef::operator*() {

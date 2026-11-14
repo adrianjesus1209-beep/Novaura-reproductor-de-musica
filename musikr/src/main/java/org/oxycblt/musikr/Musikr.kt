@@ -19,11 +19,14 @@
 package org.oxycblt.musikr
 
 import android.content.Context
-import android.net.Uri
+import android.os.SystemClock
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.oxycblt.musikr.covers.CoverResult
 import org.oxycblt.musikr.fs.File
 import org.oxycblt.musikr.pipeline.EvaluateStep
@@ -138,15 +141,15 @@ private class MusikrImpl(
     override suspend fun run(onProgress: suspend (IndexingProgress) -> Unit) = coroutineScope {
         ScanDiagnostics.reset()
         onProgress(IndexingProgress.Songs(0, 0))
-        var explored = 0
-        var loaded = 0
-        var lastProgressReportUptime = 0L
+        val explored = AtomicInteger(0)
+        val loaded = AtomicInteger(0)
+        val lastProgressReportUptime = AtomicLong(0L)
 
         suspend fun dispatchProgress() {
-            val now = android.os.SystemClock.uptimeMillis()
-            if (now - lastProgressReportUptime >= 100L) {
-                lastProgressReportUptime = now
-                onProgress(IndexingProgress.Songs(loaded, explored))
+            val now = SystemClock.uptimeMillis()
+            val prev = lastProgressReportUptime.get()
+            if (now - prev >= 100L && lastProgressReportUptime.compareAndSet(prev, now)) {
+                onProgress(IndexingProgress.Songs(loaded.get(), explored.get()))
             }
         }
 
@@ -164,11 +167,11 @@ private class MusikrImpl(
         val trackedExploredTask =
             tryAsyncWith(trackedExploredChannel, Dispatchers.Default) {
                 for (item in exploredChannel) {
-                    explored++
+                    explored.incrementAndGet()
                     dispatchProgress()
                     trackedExploredChannel.send(item)
                 }
-                onProgress(IndexingProgress.Songs(loaded, explored))
+                onProgress(IndexingProgress.Songs(loaded.get(), explored.get()))
             }
         val extractedChannel = Channel<Extracted>(PipelineTuning.stageBuffer)
         val extractedTask = extractStep.extract(this, trackedExploredChannel, extractedChannel)
@@ -176,7 +179,7 @@ private class MusikrImpl(
         val trackedExtractedTask =
             tryAsyncWith(trackedExtractedChannel, Dispatchers.Default) {
                 for (item in extractedChannel) {
-                    loaded++
+                    loaded.incrementAndGet()
                     dispatchProgress()
                     trackedExtractedChannel.send(item)
                 }
@@ -192,21 +195,24 @@ private class MusikrImpl(
     }
 
     override suspend fun runFromCache(): LibraryResult? = coroutineScope {
-        val cachedFiles = config.storage.cache.readAll()
+        val cachedFiles = withContext(Dispatchers.IO) { config.storage.cache.readAll() }
         if (cachedFiles.isEmpty()) return@coroutineScope null
 
-        val deadUris = mutableListOf<Uri>()
+        val skippedCount = AtomicInteger(0)
         val trackedExtractedChannel = Channel<Extracted>(PipelineTuning.stageBuffer)
         val feedTask =
-            launch(Dispatchers.Default) {
+            launch(Dispatchers.IO) {
                 for (cachedFile in cachedFiles) {
                     val audio = cachedFile.audio ?: continue
                     if (audio.tags.durationMs in 1 until PipelineTuning.MIN_PLAUSIBLE_DURATION_MS) {
                         continue
                     }
+                    // Fast-path cache startup must stay non-destructive: transient permission
+                    // errors
+                    // or unmounted volumes must not purge valid cached entries from Room.
                     val fileExists = checkFileExists(cachedFile.file)
                     if (!fileExists) {
-                        deadUris.add(cachedFile.file.uri)
+                        skippedCount.incrementAndGet()
                         continue
                     }
                     val cover =
@@ -224,31 +230,33 @@ private class MusikrImpl(
                     )
                 }
                 trackedExtractedChannel.close()
-                if (deadUris.isNotEmpty()) {
-                    config.storage.cache.delete(deadUris)
-                }
             }
         val library = evaluateStep.evaluate(trackedExtractedChannel)
         feedTask.join()
+        val skipped = skippedCount.get()
         LibraryResultImpl(
             config,
             library,
             ScanReport(
-                rows = cachedFiles.size - deadUris.size,
-                rejected = deadUris.size,
+                rows = cachedFiles.size - skipped,
+                rejected = skipped,
                 byReason = emptyMap(),
-                songs = cachedFiles.size - deadUris.size,
+                songs = cachedFiles.size - skipped,
             ),
         )
     }
 
     private fun checkFileExists(file: File): Boolean {
-        val rawPath = file.path.components.unixString
-        if (rawPath.startsWith("/")) {
-            val ioFile = java.io.File(rawPath)
-            if (ioFile.exists()) {
-                return true
+        val volumePrefix = file.path.volume.components?.unixString
+        val relPath = file.path.components.unixString
+        val diskPath =
+            when {
+                volumePrefix != null && relPath.isNotEmpty() -> "/$volumePrefix/$relPath"
+                relPath.startsWith("/") -> relPath
+                else -> null
             }
+        if (diskPath != null && java.io.File(diskPath).exists()) {
+            return true
         }
         return runCatching {
                 context.contentResolver.openFileDescriptor(file.uri, "r")?.use { true } ?: false

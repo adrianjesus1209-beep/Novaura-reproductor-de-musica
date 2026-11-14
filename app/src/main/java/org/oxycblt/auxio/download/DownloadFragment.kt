@@ -36,7 +36,9 @@ import androidx.core.view.postDelayed
 import androidx.core.view.updateLayoutParams
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.SimpleItemAnimator
@@ -45,14 +47,18 @@ import com.google.android.material.tabs.TabLayout
 import com.google.android.material.transition.MaterialSharedAxis
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
+import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentDownloadBinding
 import org.oxycblt.auxio.playback.PlaybackViewModel
+import org.oxycblt.auxio.ui.UISettings
 import org.oxycblt.auxio.ui.ViewBindingFragment
+import org.oxycblt.auxio.ui.WallpaperHelper
 import org.oxycblt.auxio.util.context
 import org.oxycblt.auxio.util.getSystemServiceCompat
 import org.oxycblt.auxio.util.showToast
@@ -61,6 +67,8 @@ import timber.log.Timber as L
 
 @AndroidEntryPoint
 class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
+
+    @Inject lateinit var uiSettings: UISettings
 
     private val downloadModel: DownloadViewModel by activityViewModels()
     private val playbackModel: PlaybackViewModel by activityViewModels()
@@ -155,6 +163,16 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
 
         // --- STATE OBSERVATIONS ---
         observeViewModel(binding)
+        applyWallpaperBackground(binding)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        binding?.let(::applyWallpaperBackground)
+    }
+
+    private fun applyWallpaperBackground(binding: FragmentDownloadBinding) {
+        WallpaperHelper.applySecondaryWallpaperBackground(binding.root, uiSettings)
     }
 
     private fun setupTabs(binding: FragmentDownloadBinding) {
@@ -194,9 +212,6 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         downloadAdapter =
             DownloadAdapter(
                 onPlayClick = { song ->
-                    if (playbackModel.isPlaying.value) {
-                        playbackModel.togglePlaying()
-                    }
                     downloadModel.playOnline(song)
                 },
                 onDownloadClick = { song ->
@@ -222,9 +237,6 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
                 },
                 onPlayClick = { playlist ->
                     if (playlist.songs.isNotEmpty()) {
-                        if (playbackModel.isPlaying.value) {
-                            playbackModel.togglePlaying()
-                        }
                         downloadModel.playQueue(playlist.songs, 0, playlist.name)
                         context?.showToast(getString(R.string.lbl_streaming))
                     } else {
@@ -325,9 +337,6 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         }
 
         binding.onlinePlayerPlayPause.setOnClickListener {
-            if (!downloadModel.playerState.value.isPlaying && playbackModel.isPlaying.value) {
-                playbackModel.togglePlaying()
-            }
             downloadModel.togglePlayPauseOnline()
         }
 
@@ -349,120 +358,141 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
     }
 
     private fun observeViewModel(binding: FragmentDownloadBinding) {
-        // Observe search loading
         viewLifecycleOwner.lifecycleScope.launch {
-            downloadModel.isSearching.collectLatest { searching ->
-                binding.downloadSearchLoading.isVisible = searching
-                val query = binding.downloadSearchInput.text?.toString()?.trim().orEmpty()
-                val count = downloadModel.displayedResults.value.size
-                updateUiState(binding, isSearching = searching, resultsCount = count, query = query)
-            }
-        }
-
-        // Observe search results (filtered in real-time)
-        viewLifecycleOwner.lifecycleScope.launch {
-            downloadModel.displayedResults.collectLatest { results ->
-                downloadAdapter.submitList(results)
-                val query = binding.downloadSearchInput.text?.toString()?.trim().orEmpty()
-                val searching = downloadModel.isSearching.value
-                updateUiState(
-                    binding,
-                    isSearching = searching,
-                    resultsCount = results.size,
-                    query = query,
-                )
-            }
-        }
-
-        // Observe download progress for search adapter
-        viewLifecycleOwner.lifecycleScope.launch {
-            downloadModel.downloadProgress.collectLatest { progressMap ->
-                downloadAdapter.updateProgress(progressMap)
-            }
-        }
-
-        // Observe player state for search adapter and mini-player
-        viewLifecycleOwner.lifecycleScope.launch {
-            downloadModel.playerState.collectLatest { playerState ->
-                downloadAdapter.updatePlayerState(playerState)
-                updateMiniPlayerUi(binding, playerState)
-            }
-        }
-
-        // Observe download items for the Downloads Queue
-        viewLifecycleOwner.lifecycleScope.launch {
-            downloadModel.downloadItems.collectLatest { items ->
-                queueAdapter.submitList(items)
-                binding.downloadsEmptyState.isVisible = items.isEmpty()
-                binding.downloadsQueueRecycler.isVisible = items.isNotEmpty()
-
-                // Update tab badge with active downloading count
-                val activeCount = items.count { it.status == DownloadStatus.DOWNLOADING }
-                val queueTab = binding.downloadTabLayout.getTabAt(2)
-                if (queueTab != null) {
-                    if (activeCount > 0) {
-                        val badge = queueTab.orCreateBadge
-                        badge.number = activeCount
-                        badge.isVisible = true
-                    } else {
-                        queueTab.removeBadge()
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    downloadModel.isSearching.collectLatest { searching ->
+                        binding.downloadSearchLoading.isVisible = searching
+                        val query = binding.downloadSearchInput.text?.toString()?.trim().orEmpty()
+                        val count = downloadModel.displayedResults.value.size
+                        updateUiState(
+                            binding,
+                            isSearching = searching,
+                            resultsCount = count,
+                            query = query,
+                        )
                     }
                 }
-            }
-        }
 
-        // Observe online playlists & smart rows
-        viewLifecycleOwner.lifecycleScope.launch {
-            downloadModel.onlinePlaylists.collectLatest { playlists ->
-                renderUserPlaylists(binding, playlists)
-                val favPlaylist = playlists.firstOrNull {
-                    it.name.equals(OnlinePlaylistManager.FAVORITES_NAME, ignoreCase = true)
+                launch {
+                    downloadModel.displayedResults.collectLatest { results ->
+                        downloadAdapter.submitList(results)
+                        val query = binding.downloadSearchInput.text?.toString()?.trim().orEmpty()
+                        val searching = downloadModel.isSearching.value
+                        updateUiState(
+                            binding,
+                            isSearching = searching,
+                            resultsCount = results.size,
+                            query = query,
+                        )
+                    }
                 }
-                val favCount = favPlaylist?.songs?.size ?: 0
-                binding.txtOnlineFavoritesCount.text =
-                    resources.getQuantityString(R.plurals.fmt_song_count, favCount, favCount)
-            }
-        }
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            downloadModel.recentOnlineSongs.collectLatest { recent ->
-                val count = recent.size
-                binding.txtOnlineRecentCount.text =
-                    resources.getQuantityString(R.plurals.fmt_song_count, count, count)
-                val mostPlayed = downloadModel.getMostPlayedOnlineSongs()
-                binding.txtOnlineMostPlayedCount.text =
-                    resources.getQuantityString(
-                        R.plurals.fmt_song_count,
-                        mostPlayed.size,
-                        mostPlayed.size,
-                    )
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            downloadModel.onlinePlayCounts.collectLatest {
-                val mostPlayed = downloadModel.getMostPlayedOnlineSongs()
-                binding.txtOnlineMostPlayedCount.text =
-                    resources.getQuantityString(
-                        R.plurals.fmt_song_count,
-                        mostPlayed.size,
-                        mostPlayed.size,
-                    )
-            }
-        }
-
-        // Observe download events
-        viewLifecycleOwner.lifecycleScope.launch {
-            downloadModel.events.collectLatest { event ->
-                when (event) {
-                    is DownloadEvent.Started -> {
-                        context?.showToast(getString(R.string.lbl_download_started, event.title))
+                launch {
+                    downloadModel.downloadProgress.collectLatest { progressMap ->
+                        downloadAdapter.updateProgress(progressMap)
                     }
-                    is DownloadEvent.Success -> {
-                        context?.showToast(getString(R.string.msg_download_success, event.title))
+                }
+
+                launch {
+                    downloadModel.playerState.collectLatest { playerState ->
+                        downloadAdapter.updatePlayerState(playerState)
+                        updateMiniPlayerUi(binding, playerState)
                     }
-                    is DownloadEvent.Error -> {
-                        context?.showToast(getString(R.string.msg_download_error, event.title))
+                }
+
+                launch {
+                    downloadModel.playerError.collect { errorMsg ->
+                        context?.showToast(errorMsg)
+                    }
+                }
+
+                launch {
+                    downloadModel.downloadItems.collectLatest { items ->
+                        queueAdapter.submitList(items)
+                        binding.downloadsEmptyState.isVisible = items.isEmpty()
+                        binding.downloadsQueueRecycler.isVisible = items.isNotEmpty()
+
+                        val activeCount = items.count { it.status == DownloadStatus.DOWNLOADING }
+                        val queueTab = binding.downloadTabLayout.getTabAt(2)
+                        if (queueTab != null) {
+                            if (activeCount > 0) {
+                                val badge = queueTab.orCreateBadge
+                                badge.number = activeCount
+                                badge.isVisible = true
+                            } else {
+                                queueTab.removeBadge()
+                            }
+                        }
+                    }
+                }
+
+                launch {
+                    downloadModel.onlinePlaylists.collectLatest { playlists ->
+                        renderUserPlaylists(binding, playlists)
+                        val favPlaylist = playlists.firstOrNull {
+                            it.id == OnlinePlaylistManager.ID_FAVORITES ||
+                                it.name.equals(
+                                    OnlinePlaylistManager.FAVORITES_NAME,
+                                    ignoreCase = true,
+                                )
+                        }
+                        val favCount = favPlaylist?.songs?.size ?: 0
+                        binding.txtOnlineFavoritesCount.text =
+                            resources.getQuantityString(
+                                R.plurals.fmt_song_count,
+                                favCount,
+                                favCount,
+                            )
+                    }
+                }
+
+                launch {
+                    downloadModel.recentOnlineSongs.collectLatest { recent ->
+                        val count = recent.size
+                        binding.txtOnlineRecentCount.text =
+                            resources.getQuantityString(R.plurals.fmt_song_count, count, count)
+                        val mostPlayed = downloadModel.getMostPlayedOnlineSongs()
+                        binding.txtOnlineMostPlayedCount.text =
+                            resources.getQuantityString(
+                                R.plurals.fmt_song_count,
+                                mostPlayed.size,
+                                mostPlayed.size,
+                            )
+                    }
+                }
+
+                launch {
+                    downloadModel.onlinePlayCounts.collectLatest {
+                        val mostPlayed = downloadModel.getMostPlayedOnlineSongs()
+                        binding.txtOnlineMostPlayedCount.text =
+                            resources.getQuantityString(
+                                R.plurals.fmt_song_count,
+                                mostPlayed.size,
+                                mostPlayed.size,
+                            )
+                    }
+                }
+
+                launch {
+                    downloadModel.events.collect { event ->
+                        when (event) {
+                            is DownloadEvent.Started -> {
+                                context?.showToast(
+                                    getString(R.string.lbl_download_started, event.title)
+                                )
+                            }
+                            is DownloadEvent.Success -> {
+                                context?.showToast(
+                                    getString(R.string.msg_download_success, event.title)
+                                )
+                            }
+                            is DownloadEvent.Error -> {
+                                context?.showToast(
+                                    getString(R.string.msg_download_error, event.title)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -516,14 +546,14 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
             binding.onlinePlayerPlayPause.isChecked = state.isPlaying
         }
 
-        val hasPrev = state.queueIndex > 0
+        val hasPrev = state.hasPrevious || state.isRepeat || state.isShuffle
         if (lastMiniPlayerHasPrev != hasPrev) {
             lastMiniPlayerHasPrev = hasPrev
             binding.onlinePlayerPrev.isEnabled = hasPrev
             binding.onlinePlayerPrev.alpha = if (hasPrev) 1.0f else 0.38f
         }
 
-        val hasNext = state.queueIndex < state.queue.size - 1
+        val hasNext = state.hasNext || state.isRepeat || state.isShuffle
         if (lastMiniPlayerHasNext != hasNext) {
             lastMiniPlayerHasNext = hasNext
             binding.onlinePlayerNext.isEnabled = hasNext

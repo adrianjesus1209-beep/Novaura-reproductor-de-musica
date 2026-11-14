@@ -287,8 +287,15 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         invalidateRootAlpha()
-        invalidatePlaybackIndicatorAlpha(playbackIndicator ?: return)
-        invalidateSelectionIndicatorAlpha(selectionBadge ?: return)
+        playbackIndicator?.let(::invalidatePlaybackIndicatorAlpha)
+        selectionBadge?.let(::invalidateSelectionIndicatorAlpha)
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        fadeAnimators?.forEach { it.cancel() }
+        fadeAnimators = null
+        playbackIndicator?.playingDrawable?.stop()
     }
 
     override fun setEnabled(enabled: Boolean) {

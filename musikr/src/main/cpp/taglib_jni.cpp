@@ -17,6 +17,7 @@
  */
  
 #include <jni.h>
+#include <memory>
 #include <string>
 #include "JInputStream.h"
 #include "JClassRef.h"
@@ -240,7 +241,12 @@ static jobject metadataResultSuccess(JNIEnv *env, jobject metadata) {
             "org/oxycblt/musikr/metadata/MetadataResult$Success" };
     jmethodID jInitMethod = jSuccessClass.method("<init>",
             "(Lorg/oxycblt/musikr/metadata/Metadata;)V");
-    return env->NewObject(*jSuccessClass, jInitMethod, metadata);
+    jobject result = env->NewObject(*jSuccessClass, jInitMethod, metadata);
+    checkJniException(env, "MetadataResult$Success.<init> threw JNI exception");
+    if (result == nullptr) {
+        throw std::runtime_error("Failed to allocate MetadataResult$Success");
+    }
+    return result;
 }
 
 static jobject metadataResultObject(JNIEnv *env, const char *classpath) {
@@ -248,7 +254,16 @@ static jobject metadataResultObject(JNIEnv *env, const char *classpath) {
     std::string signature = std::string("L") + classpath + ";";
     jfieldID jInstanceField = env->GetStaticFieldID(*jObjectClass, "INSTANCE",
             signature.c_str());
-    return env->GetStaticObjectField(*jObjectClass, jInstanceField);
+    checkJniException(env, "GetStaticFieldID INSTANCE threw JNI exception");
+    if (jInstanceField == nullptr) {
+        return nullptr;
+    }
+    jobject instance = env->GetStaticObjectField(*jObjectClass, jInstanceField);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return nullptr;
+    }
+    return instance;
 }
 
 static jobject metadataResultNoMetadata(JNIEnv *env) {
@@ -271,11 +286,11 @@ Java_org_oxycblt_musikr_metadata_TagLibJNI_openNative(JNIEnv *env,
         jobject /* this */,
         jobject inputStream) {
     std::string name = "unknown file";
-    TagLib::File *overriddenFile = nullptr;
     try {
         JInputStream jStream {env, inputStream};
         name = jStream.name();
         TagLib::FileRef fileRef {&jStream, true, TagLib::AudioProperties::Average};
+        std::unique_ptr<TagLib::File> overriddenFile;
         TagLib::File *fileToUse = fileRef.file();
         bool needsOverride = (fileToUse == nullptr ||
                 fileToUse->tag() == nullptr ||
@@ -284,25 +299,22 @@ Java_org_oxycblt_musikr_metadata_TagLibJNI_openNative(JNIEnv *env,
         if (needsOverride) {
             LOGD("FileRef result for %s is suspicious (null or duration=0). Forcing content scan.", name.c_str());
             jStream.seek(0, TagLib::IOStream::Beginning);
-            overriddenFile = createFileFromContent(&jStream, true, TagLib::AudioProperties::Average);
+            overriddenFile.reset(createFileFromContent(&jStream, true, TagLib::AudioProperties::Average));
             if (overriddenFile != nullptr &&
                     overriddenFile->audioProperties() != nullptr &&
                     (fileToUse == nullptr || overriddenFile->audioProperties()->lengthInSeconds() > 0))
             {
                 LOGD("Content scan successful. Overriding FileRef result for %s.", name.c_str());
-                fileToUse = overriddenFile;
+                fileToUse = overriddenFile.get();
             } else {
-                delete overriddenFile;
-                overriddenFile = nullptr;
+                overriddenFile.reset();
             }
         }
         if (fileToUse == nullptr) {
-            delete overriddenFile;
             return metadataResultNotAudio(env);
         }
         if (fileToUse->audioProperties() == nullptr) {
             LOGE("No audio properties for %s", name.c_str());
-            delete overriddenFile;
             return metadataResultNoMetadata(env);
         }
         JMetadataBuilder jBuilder {env};
@@ -310,18 +322,15 @@ Java_org_oxycblt_musikr_metadata_TagLibJNI_openNative(JNIEnv *env,
 
         if (!dispatchAndParse(name, fileToUse, jBuilder)) {
             LOGE("File format in %s is not supported by any parser.", name.c_str());
-            delete overriddenFile;
             return metadataResultNotAudio(env);
         }
         JObjectRef jMetadata {env, jBuilder.build()};
-        delete overriddenFile;
         return metadataResultSuccess(env, *jMetadata);
     } catch (std::exception &e) {
         if (env->ExceptionCheck()) {
             env->ExceptionClear();
         }
         LOGE("Unable to parse metadata in %s: %s", name.c_str(), e.what());
-        delete overriddenFile;
         return metadataResultProviderFailed(env);
     }
 }

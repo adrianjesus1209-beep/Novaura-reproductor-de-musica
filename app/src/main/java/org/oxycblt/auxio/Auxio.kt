@@ -20,6 +20,7 @@ package org.oxycblt.auxio
 
 import android.app.Application
 import android.content.Intent
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -29,6 +30,7 @@ import org.oxycblt.auxio.home.HomeSettings
 import org.oxycblt.auxio.image.ImageSettings
 import org.oxycblt.auxio.music.MusicSettings
 import org.oxycblt.auxio.playback.PlaybackSettings
+import org.oxycblt.auxio.search.SearchSettings
 import org.oxycblt.auxio.ui.UISettings
 import timber.log.Timber
 
@@ -44,6 +46,7 @@ class Auxio : Application() {
     @Inject lateinit var uiSettings: UISettings
     @Inject lateinit var homeSettings: HomeSettings
     @Inject lateinit var musicSettings: MusicSettings
+    @Inject lateinit var searchSettings: SearchSettings
 
     override fun onCreate() {
         super.onCreate()
@@ -77,9 +80,11 @@ class Auxio : Application() {
         imageSettings.migrate()
         playbackSettings.migrate()
         uiSettings.migrate()
+        AppCompatDelegate.setDefaultNightMode(uiSettings.theme)
         uiSettings.applyCurrentLanguage()
         homeSettings.migrate()
         musicSettings.migrate()
+        searchSettings.migrate()
         // Adding static shortcuts in a dynamic manner is better than declaring them
         // manually, as it will properly handle the difference between debug and release
         // Auxio instances.

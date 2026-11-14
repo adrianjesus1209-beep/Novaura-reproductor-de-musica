@@ -33,9 +33,11 @@ internal object TagLibJNI {
      */
     fun open(deviceFile: File, fis: FileInputStream): MetadataResult {
         val inputStream = NativeInputStream(deviceFile, fis)
-        val tag = openNative(inputStream)
-        inputStream.close()
-        return tag
+        return try {
+            openNative(inputStream)
+        } finally {
+            inputStream.close()
+        }
     }
 
     private external fun openNative(inputStream: NativeInputStream): MetadataResult

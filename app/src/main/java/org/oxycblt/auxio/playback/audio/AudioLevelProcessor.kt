@@ -18,6 +18,7 @@
  
 package org.oxycblt.auxio.playback.audio
 
+import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
@@ -44,7 +45,7 @@ import org.oxycblt.auxio.playback.PlaybackSettings
  *
  * @author Novaura
  */
-@OptIn(markerClass = [UnstableApi::class])
+@OptIn(UnstableApi::class)
 @Singleton
 class AudioLevelProcessor @Inject constructor(private val playbackSettings: PlaybackSettings) :
     BaseAudioProcessor(), PlaybackSettings.Listener {
@@ -74,7 +75,9 @@ class AudioLevelProcessor @Inject constructor(private val playbackSettings: Play
      */
     @Volatile private var isEnabled: Boolean = true
 
-    private var sampleRate = 0
+    @Volatile private var sampleRate = 0
+    @Volatile private var channelCount = 1
+    @Volatile private var configuredEncoding = C.ENCODING_PCM_16BIT
 
     /**
      * The smoothing state that the next buffer will build on.
@@ -105,25 +108,25 @@ class AudioLevelProcessor @Inject constructor(private val playbackSettings: Play
         if (!enabled) {
             resetLevel()
         }
-        // The pipeline caches isActive, so nudge it into re-evaluating.
-        flush()
     }
 
     // --- OVERRIDES ---
 
-    /**
-     * Deliberately not overriding [isActive]. Returning false here would make the pipeline drop
-     * this processor, and it only re-adds processors when it re-runs configure, which a settings
-     * change mid-song would not trigger. Staying in the chain and skipping just the analysis makes
-     * the setting apply immediately, at the cost of one buffer copy while disabled.
-     */
     override fun onConfigure(
         inputAudioFormat: AudioProcessor.AudioFormat
     ): AudioProcessor.AudioFormat {
-        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
-            throw AudioProcessor.UnhandledAudioFormatException(inputAudioFormat)
+        val encoding = inputAudioFormat.encoding
+        if (
+            encoding != C.ENCODING_PCM_16BIT &&
+                encoding != C.ENCODING_PCM_24BIT &&
+                encoding != C.ENCODING_PCM_32BIT &&
+                encoding != C.ENCODING_PCM_FLOAT
+        ) {
+            return AudioProcessor.AudioFormat.NOT_SET
         }
+        configuredEncoding = encoding
         sampleRate = inputAudioFormat.sampleRate
+        channelCount = inputAudioFormat.channelCount.coerceAtLeast(1)
         return inputAudioFormat
     }
 
@@ -134,34 +137,72 @@ class AudioLevelProcessor @Inject constructor(private val playbackSettings: Play
         val buffer = replaceOutputBuffer(size)
 
         if (!isEnabled) {
-            // Defensive: the pipeline normally skips us entirely, but if it ever calls through,
-            // still hand the samples over untouched rather than emitting an empty buffer.
             buffer.put(inputBuffer)
             inputBuffer.position(limit)
             buffer.flip()
             return
         }
 
-        // Single pass: analyze while copying. No allocation, no intermediate collection.
-        var sumSquares = 0L
-        for (i in pos until limit step BYTES_PER_SAMPLE) {
-            val sample = inputBuffer.getLeShort(i).toInt()
-            sumSquares += sample.toLong() * sample
-            // Passthrough: the exact same sample goes back out.
-            buffer.putLeShort(sample.toShort())
+        val bytesPerSample: Int
+        var sumSquaresNorm = 0.0
+        when (configuredEncoding) {
+            C.ENCODING_PCM_16BIT -> {
+                bytesPerSample = 2
+                for (i in pos until limit step 2) {
+                    val sample = inputBuffer.getLeShort(i)
+                    val norm = sample / MAX_ABSOLUTE_16
+                    sumSquaresNorm += norm * norm
+                    buffer.putLeShort(sample)
+                }
+            }
+            C.ENCODING_PCM_24BIT -> {
+                bytesPerSample = 3
+                for (i in pos until limit step 3) {
+                    val sample = inputBuffer.getLeInt24(i)
+                    val norm = sample / MAX_ABSOLUTE_24
+                    sumSquaresNorm += norm * norm
+                    buffer.putLeInt24(sample)
+                }
+            }
+            C.ENCODING_PCM_32BIT -> {
+                bytesPerSample = 4
+                for (i in pos until limit step 4) {
+                    val sample = inputBuffer.getLeInt32(i)
+                    val norm = sample / MAX_ABSOLUTE_32
+                    sumSquaresNorm += norm * norm
+                    buffer.putLeInt32(sample)
+                }
+            }
+            C.ENCODING_PCM_FLOAT -> {
+                bytesPerSample = 4
+                for (i in pos until limit step 4) {
+                    val sample = Float.fromBits(inputBuffer.getLeInt32(i))
+                    val norm = sample.toDouble().coerceIn(-1.0, 1.0)
+                    sumSquaresNorm += norm * norm
+                    buffer.putLeInt32(sample.toRawBits())
+                }
+            }
+            else -> {
+                buffer.put(inputBuffer)
+                inputBuffer.position(limit)
+                buffer.flip()
+                return
+            }
         }
 
         inputBuffer.position(limit)
         buffer.flip()
 
-        val sampleCount = (limit - pos) / BYTES_PER_SAMPLE
-        if (sampleCount <= 0) return
+        val sampleCount = size / bytesPerSample
+        val channels = channelCount.coerceAtLeast(1)
+        val frameCount = sampleCount / channels
+        if (sampleCount <= 0 || frameCount <= 0) return
 
-        val rms = sqrt(sumSquares.toDouble() / sampleCount).toFloat() / MAX_ABSOLUTE
+        val rms = sqrt(sumSquaresNorm / sampleCount).toFloat()
         // Music rarely exceeds 0.5 RMS, so a square root expands the quiet end into the visible
         // range. Without it normal tracks would only ever move the UI a few percent.
         val target = sqrt(rms.coerceIn(0f, 1f))
-        smoothed += (target - smoothed) * smoothingCoefficient(sampleCount, target)
+        smoothed += (target - smoothed) * smoothingCoefficient(frameCount, target)
         level = smoothed
     }
 
@@ -191,21 +232,18 @@ class AudioLevelProcessor @Inject constructor(private val playbackSettings: Play
 
     /**
      * Frame-rate independent smoothing. Buffer sizes vary with the decoder, so the coefficient is
-     * derived from how much audio this buffer actually represents instead of being a fixed constant
-     * that would behave differently per device.
+     * derived from how much audio duration [frameCount] frames actually represent instead of
+     * confusing raw interleaved samples with time frames.
      */
-    private fun smoothingCoefficient(sampleCount: Int, target: Float): Float {
+    private fun smoothingCoefficient(frameCount: Int, target: Float): Float {
         if (sampleRate <= 0) return if (target > smoothed) ATTACK else RELEASE
 
-        val seconds = sampleCount.toFloat() / sampleRate
+        val seconds = frameCount.toFloat() / sampleRate
         val tau = if (target > smoothed) ATTACK_TAU_SECONDS else RELEASE_TAU_SECONDS
         return 1f - exp(-seconds / tau)
     }
 
-    /**
-     * Always read a little-endian [Short] from the [ByteBuffer] at the given index, without
-     * depending on the buffer's current byte order.
-     */
+    /** Always read a little-endian [Short] from the [ByteBuffer] at [at]. */
     private fun ByteBuffer.getLeShort(at: Int) =
         get(at + 1).toInt().shl(8).or(get(at).toInt().and(0xFF)).toShort()
 
@@ -215,9 +253,36 @@ class AudioLevelProcessor @Inject constructor(private val playbackSettings: Play
         put(short.toInt().shr(8).toByte())
     }
 
+    private fun ByteBuffer.getLeInt24(at: Int): Int {
+        val b0 = get(at).toInt() and 0xFF
+        val b1 = get(at + 1).toInt() and 0xFF
+        val b2 = get(at + 2).toInt()
+        return (b2 shl 16) or (b1 shl 8) or b0
+    }
+
+    private fun ByteBuffer.putLeInt24(value: Int) {
+        put((value and 0xFF).toByte())
+        put(((value ushr 8) and 0xFF).toByte())
+        put(((value shr 16) and 0xFF).toByte())
+    }
+
+    private fun ByteBuffer.getLeInt32(at: Int): Int =
+        (get(at).toInt() and 0xFF) or
+            ((get(at + 1).toInt() and 0xFF) shl 8) or
+            ((get(at + 2).toInt() and 0xFF) shl 16) or
+            (get(at + 3).toInt() shl 24)
+
+    private fun ByteBuffer.putLeInt32(value: Int) {
+        put((value and 0xFF).toByte())
+        put(((value ushr 8) and 0xFF).toByte())
+        put(((value ushr 16) and 0xFF).toByte())
+        put(((value shr 24) and 0xFF).toByte())
+    }
+
     private companion object {
-        const val BYTES_PER_SAMPLE = 2
-        const val MAX_ABSOLUTE = 32768f
+        const val MAX_ABSOLUTE_16 = 32768.0
+        const val MAX_ABSOLUTE_24 = 8388608.0
+        const val MAX_ABSOLUTE_32 = 2147483648.0
 
         /** Rise quickly so percussion and transients register. */
         const val ATTACK_TAU_SECONDS = 0.015f

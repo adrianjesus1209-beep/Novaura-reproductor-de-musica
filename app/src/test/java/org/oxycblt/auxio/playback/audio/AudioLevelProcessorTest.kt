@@ -129,8 +129,8 @@ class AudioLevelProcessorTest {
         repeat(8) { process(processor, loud) }
         assertTrue("Precondition: the buffer above must make some noise", processor.level > 0f)
 
-        // Release is slower than attack, so this needs a few buffers of silence to visibly fall.
-        repeat(24) { process(processor, ShortArray(4096)) }
+        // Release is slower than attack and scales by frame duration, so stereo needs more buffers.
+        repeat(48) { process(processor, ShortArray(4096)) }
 
         assertTrue(
             "Silence must bring the level back down, was ${processor.level}",
@@ -166,16 +166,17 @@ class AudioLevelProcessorTest {
     }
 
     @Test
-    fun configure_rejectsNonPcm16Input() {
+    fun configure_acceptsSupportedPcmAndRejectsNonPcmInput() {
         val processor = AudioLevelProcessor(FakePlaybackSettings(AudioReactivity.NORMAL))
 
-        try {
+        val floatOutput =
             processor.configure(AudioFormat(SAMPLE_RATE, CHANNELS, C.ENCODING_PCM_FLOAT))
-            throw AssertionError("Expected float input to be rejected")
-        } catch (expected: AudioProcessor.UnhandledAudioFormatException) {
-            // Correct: the pipeline only ever feeds this processor 16-bit PCM, and guessing
-            // otherwise would silently measure the wrong samples.
-        }
+        assertEquals(C.ENCODING_PCM_FLOAT, floatOutput.encoding)
+        assertEquals(true, processor.isActive())
+
+        val ac3Output = processor.configure(AudioFormat(SAMPLE_RATE, CHANNELS, C.ENCODING_AC3))
+        assertEquals(AudioFormat.NOT_SET, ac3Output)
+        assertEquals(false, processor.isActive())
     }
 
     @Test

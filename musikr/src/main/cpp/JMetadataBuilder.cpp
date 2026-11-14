@@ -198,6 +198,10 @@ void JMetadataBuilder::setProperties(TagLib::AudioProperties *properties) {
 }
 
 jobject JMetadataBuilder::build() {
+    if (properties == nullptr) {
+        throw std::runtime_error(
+                "AudioProperties is null in JMetadataBuilder::build");
+    }
     JClassRef jPropertiesClass { env, "org/oxycblt/musikr/metadata/Properties" };
     jmethodID jPropertiesInitMethod = jPropertiesClass.method("<init>",
             "(Ljava/lang/String;JII)V");
@@ -217,10 +221,14 @@ jobject JMetadataBuilder::build() {
     auto jMp4Map = mp4.getObject();
     if (cover.has_value()) {
         JByteArrayRef jCoverArray { env, cover.value() };
+        cover.reset();
         jobject result = env->NewObject(*jMetadataClass, jMetadataInitMethod,
                 **jId3v2Map, **jXiphMap, **jMp4Map, *jCoverArray, *jProperties);
+        checkJniException(env, "Metadata.<init> threw JNI exception");
         return result;
     }
-    return env->NewObject(*jMetadataClass, jMetadataInitMethod, **jId3v2Map,
-            **jXiphMap, **jMp4Map, nullptr, *jProperties);
+    jobject result = env->NewObject(*jMetadataClass, jMetadataInitMethod,
+            **jId3v2Map, **jXiphMap, **jMp4Map, nullptr, *jProperties);
+    checkJniException(env, "Metadata.<init> threw JNI exception");
+    return result;
 }

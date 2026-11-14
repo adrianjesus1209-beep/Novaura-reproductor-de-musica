@@ -63,7 +63,7 @@ abstract class PersistenceDatabase : RoomDatabase() {
                 // Switched from custom names to just letting room pick the names
                 it.execSQL("ALTER TABLE playback_state RENAME TO PlaybackState")
                 it.execSQL("ALTER TABLE queue_heap RENAME TO QueueHeapItem")
-                it.execSQL("ALTER TABLE queue_mapping RENAME TO QueueMappingItem")
+                it.execSQL("ALTER TABLE queue_mapping RENAME TO QueueShuffledMappingItem")
             }
     }
 }
@@ -105,14 +105,14 @@ interface QueueDao {
      *
      * @return A list of persisted [QueueHeapItem]s wrapping each heap item.
      */
-    @Query("SELECT * FROM QueueHeapItem") suspend fun getHeap(): List<QueueHeapItem>
+    @Query("SELECT * FROM QueueHeapItem ORDER BY id ASC") suspend fun getHeap(): List<QueueHeapItem>
 
     /**
      * Get the previously persisted queue mapping.
      *
      * @return A list of persisted [QueueShuffledMappingItem]s wrapping each heap item.
      */
-    @Query("SELECT * FROM QueueShuffledMappingItem")
+    @Query("SELECT * FROM QueueShuffledMappingItem ORDER BY id ASC")
     suspend fun getShuffledMapping(): List<QueueShuffledMappingItem>
 
     /** Delete any previously persisted queue heap entries. */

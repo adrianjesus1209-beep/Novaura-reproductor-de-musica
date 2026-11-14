@@ -26,7 +26,7 @@ import androidx.media.MediaBrowserServiceCompat.Result
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.oxycblt.auxio.ForegroundListener
 import org.oxycblt.auxio.ForegroundServiceNotification
@@ -45,7 +45,7 @@ constructor(
 ) : MusicBrowser.Invalidator {
     private val indexer = indexingHolderFactory.create(context, foregroundListener)
     private val musicBrowser = musicBrowserFactory.create(context, this)
-    private val dispatchJob = Job()
+    private val dispatchJob = SupervisorJob()
     private val dispatchScope = CoroutineScope(dispatchJob + Dispatchers.Default)
 
     class Factory
@@ -93,8 +93,15 @@ constructor(
         indexer.start()
     }
 
-    fun createNotification(post: (ForegroundServiceNotification?) -> Unit) {
-        indexer.createNotification(post)
+    fun cancelIndexing() {
+        indexer.cancelIndexing()
+    }
+
+    fun createNotification(
+        force: Boolean = false,
+        post: (ForegroundServiceNotification?) -> Unit,
+    ) {
+        indexer.createNotification(force, post)
     }
 
     fun getRoot() = BrowserRoot(MediaSessionUID.Tab(TabNode.Root).toString(), Bundle())

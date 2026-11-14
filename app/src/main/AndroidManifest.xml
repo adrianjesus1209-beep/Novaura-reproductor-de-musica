@@ -37,6 +37,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Novaura.App"
         android:appCategory="audio"
+        android:localeConfig="@xml/locales_config"
         android:enableOnBackInvokedCallback="true"
         tools:ignore="UnusedAttribute">
 
@@ -85,6 +86,11 @@
                 <data android:mimeType="application/x-ogg" />
                 <data android:mimeType="application/itunes" />
             </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
 
@@ -109,6 +115,16 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- Service for background online streaming playback with MediaSession controls -->
+        <service
+            android:name=".download.OnlinePlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <receiver
+            android:name=".download.DownloadNotificationReceiver"
+            android:exported="false" />
+
         <!-- Service for AppCompat automatic per-app locale persistence -->
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
@@ -124,7 +140,7 @@
         -->
         <provider
             android:name=".image.CoverProvider"
-            android:authorities="@string/pkg_authority_cover"
+            android:authorities="${applicationId}.image.CoverProvider"
             android:exported="true"
             tools:ignore="ExportedContentProvider" />
 

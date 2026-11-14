@@ -38,6 +38,7 @@ class PlaybackStatsManager @Inject constructor(@ApplicationContext context: Cont
 
     data class PlaybackStats(val tracksPlayed: Int, val listenedDurationMs: Long)
 
+    @Synchronized
     fun recordSongPlayed(song: Song, durationMs: Long) {
         val now = System.currentTimeMillis()
         val songKey = KEY_SONG_COUNT_PREFIX + song.uid
@@ -80,6 +81,7 @@ class PlaybackStatsManager @Inject constructor(@ApplicationContext context: Cont
         editor.putString(KEY_7D_LOG, updatedEntries.joinToString(";")).apply()
     }
 
+    @Synchronized
     fun getMostPlayedSongs(
         allSongs: Collection<Song>,
         limit: Int = 100,
@@ -102,8 +104,10 @@ class PlaybackStatsManager @Inject constructor(@ApplicationContext context: Cont
         return sorted.take(limit)
     }
 
+    @Synchronized
     fun getPlayCount(song: Song): Int = prefs.getInt(KEY_SONG_COUNT_PREFIX + song.uid, 0)
 
+    @Synchronized
     fun getTopArtists(allArtists: List<Artist>, limit: Int = 10): List<Artist> {
         if (allArtists.isEmpty()) return emptyList()
 
@@ -114,6 +118,7 @@ class PlaybackStatsManager @Inject constructor(@ApplicationContext context: Cont
         return sorted.take(limit)
     }
 
+    @Synchronized
     fun getStats7Days(): PlaybackStats {
         val now = System.currentTimeMillis()
         val cutoff = now - TimeUnit.DAYS.toMillis(7)
@@ -138,6 +143,7 @@ class PlaybackStatsManager @Inject constructor(@ApplicationContext context: Cont
         return PlaybackStats(tracksPlayed = count, listenedDurationMs = totalMs)
     }
 
+    @Synchronized
     fun getStatsLifetime(): PlaybackStats {
         val count = prefs.getInt(KEY_LIFETIME_TRACKS, 0)
         val duration = prefs.getLong(KEY_LIFETIME_DURATION, 0L)

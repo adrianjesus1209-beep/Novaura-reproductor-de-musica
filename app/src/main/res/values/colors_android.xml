@@ -22,4 +22,15 @@
 
     <!-- Player aesthetic accent (monochrome) -->
     <color name="player_accent_gold">#FFFFFF</color>
+
+    <!-- Adaptive glass & wallpaper scrim colors (Light mode) -->
+    <color name="ui_glass_nav_bg">#EBFAFAFC</color>
+    <color name="ui_glass_nav_stroke">#1F000000</color>
+    <color name="ui_glass_pill_bg">#14000000</color>
+    <color name="ui_glass_pill_stroke">#1F000000</color>
+    <color name="ui_glass_card_start">#F8F8FA</color>
+    <color name="ui_glass_card_end">#ECECF1</color>
+    <color name="ui_glass_card_stroke">#1F000000</color>
+    <color name="ui_glass_stats_bg">#12000000</color>
+    <color name="ui_secondary_wallpaper_scrim">#CCFFFFFF</color>
 </resources>

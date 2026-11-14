@@ -20,7 +20,6 @@ package org.oxycblt.auxio.download
 
 import android.content.res.ColorStateList
 import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.Menu
@@ -68,14 +67,16 @@ class OnlinePlaylistDetailBottomSheet :
 
         playlistTitle = arguments?.getString(ARG_TITLE).orEmpty()
         playlistId = arguments?.getString(ARG_PLAYLIST_ID)
-        @Suppress("DEPRECATION")
-        val rawSongs =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                arguments?.getSerializable(ARG_SONGS, ArrayList::class.java)
-            } else {
-                arguments?.getSerializable(ARG_SONGS) as? ArrayList<*>
-            }
-        currentSongs = rawSongs?.filterIsInstance<OnlineSong>() ?: emptyList()
+        currentSongs =
+            arguments
+                ?.let {
+                    androidx.core.os.BundleCompat.getParcelableArrayList(
+                        it,
+                        ARG_SONGS,
+                        OnlineSong::class.java,
+                    )
+                }
+                ?.toList() ?: emptyList()
 
         binding.detailClose.setOnClickListener { dismiss() }
 
@@ -92,12 +93,20 @@ class OnlinePlaylistDetailBottomSheet :
             binding.detailRecycler.isVisible = songs.isNotEmpty()
 
             val firstThumb = songs.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
+            val isFavoritesPlaylist =
+                playlistId == OnlinePlaylistManager.ID_FAVORITES ||
+                    playlistTitle.equals(
+                        OnlinePlaylistManager.FAVORITES_NAME,
+                        ignoreCase = true,
+                    ) ||
+                    playlistTitle.equals(getString(R.string.lbl_favorites), ignoreCase = true)
             if (firstThumb != null) {
+                binding.detailCover.background = null
                 binding.detailCover.scaleType = ImageView.ScaleType.CENTER_CROP
                 binding.detailCover.setPadding(0, 0, 0, 0)
                 binding.detailCover.imageTintList = null
                 ThumbnailLoader.load(binding.detailCover, firstThumb)
-            } else if (playlistTitle.equals("Favoritos", ignoreCase = true)) {
+            } else if (isFavoritesPlaylist) {
                 val pad = (14 * resources.displayMetrics.density).toInt()
                 binding.detailCover.setBackgroundResource(R.drawable.bg_liked_music_gradient)
                 binding.detailCover.setImageResource(R.drawable.ic_thumb_up_24)
@@ -168,14 +177,9 @@ class OnlinePlaylistDetailBottomSheet :
     }
 
     private inner class DetailSongAdapter :
-        RecyclerView.Adapter<DetailSongAdapter.SongViewHolder>() {
-        private var items: List<OnlineSong> = emptyList()
-
-        fun submitList(newItems: List<OnlineSong>) {
-            items = newItems
-            notifyDataSetChanged()
-        }
-
+        androidx.recyclerview.widget.ListAdapter<OnlineSong, DetailSongAdapter.SongViewHolder>(
+            DetailDiffCallback
+        ) {
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SongViewHolder {
             val itemBinding =
                 ItemPlaybackTrackBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -183,10 +187,8 @@ class OnlinePlaylistDetailBottomSheet :
         }
 
         override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
-            holder.bind(items[position], position)
+            holder.bind(getItem(position), position)
         }
-
-        override fun getItemCount(): Int = items.size
 
         inner class SongViewHolder(private val itemBinding: ItemPlaybackTrackBinding) :
             RecyclerView.ViewHolder(itemBinding.root) {
@@ -275,6 +277,15 @@ class OnlinePlaylistDetailBottomSheet :
         }
     }
 
+    private object DetailDiffCallback :
+        androidx.recyclerview.widget.DiffUtil.ItemCallback<OnlineSong>() {
+        override fun areItemsTheSame(oldItem: OnlineSong, newItem: OnlineSong): Boolean =
+            oldItem.webUrl == newItem.webUrl
+
+        override fun areContentsTheSame(oldItem: OnlineSong, newItem: OnlineSong): Boolean =
+            oldItem == newItem
+    }
+
     companion object {
         const val TAG = BuildConfig.APPLICATION_ID + ".tag.ONLINE_PLAYLIST_DETAIL"
         private const val ARG_TITLE = "arg_title"
@@ -287,6 +298,7 @@ class OnlinePlaylistDetailBottomSheet :
             songs: List<OnlineSong>,
             playlistId: String? = null,
         ) {
+            if (fragmentManager.findFragmentByTag(TAG) != null) return
             OnlinePlaylistDetailBottomSheet()
                 .apply {
                     arguments =

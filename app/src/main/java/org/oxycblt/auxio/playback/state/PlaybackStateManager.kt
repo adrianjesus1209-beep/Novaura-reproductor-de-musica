@@ -18,6 +18,7 @@
  
 package org.oxycblt.auxio.playback.state
 
+import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
 import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.list.adapter.UpdateInstructions
@@ -345,7 +346,7 @@ class PlaybackStateManagerImpl @Inject constructor() : PlaybackStateManager {
         val rawQueue: RawQueue,
     )
 
-    private val listeners = mutableListOf<Listener>()
+    private val listeners = CopyOnWriteArrayList<Listener>()
 
     @Volatile
     private var stateMirror =
@@ -429,7 +430,9 @@ class PlaybackStateManagerImpl @Inject constructor() : PlaybackStateManager {
                 null,
             )
         }
-        pendingDeferredPlayback?.let(stateHolder::handleDeferred)
+        if (pendingDeferredPlayback?.let(stateHolder::handleDeferred) == true) {
+            pendingDeferredPlayback = null
+        }
     }
 
     @Synchronized
@@ -542,8 +545,10 @@ class PlaybackStateManagerImpl @Inject constructor() : PlaybackStateManager {
 
     @Synchronized
     override fun requestAction(stateHolder: PlaybackStateHolder) {
-        if (BuildConfig.DEBUG && this.stateHolder !== stateHolder) {
-            L.w("Given internal player did not match current internal player")
+        if (this.stateHolder !== stateHolder) {
+            if (BuildConfig.DEBUG) {
+                L.w("Given internal player did not match current internal player")
+            }
             return
         }
 
@@ -583,8 +588,10 @@ class PlaybackStateManagerImpl @Inject constructor() : PlaybackStateManager {
 
     @Synchronized
     override fun ack(stateHolder: PlaybackStateHolder, ack: StateAck) {
-        if (BuildConfig.DEBUG && this.stateHolder !== stateHolder) {
-            L.w("Given internal player did not match current internal player")
+        if (this.stateHolder !== stateHolder) {
+            if (BuildConfig.DEBUG) {
+                L.w("Given internal player did not match current internal player")
+            }
             return
         }
 
@@ -755,7 +762,7 @@ class PlaybackStateManagerImpl @Inject constructor() : PlaybackStateManager {
 
         val shuffledMapping =
             savedState.shuffledMapping.mapNotNullTo(mutableListOf()) { index ->
-                adjustments[index]?.let { index + it }
+                adjustments.getOrNull(index)?.let { index + it }
             }
 
         // Make sure we re-align the index to point to the previously playing song.
@@ -770,18 +777,31 @@ class PlaybackStateManagerImpl @Inject constructor() : PlaybackStateManager {
             return currentSong?.uid == savedState.songUid
         }
 
-        var index = savedState.index
+        var index = savedState.index.coerceAtMost(heap.lastIndex)
         while (!pointingAtSong(index) && index > -1) {
             index--
         }
 
         L.d("Corrected index: ${savedState.index} -> $index")
 
-        check(shuffledMapping.all { it in heap.indices }) {
-            "Queue inconsistency detected: Shuffled mapping indices out of heap bounds"
+        if (
+            index < 0 ||
+                savedState.shuffledMapping.any { it !in savedState.heap.indices } ||
+                !shuffledMapping.all { it in heap.indices }
+        ) {
+            L.w("Corrupt or empty persisted playback state, resetting queue")
+            stateHolder.reset(StateAck.NewPlayback)
+            return
         }
 
-        if (index < 0) {
+        val heapIndex =
+            if (shuffledMapping.isNotEmpty()) {
+                shuffledMapping.getOrNull(index)
+            } else {
+                index
+            }
+        if (heapIndex == null || heapIndex !in heap.indices) {
+            L.w("Persisted heap index $heapIndex out of bounds, resetting queue")
             stateHolder.reset(StateAck.NewPlayback)
             return
         }
@@ -790,12 +810,7 @@ class PlaybackStateManagerImpl @Inject constructor() : PlaybackStateManager {
             RawQueue(
                 heap = heap,
                 shuffledMapping = shuffledMapping,
-                heapIndex =
-                    if (shuffledMapping.isNotEmpty()) {
-                        shuffledMapping[index]
-                    } else {
-                        index
-                    },
+                heapIndex = heapIndex,
             )
 
         stateHolder.applySavedState(

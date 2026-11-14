@@ -21,11 +21,19 @@
 
 #include <jni.h>
 #include <android/log.h>
+#include <stdexcept>
 
 #define LOG_TAG "taglib_jni"
 #define LOGE(...) \
   ((void)__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
 #define LOGD(...) \
   ((void)__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__))
+
+inline void checkJniException(JNIEnv *env, const char *context) {
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        throw std::runtime_error(context);
+    }
+}
 
 #endif //AUXIO_UTIL_H

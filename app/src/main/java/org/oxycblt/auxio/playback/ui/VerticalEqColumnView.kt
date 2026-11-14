@@ -80,6 +80,8 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
 
     private var accentColor: Int = Color.WHITE
     private var accentSecondaryColor: Int = Color.parseColor("#CCCCCC")
+    private val gradientColors: IntArray
+    private var fillShader: LinearGradient? = null
 
     init {
         val primary = context.getAttrColorCompat(androidx.appcompat.R.attr.colorPrimary)
@@ -87,6 +89,29 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
             accentColor = primary.defaultColor
             accentSecondaryColor = ColorUtils.blendARGB(accentColor, Color.WHITE, 0.25f)
         }
+        gradientColors = intArrayOf(accentColor, accentSecondaryColor)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        val widthF = w.toFloat()
+        val labelHeight = textPaint.textSize + 16f
+        val trackTop = 16f
+        val trackBottom = (h.toFloat() - labelHeight).coerceAtLeast(trackTop + 1f)
+        val trackWidth = min(widthF * 0.55f, 44f * resources.displayMetrics.density)
+        val trackLeft = (widthF - trackWidth) / 2f
+        val trackRight = trackLeft + trackWidth
+        trackRect.set(trackLeft, trackTop, trackRight, trackBottom)
+        fillShader =
+            LinearGradient(
+                trackLeft,
+                trackBottom,
+                trackLeft,
+                trackTop,
+                gradientColors,
+                null,
+                Shader.TileMode.CLAMP,
+            )
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -95,38 +120,25 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
         val w = width.toFloat()
         val h = height.toFloat()
 
-        val labelHeight = textPaint.textSize + 16f
-        val trackTop = 16f
-        val trackBottom = h - labelHeight
-        val trackWidth = min(w * 0.55f, 44f * resources.displayMetrics.density)
-        val trackLeft = (w - trackWidth) / 2f
-        val trackRight = trackLeft + trackWidth
-        val cornerRadius = trackWidth / 2f
-
-        trackRect.set(trackLeft, trackTop, trackRight, trackBottom)
+        val trackLeft = trackRect.left
+        val trackTop = trackRect.top
+        val trackRight = trackRect.right
+        val trackBottom = trackRect.bottom
+        val cornerRadius = trackRect.width() / 2f
 
         // Draw track background
         trackPaint.alpha = if (isEnabled) 255 else 120
         canvas.drawRoundRect(trackRect, cornerRadius, cornerRadius, trackPaint)
 
         // Draw filled level
-        val fraction = ((level - minLevel) / (maxLevel - minLevel)).coerceIn(0f, 1f)
+        val range = (maxLevel - minLevel).takeIf { it > 0f } ?: 1f
+        val fraction = ((level - minLevel) / range).coerceIn(0f, 1f)
         val fillHeight = trackRect.height() * fraction
         val fillTop = trackRect.bottom - fillHeight
 
         if (fillHeight > 0f) {
             fillRect.set(trackLeft, fillTop, trackRight, trackBottom)
-
-            fillPaint.shader =
-                LinearGradient(
-                    trackLeft,
-                    trackBottom,
-                    trackLeft,
-                    fillTop,
-                    intArrayOf(accentColor, accentSecondaryColor),
-                    null,
-                    Shader.TileMode.CLAMP,
-                )
+            fillPaint.shader = fillShader
             fillPaint.alpha = if (isEnabled) 255 else 80
 
             canvas.save()

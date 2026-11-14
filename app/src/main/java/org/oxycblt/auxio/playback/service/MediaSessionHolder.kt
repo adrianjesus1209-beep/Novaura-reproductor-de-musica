@@ -27,7 +27,6 @@ import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import androidx.annotation.DrawableRes
-import androidx.car.app.mediaextensions.MetadataExtras
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
@@ -182,9 +181,7 @@ private constructor(
     override fun onProgressionChanged(progression: Progression) {
         invalidateSessionState()
         notification.updatePlaying(playbackManager.progression.isPlaying)
-        if (!bitmapProvider.isBusy) {
-            foregroundListener.updateForeground(ForegroundListener.Change.MEDIA_SESSION)
-        }
+        foregroundListener.updateForeground(ForegroundListener.Change.MEDIA_SESSION)
     }
 
     override fun onRepeatModeChanged(repeatMode: RepeatMode) {
@@ -256,12 +253,16 @@ private constructor(
                     PlaybackNotification.KEY_PARENT,
                     parent?.name?.resolve(context) ?: context.getString(R.string.lbl_all_songs),
                 )
+                .apply {
+                    song.artists.firstOrNull()?.uid?.let { artistUid ->
+                        putText(
+                            KEY_SUBTITLE_LINK_MEDIA_ID,
+                            MediaSessionUID.SingleItem(artistUid).toString(),
+                        )
+                    }
+                }
                 .putText(
-                    MetadataExtras.KEY_SUBTITLE_LINK_MEDIA_ID,
-                    MediaSessionUID.SingleItem(song.artists[0].uid).toString(),
-                )
-                .putText(
-                    MetadataExtras.KEY_DESCRIPTION_LINK_MEDIA_ID,
+                    KEY_DESCRIPTION_LINK_MEDIA_ID,
                     MediaSessionUID.SingleItem(song.album.uid).toString(),
                 )
         // These fields are nullable and so we must check first before adding them to the fields.
@@ -389,14 +390,14 @@ private constructor(
         invalidateSessionState()
 
         notification.updateShuffled(playbackManager.isShuffled)
-
-        if (!bitmapProvider.isBusy) {
-            L.d("Not loading a bitmap, post the notification")
-            foregroundListener.updateForeground(ForegroundListener.Change.MEDIA_SESSION)
-        }
+        foregroundListener.updateForeground(ForegroundListener.Change.MEDIA_SESSION)
     }
 
     companion object {
+        private const val KEY_SUBTITLE_LINK_MEDIA_ID =
+            "androidx.car.app.mediaextensions.KEY_SUBTITLE_LINK_MEDIA_ID"
+        private const val KEY_DESCRIPTION_LINK_MEDIA_ID =
+            "androidx.car.app.mediaextensions.KEY_DESCRIPTION_LINK_MEDIA_ID"
         private val emptyMetadata = MediaMetadataCompat.Builder().build()
     }
 }

@@ -54,134 +54,30 @@ class WidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
-            ACTION_WIDGET_PLAY_PAUSE -> {
-                L.d("Widget play/pause action received")
-                if (AuxioService.isAlive) {
-                    context.sendBroadcast(
-                        Intent(PlaybackActions.ACTION_PLAY_PAUSE)
-                            .setPackage(context.packageName)
-                            .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
-                    )
-                } else {
-                    val serviceIntent =
-                        Intent(context, AuxioService::class.java).apply {
-                            putExtra(
-                                AuxioService.INTENT_KEY_START_ID,
-                                IntegerTable.START_ID_WIDGET_PLAY,
-                            )
-                        }
-                    try {
-                        ContextCompat.startForegroundService(context, serviceIntent)
-                    } catch (e: Exception) {
-                        L.w(e, "Unable to start foreground service directly from widget")
-                        val launchIntent =
-                            context.packageManager
-                                .getLaunchIntentForPackage(context.packageName)
-                                ?.apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    putExtra(
-                                        AuxioService.INTENT_KEY_START_ID,
-                                        IntegerTable.START_ID_WIDGET_PLAY,
-                                    )
-                                }
-                        if (launchIntent != null) {
-                            context.startActivity(launchIntent)
-                        }
-                    }
-                }
-            }
-            ACTION_WIDGET_SKIP_NEXT -> {
-                L.d("Widget skip next action received")
-                if (AuxioService.isAlive) {
-                    context.sendBroadcast(
-                        Intent(PlaybackActions.ACTION_SKIP_NEXT)
-                            .setPackage(context.packageName)
-                            .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
-                    )
-                } else {
-                    val serviceIntent =
-                        Intent(context, AuxioService::class.java).apply {
-                            putExtra(
-                                AuxioService.INTENT_KEY_START_ID,
-                                IntegerTable.START_ID_WIDGET_PLAY,
-                            )
-                        }
-                    try {
-                        ContextCompat.startForegroundService(context, serviceIntent)
-                    } catch (e: Exception) {
-                        L.w(e, "Unable to start foreground service directly from widget")
-                        val launchIntent =
-                            context.packageManager
-                                .getLaunchIntentForPackage(context.packageName)
-                                ?.apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    putExtra(
-                                        AuxioService.INTENT_KEY_START_ID,
-                                        IntegerTable.START_ID_WIDGET_PLAY,
-                                    )
-                                }
-                        if (launchIntent != null) {
-                            context.startActivity(launchIntent)
-                        }
-                    }
-                }
-            }
-            ACTION_WIDGET_SKIP_PREV -> {
-                L.d("Widget skip prev action received")
-                if (AuxioService.isAlive) {
-                    context.sendBroadcast(
-                        Intent(PlaybackActions.ACTION_SKIP_PREV)
-                            .setPackage(context.packageName)
-                            .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
-                    )
-                } else {
-                    val serviceIntent =
-                        Intent(context, AuxioService::class.java).apply {
-                            putExtra(
-                                AuxioService.INTENT_KEY_START_ID,
-                                IntegerTable.START_ID_WIDGET_PLAY,
-                            )
-                        }
-                    try {
-                        ContextCompat.startForegroundService(context, serviceIntent)
-                    } catch (e: Exception) {
-                        L.w(e, "Unable to start foreground service directly from widget")
-                        val launchIntent =
-                            context.packageManager
-                                .getLaunchIntentForPackage(context.packageName)
-                                ?.apply {
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    putExtra(
-                                        AuxioService.INTENT_KEY_START_ID,
-                                        IntegerTable.START_ID_WIDGET_PLAY,
-                                    )
-                                }
-                        if (launchIntent != null) {
-                            context.startActivity(launchIntent)
-                        }
-                    }
-                }
-            }
-            ACTION_WIDGET_SHUFFLE -> {
-                L.d("Widget shuffle action received")
-                if (AuxioService.isAlive) {
-                    context.sendBroadcast(
-                        Intent(PlaybackActions.ACTION_INVERT_SHUFFLE)
-                            .setPackage(context.packageName)
-                            .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
-                    )
-                } else {
-                    val serviceIntent =
-                        Intent(context, AuxioService::class.java).apply {
-                            putExtra(AuxioService.INTENT_KEY_START_ID, IntegerTable.START_ID_TASKER)
-                        }
-                    try {
-                        ContextCompat.startForegroundService(context, serviceIntent)
-                    } catch (e: Exception) {
-                        L.w(e, "Unable to start foreground service directly from widget")
-                    }
-                }
-            }
+            ACTION_WIDGET_PLAY_PAUSE ->
+                dispatchWidgetAction(
+                    context,
+                    PlaybackActions.ACTION_PLAY_PAUSE,
+                    IntegerTable.START_ID_WIDGET_PLAY,
+                )
+            ACTION_WIDGET_SKIP_NEXT ->
+                dispatchWidgetAction(
+                    context,
+                    PlaybackActions.ACTION_SKIP_NEXT,
+                    IntegerTable.START_ID_WIDGET_PLAY,
+                )
+            ACTION_WIDGET_SKIP_PREV ->
+                dispatchWidgetAction(
+                    context,
+                    PlaybackActions.ACTION_SKIP_PREV,
+                    IntegerTable.START_ID_WIDGET_PLAY,
+                )
+            ACTION_WIDGET_SHUFFLE ->
+                dispatchWidgetAction(
+                    context,
+                    PlaybackActions.ACTION_INVERT_SHUFFLE,
+                    IntegerTable.START_ID_TASKER,
+                )
             ACTION_WIDGET_REPEAT -> {
                 L.d("Widget repeat action received")
                 if (AuxioService.isAlive) {
@@ -192,6 +88,28 @@ class WidgetProvider : AppWidgetProvider() {
                     )
                 }
             }
+        }
+    }
+
+    private fun dispatchWidgetAction(context: Context, broadcastAction: String, startId: Int) {
+        L.d("Widget action received: $broadcastAction (alive=${AuxioService.isAlive})")
+        if (AuxioService.isAlive) {
+            context.sendBroadcast(
+                Intent(broadcastAction)
+                    .setPackage(context.packageName)
+                    .setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY)
+            )
+            return
+        }
+        val serviceIntent =
+            Intent(context, AuxioService::class.java).apply {
+                setAction(AuxioService.ACTION_START)
+                putExtra(AuxioService.INTENT_KEY_START_ID, startId)
+            }
+        try {
+            ContextCompat.startForegroundService(context, serviceIntent)
+        } catch (e: Exception) {
+            L.w(e, "Unable to start foreground service from widget for $broadcastAction")
         }
     }
 

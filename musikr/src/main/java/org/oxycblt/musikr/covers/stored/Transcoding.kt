@@ -21,6 +21,8 @@ package org.oxycblt.musikr.covers.stored
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import java.io.OutputStream
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 /** An interface for transforming in-memory cover data into a different format for storage. */
 interface Transcoding {
@@ -79,32 +81,48 @@ class Compress(
     override val tag = "_${resolution}x${quality}.${format.name.lowercase()}"
 
     override fun transcodeInto(data: ByteArray, output: OutputStream) {
-        BitmapFactory.Options().run {
-            inJustDecodeBounds = true
-            BitmapFactory.decodeByteArray(data, 0, data.size, this)
-            inSampleSize = calculateInSampleSize(resolution)
-            inJustDecodeBounds = false
-            val bitmap =
-                requireNotNull(BitmapFactory.decodeByteArray(data, 0, data.size, this)) {
-                    "Failed to decode bitmap"
-                }
-            bitmap.compress(format, quality, output)
-            bitmap.recycle()
-            true
+        val targetSize = resolution.coerceAtLeast(1)
+        val options =
+            BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+                BitmapFactory.decodeByteArray(data, 0, data.size, this)
+                inSampleSize = calculateInSampleSize(targetSize)
+                inJustDecodeBounds = false
+            }
+        val decoded =
+            requireNotNull(BitmapFactory.decodeByteArray(data, 0, data.size, options)) {
+                "Failed to decode bitmap"
+            }
+        var toCompress = decoded
+        try {
+            val maxDim = max(decoded.width, decoded.height)
+            if (maxDim > targetSize && decoded.width > 0 && decoded.height > 0) {
+                val scale = targetSize.toFloat() / maxDim.toFloat()
+                val scaledW = (decoded.width * scale).roundToInt().coerceAtLeast(1)
+                val scaledH = (decoded.height * scale).roundToInt().coerceAtLeast(1)
+                toCompress = Bitmap.createScaledBitmap(decoded, scaledW, scaledH, true)
+            }
+            toCompress.compress(format, quality, output)
+        } finally {
+            if (toCompress !== decoded && !toCompress.isRecycled) {
+                toCompress.recycle()
+            }
+            if (!decoded.isRecycled) {
+                decoded.recycle()
+            }
         }
     }
 
     private fun BitmapFactory.Options.calculateInSampleSize(size: Int): Int {
         var inSampleSize = 1
-        val (height, width) = outHeight to outWidth
-
-        if (height > size || width > size) {
-            val halfHeight = height / 2
-            val halfWidth = width / 2
-            while ((halfHeight / inSampleSize) >= size && (halfWidth / inSampleSize) >= size) {
-                inSampleSize *= 2
-            }
+        val height = outHeight
+        val width = outWidth
+        if (size <= 0 || height <= 0 || width <= 0) {
+            return 1
         }
-        return inSampleSize
+        while ((height / inSampleSize) > size * 2 || (width / inSampleSize) > size * 2) {
+            inSampleSize *= 2
+        }
+        return inSampleSize.coerceAtLeast(1)
     }
 }

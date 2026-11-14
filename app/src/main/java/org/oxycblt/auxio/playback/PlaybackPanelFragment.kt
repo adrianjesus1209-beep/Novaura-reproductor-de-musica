@@ -38,6 +38,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import coil3.ImageLoader
+import coil3.request.Disposable
 import coil3.request.ImageRequest
 import coil3.request.target
 import coil3.request.transformations
@@ -115,6 +116,7 @@ class PlaybackPanelFragment :
     private val detailModel: DetailViewModel by activityViewModels()
     private val listModel: ListViewModel by activityViewModels()
     private val queueModel: QueueViewModel by viewModels()
+    private var blurDisposable: Disposable? = null
     private var trackTouchHelper: ItemTouchHelper? = null
     private val trackAdapter =
         PlaybackTrackAdapter(
@@ -352,15 +354,18 @@ class PlaybackPanelFragment :
             scrollToCurrentTrack()
         }
         collectImmediately(favoritesManager.favoriteUids) { uids ->
-            val song = playbackModel.song.value ?: return@collectImmediately
-            val isFav = uids.contains(song.uid.toString())
             val recycler =
                 binding.playbackPager.getChildAt(0) as? RecyclerView ?: return@collectImmediately
-            val pos = binding.playbackPager.currentItem
-            val holder =
-                recycler.findViewHolderForAdapterPosition(pos)
-                    as? org.oxycblt.auxio.playback.ui.swiper.CoverViewHolder
-            holder?.updateFavoriteUI(isFav)
+            val songs = coverPagerAdapter.currentList
+            for (i in 0 until recycler.childCount) {
+                val child = recycler.getChildAt(i)
+                val holder =
+                    recycler.getChildViewHolder(child)
+                        as? org.oxycblt.auxio.playback.ui.swiper.CoverViewHolder ?: continue
+                val adapterPos = holder.bindingAdapterPosition
+                val itemSong = songs.getOrNull(adapterPos) ?: playbackModel.song.value ?: continue
+                holder.updateFavoriteUI(uids.contains(itemSong.uid.toString()))
+            }
         }
     }
 
@@ -400,12 +405,17 @@ class PlaybackPanelFragment :
     //    }
 
     override fun onDestroyBinding(binding: FragmentPlaybackPanelBinding) {
+        blurDisposable?.dispose()
+        blurDisposable = null
         binding.playbackRepeat.clearPendingIcon()
         binding.playbackSong.isSelected = false
         binding.playbackArtist.isSelected = false
         binding.playbackAlbum?.isSelected = false
         binding.playbackToolbar.setOnMenuItemClickListener(null)
         userAwarePagerCallback?.release()
+        userAwarePagerCallback = null
+        trackTouchHelper?.attachToRecyclerView(null)
+        trackTouchHelper = null
         binding.playbackPager.adapter = null
         binding.playbackTracklist?.adapter = null
     }
@@ -452,6 +462,8 @@ class PlaybackPanelFragment :
         val songSeed = song.durationMs xor song.name.hashCode().toLong()
         binding.playbackSeekBar?.setSongSeed(songSeed)
 
+        blurDisposable?.dispose()
+        blurDisposable = null
         val cover = song.cover
         if (cover != null) {
             val request =
@@ -460,7 +472,7 @@ class PlaybackPanelFragment :
                     .transformations(BlurTransformation.DEFAULT)
                     .target(binding.playbackBlurBackground)
                     .build()
-            imageLoader.enqueue(request)
+            blurDisposable = imageLoader.enqueue(request)
         } else {
             binding.playbackBlurBackground.setImageDrawable(null)
         }
@@ -677,6 +689,7 @@ class PlaybackPanelFragment :
             }
         displayedTracks = tracks
         val currentSong = playbackModel.song.value
+        trackAdapter.submitList(tracks)
         trackAdapter.currentSongUid = currentSong?.uid
         val activeIndex =
             if (currentSong != null) {
@@ -685,7 +698,6 @@ class PlaybackPanelFragment :
                 queueModel.index.value
             }
         trackAdapter.currentIndex = activeIndex
-        trackAdapter.submitList(tracks)
         updateSaveButtonState()
     }
 

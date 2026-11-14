@@ -22,6 +22,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import java.util.UUID
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.oxycblt.auxio.image.CoverMode
 import org.oxycblt.auxio.image.ImageSettings
 import org.oxycblt.musikr.covers.Cover
@@ -44,8 +48,24 @@ interface SettingCovers {
     suspend fun mutate(context: Context, revision: UUID): MutableCovers<out Cover>
 
     companion object {
-        suspend fun immutable(context: Context): Covers<FDCover> =
-            ChainedCovers(StoredCovers(CoverStorage.at(context.coversDir())), FSCovers(context))
+        private val cacheMutex = Mutex()
+        @Volatile private var cachedImmutable: Covers<FDCover>? = null
+
+        suspend fun immutable(context: Context): Covers<FDCover> {
+            cachedImmutable?.let {
+                return it
+            }
+            val appContext = context.applicationContext
+            return cacheMutex.withLock {
+                cachedImmutable?.let {
+                    return@withLock it
+                }
+                val coversDir = withContext(Dispatchers.IO) { appContext.coversDir() }
+                ChainedCovers(StoredCovers(CoverStorage.at(coversDir)), FSCovers(appContext)).also {
+                    cachedImmutable = it
+                }
+            }
+        }
     }
 }
 

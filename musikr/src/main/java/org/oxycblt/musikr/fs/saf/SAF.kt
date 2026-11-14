@@ -25,6 +25,7 @@ import android.os.Build
 import android.provider.DocumentsContract
 import android.provider.MediaStore as AOSPMediaStore
 import androidx.annotation.RequiresApi
+import androidx.core.database.getStringOrNull
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -54,7 +55,7 @@ private constructor(
     private val query: Query,
 ) : FS {
     override fun explore(scope: CoroutineScope, files: Channel<File>): Deferred<Result<Unit>> {
-        return scope.tryAsyncWith(files, Dispatchers.Main) {
+        return scope.tryAsyncWith(files, Dispatchers.IO) {
             query.source
                 .map { location ->
                     scope.exploreDirectoryImpl(
@@ -110,8 +111,8 @@ private constructor(
                     cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
 
                 while (cursor.moveToNext()) {
-                    val childId = cursor.getString(childUriIndex)
-                    val displayName = cursor.getString(displayNameIndex)
+                    val childId = cursor.getStringOrNull(childUriIndex) ?: continue
+                    val displayName = cursor.getStringOrNull(displayNameIndex) ?: continue
 
                     // Skip hidden files/directories if ignoreHidden is true
                     if (!query.withHidden && displayName.startsWith(".")) {
@@ -119,7 +120,7 @@ private constructor(
                     }
 
                     val newPath = relativePath.file(displayName)
-                    val mimeType = cursor.getString(mimeTypeIndex)
+                    val mimeType = cursor.getStringOrNull(mimeTypeIndex) ?: ""
                     val lastModified = cursor.getLong(lastModifiedIndex)
                     val childUri = DocumentsContract.buildDocumentUriUsingTree(rootUri, childId)
 
@@ -143,7 +144,7 @@ private constructor(
                             recursive.add(subtask)
                         } else {
                             // cannot pool, single-thread it
-                            subtask.await()
+                            subtask.await().getOrThrow()
                         }
                     } else {
                         val size = cursor.getLong(sizeIndex)

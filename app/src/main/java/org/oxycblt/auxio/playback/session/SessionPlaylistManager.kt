@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.music.resolve
-import org.oxycblt.auxio.playback.state.PlaybackStateManager
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.MusicParent
 import org.oxycblt.musikr.Playlist
@@ -47,8 +46,7 @@ class SessionPlaylistManager
 constructor(
     @ApplicationContext private val context: Context,
     private val musicRepository: MusicRepository,
-    private val playbackManager: PlaybackStateManager,
-) : PlaybackStateManager.Listener, MusicRepository.UpdateListener {
+) : MusicRepository.UpdateListener {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -61,7 +59,6 @@ constructor(
 
     init {
         restoreSession()
-        playbackManager.addListener(this)
         musicRepository.addUpdateListener(this)
         resolveSongs()
     }
@@ -70,21 +67,6 @@ constructor(
         if (changes.deviceLibrary) {
             resolveSongs()
         }
-    }
-
-    override fun onIndexMoved(index: Int) {
-        val song = playbackManager.currentSong ?: return
-        recordSong(song)
-    }
-
-    override fun onNewPlayback(
-        parent: MusicParent?,
-        queue: List<Song>,
-        index: Int,
-        isShuffled: Boolean,
-    ) {
-        val song = playbackManager.currentSong ?: return
-        recordSong(song)
     }
 
     /** Records a played [Song] in the current listening session without duplicating entries. */
@@ -97,15 +79,17 @@ constructor(
         }
         lastPlaybackTimeMs = now
 
-        // Avoid duplicates while preserving listening order (latest played moves to the end)
-        sessionSongUids.remove(song.uid)
-        sessionSongUids.add(song.uid)
-        // Limit session to most recent 50 tracks
-        if (sessionSongUids.size > MAX_SESSION_SONGS) {
-            sessionSongUids.removeAt(0)
+        if (song.uid !in sessionSongUids) {
+            sessionSongUids.add(song.uid)
+            // Limit session to most recent 50 tracks
+            if (sessionSongUids.size > MAX_SESSION_SONGS) {
+                sessionSongUids.removeAt(0)
+            }
+            saveSession()
+            resolveSongs()
+        } else {
+            saveSession()
         }
-        saveSession()
-        resolveSongs()
     }
 
     @Synchronized

@@ -100,7 +100,7 @@ constructor(
     }
 
     override fun onMusicChanges(changes: MusicRepository.Changes) {
-        if (!changes.deviceLibrary) return
+        if (!changes.deviceLibrary && !changes.userLibrary) return
         val library = musicRepository.library ?: return
         statistics.value =
             Statistics(
@@ -140,6 +140,15 @@ constructor(
      * @return The associated [Song], or null if it could not be found.
      */
     fun findSong(uid: Music.UID): Song? = musicRepository.find(uid) as? Song
+
+    /**
+     * Resolve the [Playlist] associated with the given [Music.UID], if it still exists in the
+     * library.
+     *
+     * @param uid The [Music.UID] to resolve.
+     * @return The matching [Playlist], or null if not found.
+     */
+    fun findPlaylist(uid: Music.UID): Playlist? = musicRepository.find(uid) as? Playlist
 
     /**
      * Create a new generic [Playlist].

@@ -18,9 +18,7 @@
  
 package org.oxycblt.musikr.playlist.db
 
-import android.content.ContentValues
 import android.content.Context
-import android.database.sqlite.SQLiteDatabase
 import androidx.core.database.getStringOrNull
 import androidx.room.Dao
 import androidx.room.Database
@@ -85,31 +83,37 @@ internal abstract class PlaylistDatabase : RoomDatabase() {
                                                         "catastrophic migration failure: $table has bad UID"
                                                     }
                                                     .toString()
-                                            migrations.add(oldUid to newUid)
+                                            if (oldUid != newUid) {
+                                                migrations.add(oldUid to newUid)
+                                            }
                                         }
                                         migrations
                                     }
                             for ((old, new) in playlistUidMigration) {
-                                db.update(
-                                    table,
-                                    SQLiteDatabase.CONFLICT_REPLACE,
-                                    ContentValues().apply {
-                                        put(column, old)
-                                    },
-                                    "$column = ?",
-                                    arrayOf(new),
-                                )
-                            }
-                            for ((old, new) in playlistUidMigration) {
-                                db.update(
-                                    table,
-                                    SQLiteDatabase.CONFLICT_REPLACE,
-                                    ContentValues().apply {
-                                        put(column, new)
-                                    },
-                                    "$column = ?",
-                                    arrayOf(old),
-                                )
+                                if (table == "PlaylistInfo") {
+                                    val newExists =
+                                        db.query(
+                                                "SELECT 1 FROM $table WHERE $column = ?",
+                                                arrayOf(new),
+                                            )
+                                            .use { cursor -> cursor.moveToFirst() }
+                                    if (newExists) {
+                                        db.execSQL(
+                                            "DELETE FROM $table WHERE $column = ?",
+                                            arrayOf(old),
+                                        )
+                                    } else {
+                                        db.execSQL(
+                                            "UPDATE $table SET $column = ? WHERE $column = ?",
+                                            arrayOf(new, old),
+                                        )
+                                    }
+                                } else {
+                                    db.execSQL(
+                                        "UPDATE $table SET $column = ? WHERE $column = ?",
+                                        arrayOf(new, old),
+                                    )
+                                }
                             }
                         }
 
@@ -119,7 +123,6 @@ internal abstract class PlaylistDatabase : RoomDatabase() {
                         }
                     }
                 )
-                .fallbackToDestructiveMigration(true)
                 .build()
     }
 }

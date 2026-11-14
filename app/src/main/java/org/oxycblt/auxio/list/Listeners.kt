@@ -70,11 +70,17 @@ interface EditableListListener {
      */
     fun bind(viewHolder: RecyclerView.ViewHolder, dragHandle: View) {
         dragHandle.setOnTouchListener { _, motionEvent ->
-            dragHandle.performClick()
-            if (motionEvent.actionMasked == MotionEvent.ACTION_DOWN) {
-                onPickUp(viewHolder)
-                true
-            } else false
+            when (motionEvent.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    onPickUp(viewHolder)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    dragHandle.performClick()
+                    false
+                }
+                else -> false
+            }
         }
     }
 }

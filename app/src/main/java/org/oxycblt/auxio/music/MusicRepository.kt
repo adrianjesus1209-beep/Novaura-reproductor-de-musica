@@ -21,22 +21,28 @@ package org.oxycblt.auxio.music
 import android.content.Context
 import android.media.MediaScannerConnection
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.os.SystemClock
 import android.os.storage.StorageManager
+import android.os.storage.StorageVolume
 import android.provider.DocumentsContract
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import org.oxycblt.auxio.image.CoverMode
+import org.oxycblt.auxio.image.ImageSettings
 import org.oxycblt.auxio.image.covers.SettingCovers
 import org.oxycblt.auxio.music.MusicRepository.IndexingWorker
 import org.oxycblt.auxio.music.locations.LocationMode
@@ -288,12 +294,24 @@ constructor(
     private val storedPlaylists: StoredPlaylists,
     private val settingCovers: SettingCovers,
     private val musicSettings: MusicSettings,
+    private val imageSettings: ImageSettings,
     private val downloadRepository:
         javax.inject.Provider<org.oxycblt.auxio.download.DownloadRepository>,
 ) : MusicRepository {
     private val updateListeners = mutableListOf<MusicRepository.UpdateListener>()
     private val indexingListeners = mutableListOf<MusicRepository.IndexingListener>()
     private val playlistMutex = Mutex()
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    @Volatile private var backfillJob: Job? = null
+    private val attemptedCoverKeys = ConcurrentHashMap.newKeySet<String>()
+
+    private data class PendingIndexRequest(
+        val withCache: Boolean,
+        val forceStorageScan: Boolean,
+        val silent: Boolean,
+    )
+
+    @Volatile private var pendingIndexRequest: PendingIndexRequest? = null
     @Volatile private var indexingWorker: IndexingWorker? = null
 
     @Volatile override var library: MutableLibrary? = null
@@ -347,6 +365,15 @@ constructor(
         }
         L.d("Registering worker $worker")
         indexingWorker = worker
+        val pending = pendingIndexRequest
+        pendingIndexRequest = null
+        if (pending != null) {
+            worker.requestIndex(
+                withCache = pending.withCache,
+                forceStorageScan = pending.forceStorageScan,
+                silent = pending.silent,
+            )
+        }
     }
 
     @Synchronized
@@ -475,7 +502,23 @@ constructor(
         L.d(
             "Requesting index operation [cache=$withCache, forceStorageScan=$forceStorageScan, silent=$silent]"
         )
-        indexingWorker?.requestIndex(withCache, forceStorageScan, silent)
+        val worker = indexingWorker
+        if (worker != null) {
+            pendingIndexRequest = null
+            worker.requestIndex(withCache, forceStorageScan, silent)
+        } else {
+            val prev = pendingIndexRequest
+            pendingIndexRequest =
+                if (prev == null) {
+                    PendingIndexRequest(withCache, forceStorageScan, silent)
+                } else {
+                    PendingIndexRequest(
+                        withCache = prev.withCache && withCache,
+                        forceStorageScan = prev.forceStorageScan || forceStorageScan,
+                        silent = prev.silent && silent,
+                    )
+                }
+        }
     }
 
     override suspend fun index(
@@ -553,12 +596,10 @@ constructor(
         }
 
         // Fast scan of common music and download directories into MediaScanner to ensure external
-        // downloads
-        // (Chrome, Telegram, WhatsApp, third-party downloaders) are registered in MediaStore
+        // downloads (Chrome, Telegram, WhatsApp, third-party downloaders) are registered in
+        // MediaStore before indexing runs.
         if (forceStorageScan) {
-            CoroutineScope(Dispatchers.IO).launch {
-                scanExternalAudioDirectories()
-            }
+            withContext(Dispatchers.IO) { scanExternalAudioDirectories() }
         }
 
         val progressCallback: suspend (IndexingProgress) -> Unit =
@@ -585,9 +626,10 @@ constructor(
         L.d("Emitting new library")
         emitLibrary(result.library)
 
-        // Asynchronously backfill missing covers for Novaura downloads if any are missing
-        CoroutineScope(Dispatchers.IO).launch {
-            backfillNovauraCovers(result.library.songs)
+        // Asynchronously backfill missing covers for Novaura downloads if covers are enabled.
+        if (imageSettings.coverMode != CoverMode.OFF) {
+            backfillJob?.cancel()
+            backfillJob = ioScope.launch { backfillNovauraCovers(result.library.songs) }
         }
 
         // An empty library right after a fresh query almost always means MediaProvider has not
@@ -605,6 +647,7 @@ constructor(
 
     private suspend fun backfillNovauraCovers(songs: Collection<Song>) {
         try {
+            if (imageSettings.coverMode == CoverMode.OFF) return
             val novauraSongsWithoutCover = songs.filter { song ->
                 song.cover == null && song.path.components.unixString.contains("Novaura")
             }
@@ -614,6 +657,10 @@ constructor(
             for (song in novauraSongsWithoutCover.take(10)) {
                 val folderName = song.path.directory.name ?: continue
                 val displayName = song.path.name ?: continue
+                val key = "$folderName/$displayName"
+                if (key in attemptedCoverKeys) continue
+                attemptedCoverKeys.add(key)
+
                 val songTitle = song.name.resolve(context)
                 val songArtist = song.artists.resolveNames(context)
 
@@ -635,6 +682,8 @@ constructor(
                 L.d("Backfilled covers for Novaura downloads, requesting silent index update")
                 requestIndex(withCache = false, forceStorageScan = false, silent = true)
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             L.w("Error during backfillNovauraCovers: $e")
         }
@@ -699,12 +748,7 @@ constructor(
         val storageManager = context.getSystemServiceCompat(StorageManager::class)
         val roots =
             storageManager.storageVolumes.mapNotNull { volume ->
-                try {
-                    volume.directory?.absolutePath
-                } catch (e: Exception) {
-                    L.w("Could not resolve directory of ${volume.uuid}: $e")
-                    null
-                }
+                resolveVolumeDirectoryPath(volume)
             }
         if (roots.isEmpty()) {
             L.w("No mounted volume directory to rescan")
@@ -791,13 +835,32 @@ constructor(
             }
             currentIndexingState = null
             L.d("Dispatching completion state [error=$error, silent=$silent]")
-            if (!silent) {
-                for (listener in indexingListeners) {
-                    listener.onIndexingStateChanged()
-                }
+            for (listener in indexingListeners) {
+                listener.onIndexingStateChanged()
             }
         }
     }
+
+    private fun resolveVolumeDirectoryPath(volume: StorageVolume): String? =
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                volume.directory?.absolutePath
+            } else {
+                val state = volume.state
+                if (
+                    state == Environment.MEDIA_MOUNTED ||
+                        state == Environment.MEDIA_MOUNTED_READ_ONLY
+                ) {
+                    @Suppress("DiscouragedPrivateApi")
+                    StorageVolume::class.java.getMethod("getPath").invoke(volume) as? String
+                } else {
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            L.w("Could not resolve directory of volume: $e")
+            null
+        }
 
     @Synchronized
     private fun dispatchLibraryChange(device: Boolean, user: Boolean) {

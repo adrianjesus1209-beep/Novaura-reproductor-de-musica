@@ -74,15 +74,19 @@ abstract class M3U {
         const val MIME_TYPE = "audio/x-mpegurl"
 
         internal fun from(context: Context): M3U = M3UImpl(VolumeManager.from(context))
+
+        @androidx.annotation.VisibleForTesting
+        internal fun from(volumeManager: VolumeManager): M3U = M3UImpl(volumeManager)
     }
 }
 
 private class M3UImpl(private val volumeManager: VolumeManager) : M3U() {
     override fun read(stream: InputStream, workingDirectory: Path): ImportedPlaylist? {
         val volumes = volumeManager.getVolumes()
-        val reader = BufferedReader(InputStreamReader(stream))
+        val reader = BufferedReader(InputStreamReader(stream, Charsets.UTF_8))
         val paths = mutableListOf<PossiblePaths>()
         var name: String? = null
+        var isFirstLine = true
 
         consumeFile@ while (true) {
             var path: String?
@@ -91,9 +95,15 @@ private class M3UImpl(private val volumeManager: VolumeManager) : M3U() {
                 // prefixed with "#", and then a relative/absolute path or url to the file.
                 // We don't really care about the metadata except for the playlist name, so
                 // we discard everything but that.
-                val currentLine =
-                    (reader.readLine() ?: break@consumeFile).correctWhitespace()
-                        ?: continue@collectMetadata
+                val rawLine = reader.readLine() ?: break@consumeFile
+                val normalizedLine =
+                    if (isFirstLine) {
+                        isFirstLine = false
+                        rawLine.removePrefix("\uFEFF")
+                    } else {
+                        rawLine
+                    }
+                val currentLine = normalizedLine.correctWhitespace() ?: continue@collectMetadata
                 if (currentLine.startsWith("#")) {
                     // Metadata entries are roughly structured
                     val split = currentLine.split(":", limit = 2)
@@ -153,19 +163,34 @@ private class M3UImpl(private val volumeManager: VolumeManager) : M3U() {
         workingDirectory: Path,
         volumes: List<Volume>,
     ): List<Path> {
+        val resolvedRelativeComponents = path.components.absoluteTo(workingDirectory.components)
         val absoluteInterpretation = Path(workingDirectory.volume, path.components)
-        val relativeInterpretation =
-            Path(workingDirectory.volume, path.components.absoluteTo(workingDirectory.components))
+        val relativeInterpretation = Path(workingDirectory.volume, resolvedRelativeComponents)
         val volumeExactMatch = volumes.find { it.components?.contains(path.components) == true }
         val volumeInterpretation = volumeExactMatch?.let {
             val components =
                 unlikelyToBeNull(volumeExactMatch.components).containing(path.components)
             Path(volumeExactMatch, components)
         }
+        val thirdPartyVolumeFallbacks =
+            if (workingDirectory.volume is Volume.ThirdParty) {
+                volumes.flatMap { volume ->
+                    listOf(
+                        Path(volume, resolvedRelativeComponents),
+                        Path(volume, path.components),
+                    )
+                }
+            } else {
+                emptyList()
+            }
         return if (path.likelyAbsolute) {
-            listOfNotNull(volumeInterpretation, absoluteInterpretation, relativeInterpretation)
+            (listOfNotNull(volumeInterpretation, absoluteInterpretation, relativeInterpretation) +
+                    thirdPartyVolumeFallbacks)
+                .distinct()
         } else {
-            listOfNotNull(relativeInterpretation, volumeInterpretation, absoluteInterpretation)
+            (listOfNotNull(relativeInterpretation, volumeInterpretation, absoluteInterpretation) +
+                    thirdPartyVolumeFallbacks)
+                .distinct()
         }
     }
 
@@ -175,7 +200,7 @@ private class M3UImpl(private val volumeManager: VolumeManager) : M3U() {
         workingDirectory: Path,
         config: ExportConfig,
     ) {
-        val writer = outputStream.bufferedWriter()
+        val writer = outputStream.bufferedWriter(Charsets.UTF_8)
         // Try to be as compliant to the spec as possible while also cramming it full of extensions
         // I imagine other players will use.
         writer.writeLine("#EXTM3U")
@@ -201,10 +226,11 @@ private class M3UImpl(private val volumeManager: VolumeManager) : M3U() {
                 }
             }
 
+            val useAbsolute = config.absolute || song.path.volume != workingDirectory.volume
             val formattedPath =
-                if (config.absolute) {
-                    // The path is already absolute in this case, but we need to prefix and separate
-                    // it differently depending on the setting.
+                if (useAbsolute) {
+                    // The path is already absolute in this case, or lives on a different storage
+                    // volume than the exported M3U file so a relative path would be invalid.
                     if (config.windowsPaths) {
                         // Assume the plain windows C volume, since that's probably where most music
                         // libraries are on a windows PC.

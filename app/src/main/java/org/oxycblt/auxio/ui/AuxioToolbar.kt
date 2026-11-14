@@ -65,6 +65,7 @@ constructor(
         ViewToolbarBinding.inflate(LayoutInflater.from(context), this, true)
     private var menuItemClickListener: Toolbar.OnMenuItemClickListener? = null
     private var overflowClickListener: OnClickListener? = null
+    private var activePopup: PopupMenu? = null
     private val actionButtons = mutableMapOf<Int, RippleFixMaterialButton>()
     @SuppressLint("RestrictedApi") private var menuBuilder = MenuBuilder(context)
 
@@ -306,6 +307,7 @@ constructor(
 
     @SuppressLint("RestrictedApi")
     private fun showPopupMenu(anchor: View, items: List<MenuItem>) {
+        activePopup?.dismiss()
         val popup = PopupMenu(context, anchor)
         val originalItems = mutableMapOf<Int, MenuItem>()
         for (item in items) {
@@ -322,7 +324,19 @@ constructor(
                 originalItems[clickedItem.itemId] ?: return@setOnMenuItemClickListener false
             menuItemClickListener?.onMenuItemClick(originalItem) ?: false
         }
+        popup.setOnDismissListener {
+            if (activePopup === popup) {
+                activePopup = null
+            }
+        }
+        activePopup = popup
         popup.show()
+    }
+
+    override fun onDetachedFromWindow() {
+        activePopup?.dismiss()
+        activePopup = null
+        super.onDetachedFromWindow()
     }
 
     private fun createActionButtonContext(itemId: Int): Context {

@@ -31,12 +31,15 @@ import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.children
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.transition.MaterialSharedAxis
+import javax.inject.Inject
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.settings.ui.IntListPreference
 import org.oxycblt.auxio.settings.ui.IntListPreferenceDialog
 import org.oxycblt.auxio.settings.ui.PreferenceHeaderItemDecoration
 import org.oxycblt.auxio.settings.ui.WrappedDialogPreference
 import org.oxycblt.auxio.ui.AuxioToolbar
+import org.oxycblt.auxio.ui.UISettings
+import org.oxycblt.auxio.ui.WallpaperHelper
 import org.oxycblt.auxio.util.systemBarInsetsCompat
 import timber.log.Timber as L
 
@@ -69,8 +72,11 @@ abstract class BasePreferenceFragment(@XmlRes private val screen: Int) :
         reenterTransition = MaterialSharedAxis(MaterialSharedAxis.X, false)
     }
 
+    @Inject lateinit var wallpaperUiSettings: UISettings
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        applyWallpaperBackground(view)
 
         view.findViewById<AppBarLayout>(R.id.preferences_appbar).liftOnScrollTargetViewId =
             androidx.preference.R.id.recycler_view
@@ -83,6 +89,16 @@ abstract class BasePreferenceFragment(@XmlRes private val screen: Int) :
         preferenceScreen.children.forEach(::setupPreference)
 
         L.d("Fragment created")
+    }
+
+    override fun onResume() {
+        super.onResume()
+        view?.let(::applyWallpaperBackground)
+    }
+
+    private fun applyWallpaperBackground(view: View) {
+        val appBar = view.findViewById<View>(R.id.preferences_appbar)
+        WallpaperHelper.applySecondaryWallpaperBackground(view, wallpaperUiSettings, appBar)
     }
 
     override fun onCreateRecyclerView(

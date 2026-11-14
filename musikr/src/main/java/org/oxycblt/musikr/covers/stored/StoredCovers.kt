@@ -18,6 +18,7 @@
  
 package org.oxycblt.musikr.covers.stored
 
+import kotlinx.coroutines.CancellationException
 import org.oxycblt.musikr.covers.Cover
 import org.oxycblt.musikr.covers.CoverResult
 import org.oxycblt.musikr.covers.Covers
@@ -86,7 +87,11 @@ class MutableStoredCovers(
                 coverStorage.write(memoryCover.id + transcoding.tag) {
                     transcoding.transcodeInto(memoryCover.data(), it)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                return CoverResult.Miss()
+            } catch (e: OutOfMemoryError) {
                 return CoverResult.Miss()
             }
         return CoverResult.Hit(StoredCover(innerCover))

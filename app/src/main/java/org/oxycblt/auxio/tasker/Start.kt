@@ -22,6 +22,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.joaomgcd.taskerpluginlibrary.action.TaskerPluginRunnerActionNoOutputOrInput
 import com.joaomgcd.taskerpluginlibrary.config.TaskerPluginConfig
@@ -29,6 +30,7 @@ import com.joaomgcd.taskerpluginlibrary.config.TaskerPluginConfigHelperNoOutputO
 import com.joaomgcd.taskerpluginlibrary.config.TaskerPluginConfigNoInput
 import com.joaomgcd.taskerpluginlibrary.input.TaskerInput
 import com.joaomgcd.taskerpluginlibrary.runner.TaskerPluginResult
+import com.joaomgcd.taskerpluginlibrary.runner.TaskerPluginResultError
 import com.joaomgcd.taskerpluginlibrary.runner.TaskerPluginResultSucess
 import org.oxycblt.auxio.AuxioService
 import org.oxycblt.auxio.IntegerTable
@@ -58,18 +60,36 @@ class ActivityConfigStartAction : Activity(), TaskerPluginConfigNoInput {
 
 class StartActionRunner : TaskerPluginRunnerActionNoOutputOrInput() {
     override fun run(context: Context, input: TaskerInput<Unit>): TaskerPluginResult<Unit> {
-        ContextCompat.startForegroundService(
-            context,
-            Intent(context, AuxioService::class.java)
-                .setAction(AuxioService.ACTION_START)
-                .putExtra(AuxioService.INTENT_KEY_START_ID, IntegerTable.START_ID_TASKER),
-        )
-        while (!AuxioService.isForeground) {
-            Thread.sleep(100)
+        try {
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, AuxioService::class.java)
+                    .setAction(AuxioService.ACTION_START)
+                    .putExtra(AuxioService.INTENT_KEY_START_ID, IntegerTable.START_ID_TASKER),
+            )
+            val deadline = SystemClock.elapsedRealtime() + MAX_WAIT_MS
+            while (!AuxioService.isForeground && SystemClock.elapsedRealtime() < deadline) {
+                Thread.sleep(POLL_INTERVAL_MS)
+            }
+            if (!AuxioService.isForeground) {
+                return TaskerPluginResultError(
+                    1,
+                    "Timed out waiting for playback service to enter foreground",
+                )
+            }
+            // Brief settle period for MediaSession readiness after foreground promotion.
+            Thread.sleep(POLL_INTERVAL_MS)
+            return TaskerPluginResultSucess()
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            return TaskerPluginResultError(2, e.message ?: "Interrupted")
+        } catch (e: Exception) {
+            return TaskerPluginResultError(3, e.message ?: "Unable to start playback service")
         }
-        // Actually need to sleep even longer since for some reason the notification still
-        // won't accept media button events for an arbitrary period.
-        Thread.sleep(100)
-        return TaskerPluginResultSucess()
+    }
+
+    private companion object {
+        const val MAX_WAIT_MS = 5_000L
+        const val POLL_INTERVAL_MS = 100L
     }
 }

@@ -19,10 +19,7 @@
 package org.oxycblt.auxio.theme
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.graphics.RenderEffect
-import android.graphics.Shader
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
@@ -33,13 +30,21 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.os.BundleCompat
 import androidx.fragment.app.DialogFragment
+import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.DialogThemeCustomizerBinding
 import org.oxycblt.auxio.ui.UISettings
+import org.oxycblt.auxio.ui.WallpaperHelper
 import timber.log.Timber as L
 
 /**
@@ -57,6 +62,11 @@ class ThemeCustomizerDialog : DialogFragment() {
 
     private var pendingImageUri: Uri? = null
     private var previewBitmap: Bitmap? = null
+    private var blurredPreviewBitmap: Bitmap? = null
+    private var hasPromptedPicker = false
+    private var previewLoadJob: Job? = null
+    private var blurPreviewJob: Job? = null
+    private var saveJob: Job? = null
 
     private val photoPickerLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -89,6 +99,16 @@ class ThemeCustomizerDialog : DialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        if (savedInstanceState != null) {
+            pendingImageUri =
+                BundleCompat.getParcelable(
+                    savedInstanceState,
+                    KEY_PENDING_IMAGE_URI,
+                    Uri::class.java,
+                )
+            hasPromptedPicker = savedInstanceState.getBoolean(KEY_HAS_PROMPTED_PICKER, false)
+        }
 
         binding.btnBack.setOnClickListener { dismiss() }
         binding.btnCancel.setOnClickListener { dismiss() }
@@ -127,128 +147,187 @@ class ThemeCustomizerDialog : DialogFragment() {
         updateBrightness(currentBrightness)
 
         val wallpaperFile = uiSettings.getCustomWallpaperFile()
-        if (uiSettings.customWallpaperEnabled && wallpaperFile.exists()) {
+        val chosenUri = pendingImageUri
+        if (chosenUri != null) {
+            loadPreviewFromUri(chosenUri)
+        } else if (uiSettings.customWallpaperEnabled && wallpaperFile.exists()) {
             loadPreviewFromFile(wallpaperFile)
-        } else {
-            // Automatically launch photo picker to prompt user on first open
+        } else if (savedInstanceState == null && !hasPromptedPicker) {
+            // Automatically launch photo picker once to prompt user on first open
+            hasPromptedPicker = true
             photoPickerLauncher.launch("image/*")
         }
     }
 
     private fun updateBlur(value: Float) {
+        val currentBinding = _binding ?: return
+        val source = previewBitmap ?: return
+        val blurPercent = value.toInt().coerceIn(0, 100)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (value > 0f) {
-                val radius = (value / 100f * 50f).coerceAtLeast(1f)
-                binding.ivPreview.setRenderEffect(
-                    RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
-                )
-            } else {
-                binding.ivPreview.setRenderEffect(null)
-            }
+            WallpaperHelper.applyRenderEffectBlur(currentBinding.ivPreview, blurPercent)
+            return
         }
+        if (blurPercent <= 0) {
+            blurredPreviewBitmap?.let { old ->
+                currentBinding.ivPreview.setImageBitmap(source)
+                old.recycle()
+                blurredPreviewBitmap = null
+            }
+                ?: run {
+                    currentBinding.ivPreview.setImageBitmap(source)
+                }
+            return
+        }
+        blurPreviewJob?.cancel()
+        blurPreviewJob =
+            viewLifecycleOwner.lifecycleScope.launch {
+                val blurred =
+                    WallpaperHelper.applyBlurToPreviewBitmap(
+                        source,
+                        blurPercent,
+                        currentBinding.ivPreview,
+                    )
+                val activeBinding =
+                    _binding
+                        ?: run {
+                            blurred?.recycle()
+                            return@launch
+                        }
+                if (blurred != null) {
+                    activeBinding.ivPreview.setImageBitmap(blurred)
+                    val previous = blurredPreviewBitmap
+                    blurredPreviewBitmap = blurred
+                    if (previous != null && previous !== blurred && previous !== source) {
+                        previous.recycle()
+                    }
+                }
+            }
     }
 
     private fun updateBrightness(value: Float) {
-        // Brightness from -100 to +100
-        // -100: dark scrim alpha ~0.90
-        // 0: base dark scrim alpha ~0.35 (optimal contrast for white text/icons)
-        // +100: scrim alpha ~0.05
-        val factor = -value / 100f
-        val scrimAlpha = (0.35f + factor * 0.45f).coerceIn(0.05f, 0.95f)
+        val scrimAlpha = WallpaperHelper.calculateScrimAlpha(value.toInt())
         binding.viewPreviewScrim.setBackgroundColor(Color.BLACK)
         binding.viewPreviewScrim.alpha = scrimAlpha
     }
 
     private fun loadPreviewFromUri(uri: Uri) {
-        try {
-            val context = requireContext()
-            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                BitmapFactory.decodeStream(input, null, options)
-            }
-
-            var sampleSize = 1
-            val maxDimension = 1080
-            while (
-                options.outWidth / sampleSize > maxDimension ||
-                    options.outHeight / sampleSize > maxDimension
-            ) {
-                sampleSize *= 2
-            }
-
-            val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-            val bitmap =
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    BitmapFactory.decodeStream(input, null, decodeOptions)
+        previewLoadJob?.cancel()
+        previewLoadJob =
+            viewLifecycleOwner.lifecycleScope.launch {
+                val ctx = context ?: return@launch
+                val bitmap = WallpaperHelper.decodeSampledUri(ctx, uri, 1080)
+                val activeBinding =
+                    _binding
+                        ?: run {
+                            bitmap?.recycle()
+                            return@launch
+                        }
+                if (bitmap != null) {
+                    setPreviewBitmap(activeBinding, bitmap)
                 }
-
-            if (bitmap != null) {
-                previewBitmap?.recycle()
-                previewBitmap = bitmap
-                binding.ivPreview.setImageBitmap(bitmap)
-                binding.layoutEmptyPlaceholder.visibility = View.GONE
-                updateBlur(binding.sliderBlur.value)
-                updateBrightness(binding.sliderBrightness.value)
             }
-        } catch (e: Exception) {
-            L.e("Failed to decode preview image from URI: $e")
-        }
     }
 
     private fun loadPreviewFromFile(file: File) {
-        try {
-            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(file.absolutePath, options)
-
-            var sampleSize = 1
-            val maxDimension = 1080
-            while (
-                options.outWidth / sampleSize > maxDimension ||
-                    options.outHeight / sampleSize > maxDimension
-            ) {
-                sampleSize *= 2
+        previewLoadJob?.cancel()
+        previewLoadJob =
+            viewLifecycleOwner.lifecycleScope.launch {
+                val bitmap =
+                    withContext(Dispatchers.IO) { WallpaperHelper.decodeSampledFile(file, 1080) }
+                val activeBinding =
+                    _binding
+                        ?: run {
+                            bitmap?.recycle()
+                            return@launch
+                        }
+                if (bitmap != null) {
+                    setPreviewBitmap(activeBinding, bitmap)
+                }
             }
+    }
 
-            val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-            val bitmap = BitmapFactory.decodeFile(file.absolutePath, decodeOptions)
-
-            if (bitmap != null) {
-                previewBitmap?.recycle()
-                previewBitmap = bitmap
-                binding.ivPreview.setImageBitmap(bitmap)
-                binding.layoutEmptyPlaceholder.visibility = View.GONE
-                updateBlur(binding.sliderBlur.value)
-                updateBrightness(binding.sliderBrightness.value)
+    private fun setPreviewBitmap(activeBinding: DialogThemeCustomizerBinding, bitmap: Bitmap) {
+        activeBinding.ivPreview.setImageDrawable(null)
+        blurredPreviewBitmap?.let { oldBlur ->
+            if (oldBlur !== previewBitmap) {
+                oldBlur.recycle()
             }
-        } catch (e: Exception) {
-            L.e("Failed to decode preview image from file: $e")
+            blurredPreviewBitmap = null
         }
+        previewBitmap?.recycle()
+        previewBitmap = bitmap
+        activeBinding.ivPreview.setImageBitmap(bitmap)
+        activeBinding.layoutEmptyPlaceholder.visibility = View.GONE
+        updateBlur(activeBinding.sliderBlur.value)
+        updateBrightness(activeBinding.sliderBrightness.value)
     }
 
     private fun saveAndApplyWallpaper() {
+        val currentBinding = _binding ?: return
+        currentBinding.btnSave.isEnabled = false
         val uri = pendingImageUri
-        if (uri != null) {
-            val saved = uiSettings.saveCustomWallpaperFromUri(uri)
-            if (!saved) {
-                L.e("Failed to save wallpaper from URI")
-            }
-        }
+        val blur = currentBinding.sliderBlur.value.toInt()
+        val brightness = currentBinding.sliderBrightness.value.toInt()
 
-        val wallpaperFile = uiSettings.getCustomWallpaperFile()
-        if (wallpaperFile.exists()) {
-            val blur = binding.sliderBlur.value.toInt()
-            val brightness = binding.sliderBrightness.value.toInt()
-            uiSettings.setCustomWallpaper(enabled = true, blur = blur, brightness = brightness)
-            Toast.makeText(requireContext(), R.string.lbl_wallpaper_saved, Toast.LENGTH_SHORT)
-                .show()
-        }
-        dismiss()
+        saveJob?.cancel()
+        saveJob =
+            viewLifecycleOwner.lifecycleScope.launch {
+                if (uri != null) {
+                    val saved =
+                        withContext(Dispatchers.IO) { uiSettings.saveCustomWallpaperFromUri(uri) }
+                    if (!saved) {
+                        L.e("Failed to save wallpaper from URI")
+                    }
+                }
+
+                val wallpaperFile = uiSettings.getCustomWallpaperFile()
+                if (wallpaperFile.exists()) {
+                    uiSettings.setCustomWallpaper(
+                        enabled = true,
+                        blur = blur,
+                        brightness = brightness,
+                    )
+                    context?.let { ctx ->
+                        Toast.makeText(ctx, R.string.lbl_wallpaper_saved, Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    _binding?.btnSave?.isEnabled = true
+                }
+                if (isAdded) {
+                    dismiss()
+                }
+            }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        pendingImageUri?.let { outState.putParcelable(KEY_PENDING_IMAGE_URI, it) }
+        outState.putBoolean(KEY_HAS_PROMPTED_PICKER, hasPromptedPicker)
     }
 
     override fun onDestroyView() {
-        super.onDestroyView()
+        previewLoadJob?.cancel()
+        previewLoadJob = null
+        blurPreviewJob?.cancel()
+        blurPreviewJob = null
+        saveJob?.cancel()
+        saveJob = null
+        _binding?.ivPreview?.setImageDrawable(null)
+        blurredPreviewBitmap?.let { oldBlur ->
+            if (oldBlur !== previewBitmap) {
+                oldBlur.recycle()
+            }
+        }
+        blurredPreviewBitmap = null
         previewBitmap?.recycle()
         previewBitmap = null
+        super.onDestroyView()
         _binding = null
+    }
+
+    private companion object {
+        const val KEY_PENDING_IMAGE_URI = BuildConfig.APPLICATION_ID + ".theme.PENDING_IMAGE_URI"
+        const val KEY_HAS_PROMPTED_PICKER =
+            BuildConfig.APPLICATION_ID + ".theme.HAS_PROMPTED_PICKER"
     }
 }

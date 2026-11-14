@@ -86,12 +86,28 @@ class RenamePlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNam
             args.template,
             args.reason,
         )
-        collectImmediately(pickerModel.currentPendingRenamePlaylist, ::updatePlaylistToRename)
-        collectImmediately(pickerModel.chosenName, ::updateChosenName)
+        collectImmediately(
+            pickerModel.currentPendingRenamePlaylist,
+            pickerModel.isAwaitingLibrary,
+            ::updatePlaylistToRename,
+        )
+        collectImmediately(
+            pickerModel.chosenName,
+            pickerModel.isAwaitingLibrary,
+            ::updateChosenName,
+        )
     }
 
-    private fun updatePlaylistToRename(pendingRenamePlaylist: PendingRenamePlaylist?) {
+    private fun updatePlaylistToRename(
+        pendingRenamePlaylist: PendingRenamePlaylist?,
+        isAwaitingLibrary: Boolean,
+    ) {
         if (pendingRenamePlaylist == null) {
+            if (isAwaitingLibrary) {
+                L.d("Waiting for library before initializing rename playlist dialog")
+                updateChosenName(pickerModel.chosenName.value, isAwaitingLibrary)
+                return
+            }
             // Nothing to rename anymore.
             findNavController().navigateUp()
             return
@@ -105,16 +121,18 @@ class RenamePlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNam
             requireBinding().playlistName.setText(default)
             initializedField = true
         }
+        updateChosenName(pickerModel.chosenName.value, isAwaitingLibrary)
     }
 
     override fun onStart() {
         super.onStart()
-        (dialog as? AlertDialog)?.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled =
-            pickerModel.chosenName.value is ChosenName.Valid
+        updateChosenName(pickerModel.chosenName.value, pickerModel.isAwaitingLibrary.value)
     }
 
-    private fun updateChosenName(chosenName: ChosenName) {
+    private fun updateChosenName(chosenName: ChosenName, isAwaitingLibrary: Boolean) {
         (dialog as? AlertDialog)?.getButton(AlertDialog.BUTTON_POSITIVE)?.isEnabled =
-            chosenName is ChosenName.Valid
+            !isAwaitingLibrary &&
+                pickerModel.currentPendingRenamePlaylist.value != null &&
+                chosenName is ChosenName.Valid
     }
 }

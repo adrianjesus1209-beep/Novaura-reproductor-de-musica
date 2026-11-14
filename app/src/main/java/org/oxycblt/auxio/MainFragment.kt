@@ -20,12 +20,7 @@ package org.oxycblt.auxio
 
 import android.annotation.SuppressLint
 import android.content.res.ColorStateList
-import android.graphics.BitmapFactory
-import android.graphics.Color
-import android.graphics.RenderEffect
-import android.graphics.Shader
 import android.graphics.drawable.GradientDrawable
-import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -76,11 +71,10 @@ import org.oxycblt.auxio.playback.OpenPanel
 import org.oxycblt.auxio.playback.PlaybackBottomSheetBehavior
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.queue.QueueBottomSheetBehavior
-import org.oxycblt.auxio.playback.session.SessionPlaylistManager
-import org.oxycblt.auxio.playback.stats.PlaybackStatsManager
 import org.oxycblt.auxio.ui.DialogAwareNavigationListener
 import org.oxycblt.auxio.ui.UISettings
 import org.oxycblt.auxio.ui.ViewBindingFragment
+import org.oxycblt.auxio.ui.WallpaperHelper
 import org.oxycblt.auxio.util.collect
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.context
@@ -123,10 +117,10 @@ class MainFragment :
     private var normalCornerSize = 0f
     private var maxScaleXDistance = 0f
     private var sheetRising: Boolean? = null
+    private var isAtHome = true
+    private var lastTabletCornerRadius = -1f
     @Inject lateinit var uiSettings: UISettings
     @Inject lateinit var imageLoader: ImageLoader
-    @Inject lateinit var statsManager: PlaybackStatsManager
-    @Inject lateinit var sessionPlaylistManager: SessionPlaylistManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -305,6 +299,13 @@ class MainFragment :
     override fun onStart() {
         super.onStart()
         val binding = requireBinding()
+        isAtHome =
+            try {
+                binding.exploreNavHost.findNavController().currentDestination?.id ==
+                    R.id.home_fragment
+            } catch (_: Exception) {
+                true
+            }
         // Once we add the destination change callback, we will receive another initialization call,
         // so handle that by resetting the flag.
         requireNotNull(navigationListener) { "NavigationListener was not available" }
@@ -318,13 +319,19 @@ class MainFragment :
         super.onResume()
         // Override the back pressed listener so we can map back navigation to collapsing
         // navigation, navigation out of detail views, etc. We have to do this here in
-        // onResume or otherwise the FragmentManager will have precedence.
+        // onResume or otherwise the FragmentManager will have precedence. Remove any prior
+        // registration first so repeated onResume calls never create duplicates.
+        val navTabCb = requireNotNull(navTabBackCallback).also { it.remove() }
+        val speedDialCb = requireNotNull(speedDialBackCallback).also { it.remove() }
+        val selectionCb = requireNotNull(selectionBackCallback).also { it.remove() }
+        val detailCb = requireNotNull(detailBackCallback).also { it.remove() }
+        val sheetCb = requireNotNull(sheetBackCallback).also { it.remove() }
         requireActivity().onBackPressedDispatcher.apply {
-            addCallback(viewLifecycleOwner, requireNotNull(navTabBackCallback))
-            addCallback(viewLifecycleOwner, requireNotNull(speedDialBackCallback))
-            addCallback(viewLifecycleOwner, requireNotNull(selectionBackCallback))
-            addCallback(viewLifecycleOwner, requireNotNull(detailBackCallback))
-            addCallback(viewLifecycleOwner, requireNotNull(sheetBackCallback))
+            addCallback(viewLifecycleOwner, navTabCb)
+            addCallback(viewLifecycleOwner, speedDialCb)
+            addCallback(viewLifecycleOwner, selectionCb)
+            addCallback(viewLifecycleOwner, detailCb)
+            addCallback(viewLifecycleOwner, sheetCb)
         }
         navTabBackCallback?.invalidateEnabled()
         sheetBackCallback?.invalidateEnabled()
@@ -341,12 +348,18 @@ class MainFragment :
     override fun onDestroyBinding(binding: FragmentMainBinding) {
         super.onDestroyBinding(binding)
         uiSettings.unregisterListener(this)
+        speedDialBackCallback?.remove()
+        sheetBackCallback?.remove()
+        detailBackCallback?.remove()
+        selectionBackCallback?.remove()
+        navTabBackCallback?.remove()
         speedDialBackCallback = null
         sheetBackCallback = null
         detailBackCallback = null
         selectionBackCallback = null
         navTabBackCallback = null
         navigationListener = null
+        lastTabletCornerRadius = -1f
         binding.homeNewPlaylistFab.setChangeListener(null)
         binding.homeNewPlaylistFab.setOnActionSelectedListener(null)
     }
@@ -364,8 +377,7 @@ class MainFragment :
             binding.playbackSheet.coordinatorLayoutBehavior as PlaybackBottomSheetBehavior
         val queueSheetBehavior =
             binding.queueSheet.coordinatorLayoutBehavior as QueueBottomSheetBehavior?
-        val isAtHome =
-            binding.exploreNavHost.findNavController().currentDestination?.id == R.id.home_fragment
+        val isAtHome = this.isAtHome
         playbackSheetBehavior.showWithNavBar = isAtHome
 
         val rawOffset = playbackSheetBehavior.calculateSlideOffset()
@@ -440,11 +452,15 @@ class MainFragment :
             // No queue sheet, fade normally based on the playback sheet
             binding.playbackBarFragment.alpha = playbackOutRatio * playbackBarAlphaMultiplier
             binding.playbackPanelFragment.alpha = playbackInRatio
-            (binding.queueSheet.background as MaterialShapeDrawable).shapeAppearanceModel =
-                ShapeAppearanceModel.builder()
-                    .setTopLeftCornerSize(normalCornerSize)
-                    .setTopRightCornerSize(normalCornerSize * (1 - playbackLastStretchRatio))
-                    .build()
+            val topRightCornerSize = normalCornerSize * (1 - playbackLastStretchRatio)
+            if (topRightCornerSize != lastTabletCornerRadius) {
+                lastTabletCornerRadius = topRightCornerSize
+                (binding.queueSheet.background as MaterialShapeDrawable).shapeAppearanceModel =
+                    ShapeAppearanceModel.builder()
+                        .setTopLeftCornerSize(normalCornerSize)
+                        .setTopRightCornerSize(topRightCornerSize)
+                        .build()
+            }
         }
         // Fade out the playback bar and bottom bar as the panel expands.
         binding.playbackBarFragment.apply {
@@ -514,6 +530,7 @@ class MainFragment :
         listModel.dropSelection()
         val isAtHome =
             binding.exploreNavHost.findNavController().currentDestination?.id == R.id.home_fragment
+        this.isAtHome = isAtHome
         binding.homeBottomBar?.root?.isVisible = isAtHome
         val playbackSheetBehavior =
             binding.playbackSheet.coordinatorLayoutBehavior as PlaybackBottomSheetBehavior
@@ -555,7 +572,7 @@ class MainFragment :
         val context = requireContext()
         val primaryColor =
             context.getAttrColorCompat(androidx.appcompat.R.attr.colorPrimary).defaultColor
-        val inactiveColor = Color.parseColor("#88FFFFFF")
+        val inactiveColor = context.getAttrColorCompat(MR.attr.colorOnSurfaceVariant).defaultColor
         val activeIndicatorColor = ColorUtils.setAlphaComponent(primaryColor, 45)
 
         fun updateItem(
@@ -665,16 +682,18 @@ class MainFragment :
                         object : FloatingActionButton.OnVisibilityChangedListener() {
                             override fun onHidden(fab: FloatingActionButton) {
                                 super.onHidden(fab)
+                                val currentBinding = this@MainFragment.binding ?: return
+                                if (currentBinding !== binding) return
                                 if (
                                     shouldHideAllFabs(
-                                        binding,
+                                        currentBinding,
                                         homeModel.songList.value,
                                         homeModel.isFastScrolling.value,
                                     )
                                 ) {
                                     return
                                 }
-                                binding.homeShuffleFab.show()
+                                currentBinding.homeShuffleFab.show()
                             }
                         }
                     )
@@ -694,16 +713,18 @@ class MainFragment :
                         object : FloatingActionButton.OnVisibilityChangedListener() {
                             override fun onHidden(fab: FloatingActionButton) {
                                 super.onHidden(fab)
+                                val currentBinding = this@MainFragment.binding ?: return
+                                if (currentBinding !== binding) return
                                 if (
                                     shouldHideAllFabs(
-                                        binding,
+                                        currentBinding,
                                         homeModel.songList.value,
                                         homeModel.isFastScrolling.value,
                                     )
                                 ) {
                                     return
                                 }
-                                binding.homeNewPlaylistFab.show()
+                                currentBinding.homeNewPlaylistFab.show()
                             }
                         }
                     )
@@ -775,11 +796,9 @@ class MainFragment :
         val binding = requireBinding()
         val blurBg = binding.mainBlurBackground
         val blurScrim = binding.mainBlurScrim
-        if (uiSettings.customWallpaperEnabled) {
+        if (WallpaperHelper.hasActiveWallpaper(uiSettings)) {
             if (song != null) {
                 tryShowSheets()
-                statsManager.recordSongPlayed(song, song.durationMs)
-                sessionPlaylistManager.recordSong(song)
             } else {
                 tryHideAllSheets()
             }
@@ -788,8 +807,6 @@ class MainFragment :
 
         if (song != null) {
             tryShowSheets()
-            statsManager.recordSongPlayed(song, song.durationMs)
-            sessionPlaylistManager.recordSong(song)
             val cover = song.cover
             if (cover != null && blurBg != null && blurScrim != null) {
                 val request =
@@ -1121,69 +1138,15 @@ class MainFragment :
     }
 
     private fun applyCustomWallpaper(binding: FragmentMainBinding) {
-        if (!uiSettings.customWallpaperEnabled) {
-            binding.mainBlurBackground.setImageDrawable(null)
-            binding.mainBlurBackground.alpha = 0f
-            binding.mainBlurScrim.alpha = 0f
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                binding.mainBlurBackground.setRenderEffect(null)
-            }
+        if (!WallpaperHelper.hasActiveWallpaper(uiSettings)) {
+            WallpaperHelper.clearWallpaperViews(binding.mainBlurBackground, binding.mainBlurScrim)
             binding.mainLayout.setBackgroundColor(
                 requireContext().getAttrColorCompat(MR.attr.colorSurface).defaultColor
             )
             return
         }
 
-        val wallpaperFile = uiSettings.getCustomWallpaperFile()
-        if (!wallpaperFile.exists()) {
-            binding.mainBlurBackground.setImageDrawable(null)
-            binding.mainBlurBackground.alpha = 0f
-            binding.mainBlurScrim.alpha = 0f
-            binding.mainLayout.setBackgroundColor(
-                requireContext().getAttrColorCompat(MR.attr.colorSurface).defaultColor
-            )
-            return
-        }
-
-        try {
-            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(wallpaperFile.absolutePath, options)
-            var sampleSize = 1
-            val maxDimension = 1920
-            while (
-                options.outWidth / sampleSize > maxDimension ||
-                    options.outHeight / sampleSize > maxDimension
-            ) {
-                sampleSize *= 2
-            }
-            val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-            val bitmap = BitmapFactory.decodeFile(wallpaperFile.absolutePath, decodeOptions)
-            if (bitmap != null) {
-                binding.mainBlurBackground.setImageBitmap(bitmap)
-                binding.mainBlurBackground.alpha = 1f
-
-                val blur = uiSettings.customWallpaperBlur.toFloat()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (blur > 0f) {
-                        val radius = (blur / 100f * 50f).coerceAtLeast(1f)
-                        binding.mainBlurBackground.setRenderEffect(
-                            RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
-                        )
-                    } else {
-                        binding.mainBlurBackground.setRenderEffect(null)
-                    }
-                }
-
-                val brightness = uiSettings.customWallpaperBrightness.toFloat()
-                val factor = -brightness / 100f
-                val scrimAlpha = (0.35f + factor * 0.45f).coerceIn(0.05f, 0.95f)
-                binding.mainBlurScrim.setBackgroundColor(Color.BLACK)
-                binding.mainBlurScrim.alpha = scrimAlpha
-
-                binding.mainLayout.background = null
-            }
-        } catch (e: Exception) {
-            L.e("Failed to apply custom wallpaper in MainFragment", e)
-        }
+        WallpaperHelper.clearWallpaperViews(binding.mainBlurBackground, binding.mainBlurScrim)
+        binding.mainLayout.background = null
     }
 }

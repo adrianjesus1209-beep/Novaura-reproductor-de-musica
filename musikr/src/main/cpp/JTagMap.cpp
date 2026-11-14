@@ -19,6 +19,7 @@
 #include "JTagMap.h"
 
 #include "JStringRef.h"
+#include "util.h"
 
 JTagMap::JTagMap(JNIEnv *env) : env(env) {
     auto jTagMapClass = std::make_unique < JClassRef
@@ -53,6 +54,7 @@ void JTagMap::add_id(const TagLib::String id, const TagLib::String value) {
     JStringRef jId { env, id };
     JStringRef jValue { env, value };
     env->CallVoidMethod(**jTagMap, jTagMapAddIdSingleMethod, *jId, *jValue);
+    checkJniException(env, "NativeTagMap.addID threw exception");
 }
 
 void JTagMap::add_id(const TagLib::String id, const TagLib::StringList values) {
@@ -62,8 +64,10 @@ void JTagMap::add_id(const TagLib::String id, const TagLib::StringList values) {
     for (auto &value : values) {
         JStringRef jValue { env, value };
         env->CallBooleanMethod(*jValues, jArrayListAddMethod, *jValue);
+        checkJniException(env, "ArrayList.add threw exception");
     }
     env->CallVoidMethod(**jTagMap, jTagMapAddIdListMethod, *jId, *jValues);
+    checkJniException(env, "NativeTagMap.addID list threw exception");
 }
 
 void JTagMap::add_custom(const TagLib::String description,
@@ -72,6 +76,7 @@ void JTagMap::add_custom(const TagLib::String description,
     JStringRef jValue { env, value };
     env->CallVoidMethod(**jTagMap, jTagMapAddCustomSingleMethod, *jDescription,
             *jValue);
+    checkJniException(env, "NativeTagMap.addCustom threw exception");
 }
 
 void JTagMap::add_custom(const TagLib::String description,
@@ -82,9 +87,11 @@ void JTagMap::add_custom(const TagLib::String description,
     for (auto &value : values) {
         JStringRef jValue { env, value };
         env->CallBooleanMethod(*jValues, jArrayListAddMethod, *jValue);
+        checkJniException(env, "ArrayList.add threw exception");
     }
     env->CallVoidMethod(**jTagMap, jTagMapAddCustomListMethod, *jDescription,
             *jValues);
+    checkJniException(env, "NativeTagMap.addCustom list threw exception");
 }
 
 void JTagMap::add_combined(const TagLib::String id,
@@ -94,6 +101,7 @@ void JTagMap::add_combined(const TagLib::String id,
     JStringRef jValue { env, value };
     env->CallVoidMethod(**jTagMap, jTagMapAddCombinedSingleMethod, *jId,
             *jDescription, *jValue);
+    checkJniException(env, "NativeTagMap.addCombined threw exception");
 }
 
 void JTagMap::add_combined(const TagLib::String id,
@@ -105,9 +113,11 @@ void JTagMap::add_combined(const TagLib::String id,
     for (auto &value : values) {
         JStringRef jValue { env, value };
         env->CallBooleanMethod(*jValues, jArrayListAddMethod, *jValue);
+        checkJniException(env, "ArrayList.add threw exception");
     }
     env->CallVoidMethod(**jTagMap, jTagMapAddCombinedListMethod, *jId,
             *jDescription, *jValues);
+    checkJniException(env, "NativeTagMap.addCombined list threw exception");
 }
 
 std::unique_ptr<JObjectRef> JTagMap::getObject() {

@@ -33,6 +33,8 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
 import com.google.android.material.transition.MaterialSharedAxis
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentSearchBinding
 import org.oxycblt.auxio.detail.DetailViewModel
@@ -52,6 +54,8 @@ import org.oxycblt.auxio.music.SongMessage
 import org.oxycblt.auxio.playback.PlaybackDecision
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.ui.FadingToolbarOffsetListener
+import org.oxycblt.auxio.ui.UISettings
+import org.oxycblt.auxio.ui.WallpaperHelper
 import org.oxycblt.auxio.util.collect
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.context
@@ -78,6 +82,7 @@ import timber.log.Timber as L
  */
 @AndroidEntryPoint
 class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
+    @Inject lateinit var uiSettings: UISettings
     private val searchModel: SearchViewModel by viewModels()
     private val detailModel: DetailViewModel by activityViewModels()
     override val listModel: ListViewModel by activityViewModels()
@@ -86,11 +91,16 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
     private val searchAdapter = SearchAdapter(this)
     private var getContentLauncher: ActivityResultLauncher<String>? = null
     private var pendingImportTarget: Playlist? = null
+    private var pendingImportTargetUid: Music.UID? = null
     private var imm: InputMethodManager? = null
     private var launchedKeyboard = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingImportTargetUid =
+            savedInstanceState?.getString(KEY_PENDING_IMPORT_TARGET_UID)?.let {
+                Music.UID.fromString(it)
+            }
         enterTransition = MaterialSharedAxis(MaterialSharedAxis.Z, true)
         returnTransition = MaterialSharedAxis(MaterialSharedAxis.Z, false)
         exitTransition = MaterialSharedAxis(MaterialSharedAxis.Z, true)
@@ -98,13 +108,18 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
 
         getContentLauncher =
             registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+                val target =
+                    pendingImportTarget
+                        ?: pendingImportTargetUid?.let { uid -> musicModel.findPlaylist(uid) }
+                pendingImportTarget = null
+                pendingImportTargetUid = null
                 if (uri == null) {
                     L.w("No URI returned from file picker")
                     return@registerForActivityResult
                 }
 
                 L.d("Received playlist URI $uri")
-                musicModel.importPlaylist(uri, pendingImportTarget)
+                musicModel.importPlaylist(uri, target)
             }
     }
 
@@ -119,6 +134,7 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
         imm = binding.context.getSystemServiceCompat(InputMethodManager::class)
 
         // --- UI SETUP ---
+        applyWallpaperBackground(binding)
 
         binding.searchAppbar.addOnOffsetChangedListener(
             FadingToolbarOffsetListener(binding.searchToolbar, binding.searchContent)
@@ -200,6 +216,27 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
         )
         collect(playbackModel.playbackDecision.flow, ::handlePlaybackDecision)
         collect(detailModel.toShow.flow, ::handleShow)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        val uid = pendingImportTarget?.uid ?: pendingImportTargetUid
+        if (uid != null) {
+            outState.putString(KEY_PENDING_IMPORT_TARGET_UID, uid.toString())
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        binding?.let(::applyWallpaperBackground)
+    }
+
+    private fun applyWallpaperBackground(binding: FragmentSearchBinding) {
+        WallpaperHelper.applySecondaryWallpaperBackground(
+            binding.root,
+            uiSettings,
+            binding.searchAppbar,
+        )
     }
 
     override fun onDestroyBinding(binding: FragmentSearchBinding) {
@@ -334,6 +371,7 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
                 is PlaylistDecision.Import -> {
                     L.d("Importing playlist")
                     pendingImportTarget = decision.target
+                    pendingImportTargetUid = decision.target?.uid
                     requireNotNull(getContentLauncher) {
                             "Content picker launcher was not available"
                         }
@@ -366,9 +404,11 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
                 }
                 is PlaylistDecision.New -> {
                     L.w("Ignoring unexpected decision $decision")
+                    musicModel.playlistDecision.consume()
                     return
                 }
             }
+        musicModel.playlistDecision.consume()
         findNavController().navigateSafe(directions)
     }
 
@@ -440,5 +480,10 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
         L.d("Hiding keyboard")
         requireNotNull(imm) { "InputMethodManager was not available" }
             .hideSoftInputFromWindow(requireView().windowToken, InputMethodManager.HIDE_NOT_ALWAYS)
+    }
+
+    private companion object {
+        const val KEY_PENDING_IMPORT_TARGET_UID =
+            BuildConfig.APPLICATION_ID + ".search.PENDING_IMPORT_TARGET_UID"
     }
 }

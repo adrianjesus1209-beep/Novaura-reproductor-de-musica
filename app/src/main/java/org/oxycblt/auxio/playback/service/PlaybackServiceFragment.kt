@@ -33,10 +33,13 @@ import org.oxycblt.auxio.ForegroundListener
 import org.oxycblt.auxio.ForegroundServiceNotification
 import org.oxycblt.auxio.IntegerTable
 import org.oxycblt.auxio.playback.PlaybackSettings
+import org.oxycblt.auxio.playback.session.SessionPlaylistManager
 import org.oxycblt.auxio.playback.state.DeferredPlayback
 import org.oxycblt.auxio.playback.state.PlaybackStateManager
 import org.oxycblt.auxio.playback.state.Progression
+import org.oxycblt.auxio.playback.stats.PlaybackStatsManager
 import org.oxycblt.auxio.widgets.WidgetComponent
+import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.MusicParent
 import org.oxycblt.musikr.Song
 import timber.log.Timber as L
@@ -47,6 +50,8 @@ private constructor(
     private val foregroundListener: ForegroundListener,
     private val playbackManager: PlaybackStateManager,
     private val playbackSettings: PlaybackSettings,
+    private val statsManager: PlaybackStatsManager,
+    private val sessionPlaylistManager: SessionPlaylistManager,
     exoHolderFactory: ExoPlaybackStateHolder.Factory,
     sessionHolderFactory: MediaSessionHolder.Factory,
     widgetComponentFactory: WidgetComponent.Factory,
@@ -57,6 +62,8 @@ private constructor(
     constructor(
         private val playbackManager: PlaybackStateManager,
         private val playbackSettings: PlaybackSettings,
+        private val statsManager: PlaybackStatsManager,
+        private val sessionPlaylistManager: SessionPlaylistManager,
         private val exoHolderFactory: ExoPlaybackStateHolder.Factory,
         private val sessionHolderFactory: MediaSessionHolder.Factory,
         private val widgetComponentFactory: WidgetComponent.Factory,
@@ -68,6 +75,8 @@ private constructor(
                 foregroundListener,
                 playbackManager,
                 playbackSettings,
+                statsManager,
+                sessionPlaylistManager,
                 exoHolderFactory,
                 sessionHolderFactory,
                 widgetComponentFactory,
@@ -78,6 +87,7 @@ private constructor(
     private val waitJob = Job()
     private val scope = CoroutineScope(Dispatchers.Main + waitJob)
     private var autoStopJob: Job? = null
+    private var lastRecordedSongUid: Music.UID? = null
     private val exoHolder = exoHolderFactory.create()
     private val sessionHolder = sessionHolderFactory.create(context, foregroundListener)
     private val widgetComponent = widgetComponentFactory.create(context)
@@ -188,6 +198,16 @@ private constructor(
         exoHolder.release()
     }
 
+    private fun maybeRecordPlayback(progression: Progression) {
+        if (!progression.isPlaying) return
+        val song = playbackManager.currentSong ?: return
+        if (song.uid != lastRecordedSongUid) {
+            lastRecordedSongUid = song.uid
+            statsManager.recordSongPlayed(song, song.durationMs)
+            sessionPlaylistManager.recordSong(song)
+        }
+    }
+
     override fun onNewPlayback(
         parent: MusicParent?,
         queue: List<Song>,
@@ -195,14 +215,21 @@ private constructor(
         isShuffled: Boolean,
     ) {
         cancelAutoStop()
+        maybeRecordPlayback(playbackManager.progression)
+    }
+
+    override fun onIndexMoved(index: Int) {
+        maybeRecordPlayback(playbackManager.progression)
     }
 
     override fun onProgressionChanged(progression: Progression) {
         // Update timer whenever play/pause state changes
         updateAutoStopTimer(progression.isPlaying)
+        maybeRecordPlayback(progression)
     }
 
     override fun onSessionEnded() {
+        lastRecordedSongUid = null
         foregroundListener.updateForeground(ForegroundListener.Change.MEDIA_SESSION)
     }
 

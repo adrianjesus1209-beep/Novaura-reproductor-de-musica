@@ -35,8 +35,11 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.oxycblt.auxio.databinding.ActivityMainBinding
 import org.oxycblt.auxio.music.IndexingState
 import org.oxycblt.auxio.music.MusicRepository
@@ -45,6 +48,7 @@ import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.state.DeferredPlayback
 import org.oxycblt.auxio.search.SearchIndex
 import org.oxycblt.auxio.ui.UISettings
+import org.oxycblt.auxio.ui.WallpaperHelper
 import org.oxycblt.auxio.util.isNight
 import org.oxycblt.auxio.util.systemBarInsetsCompat
 import timber.log.Timber as L
@@ -63,14 +67,17 @@ import timber.log.Timber as L
  * TODO: Improve multi-threading support in shared objects
  */
 @AndroidEntryPoint
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), UISettings.Listener {
     private val playbackModel: PlaybackViewModel by viewModels()
     private val musicModel: MusicViewModel by viewModels()
     @Inject lateinit var uiSettings: UISettings
     @Inject lateinit var musicRepository: MusicRepository
     @Inject lateinit var searchIndex: SearchIndex
 
+    private var binding: ActivityMainBinding? = null
     private var isGatekeeperDismissed = false
+    private var splashTimeoutJob: Job? = null
+    private var wallpaperJob: Job? = null
 
     private val appPermissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
@@ -92,18 +99,79 @@ class MainActivity : AppCompatActivity() {
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val earlyUiSettings = (application as? Auxio)?.uiSettings
+        if (earlyUiSettings != null) {
+            setupTheme(earlyUiSettings)
+        }
         super.onCreate(savedInstanceState)
-        uiSettings.applyCurrentLanguage()
-        setupTheme()
+        if (earlyUiSettings == null) {
+            setupTheme(uiSettings)
+        }
         // Inflate the views after setting up the theme so that the theme attributes are applied.
         val binding = ActivityMainBinding.inflate(layoutInflater)
+        this.binding = binding
         setContentView(binding.root)
+        uiSettings.registerListener(this)
+        applyActivityWallpaper(binding)
         setupEdgeToEdge(binding.root)
-        setupSplashGatekeeper(binding)
+        isGatekeeperDismissed =
+            savedInstanceState?.getBoolean(KEY_GATEKEEPER_DISMISSED, false) == true ||
+                (musicRepository.library != null && searchIndex.isReady)
+        if (isGatekeeperDismissed) {
+            binding.splashGatekeeper.visibility = View.GONE
+        } else {
+            setupSplashGatekeeper(binding)
+        }
 
         requestAppPermissions()
 
         L.d("Activity created")
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_GATEKEEPER_DISMISSED, isGatekeeperDismissed)
+    }
+
+    override fun onDestroy() {
+        splashTimeoutJob?.cancel()
+        splashTimeoutJob = null
+        wallpaperJob?.cancel()
+        wallpaperJob = null
+        uiSettings.unregisterListener(this)
+        binding = null
+        super.onDestroy()
+    }
+
+    override fun onCustomWallpaperChanged() {
+        val currentBinding = binding ?: return
+        applyActivityWallpaper(currentBinding)
+    }
+
+    private fun applyActivityWallpaper(binding: ActivityMainBinding) {
+        wallpaperJob?.cancel()
+        if (!WallpaperHelper.hasActiveWallpaper(uiSettings)) {
+            WallpaperHelper.clearWallpaperViews(
+                binding.activityWallpaperBackground,
+                binding.activityWallpaperScrim,
+            )
+            return
+        }
+        wallpaperJob = lifecycleScope.launch {
+            val prepared = WallpaperHelper.loadAndPrepare(uiSettings)
+            if (prepared != null) {
+                WallpaperHelper.bindPreparedWallpaper(
+                    binding.activityWallpaperBackground,
+                    binding.activityWallpaperScrim,
+                    prepared,
+                )
+            } else {
+                WallpaperHelper.clearWallpaperViews(
+                    binding.activityWallpaperBackground,
+                    binding.activityWallpaperScrim,
+                )
+            }
+        }
     }
 
     private fun setupSplashGatekeeper(binding: ActivityMainBinding) {
@@ -111,7 +179,8 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             // Safety timeout: dismiss gatekeeper after at most 7 seconds in any edge case
-            launch {
+            splashTimeoutJob?.cancel()
+            splashTimeoutJob = launch {
                 delay(7000L)
                 dismissSplashGatekeeper(binding)
             }
@@ -123,7 +192,7 @@ class MainActivity : AppCompatActivity() {
                         (library != null && library.songs.isNotEmpty())
                 ) {
                     if (library != null && !searchIndex.isReady) {
-                        searchIndex.build(library)
+                        withContext(Dispatchers.Default) { searchIndex.build(library) }
                     }
                     val elapsed = SystemClock.uptimeMillis() - startTime
                     if (elapsed < 500L) {
@@ -138,6 +207,8 @@ class MainActivity : AppCompatActivity() {
     private fun dismissSplashGatekeeper(binding: ActivityMainBinding) {
         if (isGatekeeperDismissed) return
         isGatekeeperDismissed = true
+        splashTimeoutJob?.cancel()
+        splashTimeoutJob = null
         binding.splashGatekeeper.animate().alpha(0f).setDuration(350L).withEndAction {
             binding.splashGatekeeper.visibility = View.GONE
         }
@@ -211,17 +282,17 @@ class MainActivity : AppCompatActivity() {
         startIntentAction(intent)
     }
 
-    private fun setupTheme() {
+    private fun setupTheme(settings: UISettings) {
         // Apply the theme configuration.
-        AppCompatDelegate.setDefaultNightMode(uiSettings.theme)
+        AppCompatDelegate.setDefaultNightMode(settings.theme)
         // Apply the color scheme. The black theme requires it's own set of themes since
         // it's not possible to modify the themes at run-time.
-        if (isNight && uiSettings.useBlackTheme) {
-            L.d("Applying black theme [accent ${uiSettings.accent}]")
-            setTheme(uiSettings.accent.blackTheme)
+        if (isNight && settings.useBlackTheme) {
+            L.d("Applying black theme [accent ${settings.accent}]")
+            setTheme(settings.accent.blackTheme)
         } else {
-            L.d("Applying normal theme [accent ${uiSettings.accent}]")
-            setTheme(uiSettings.accent.theme)
+            L.d("Applying normal theme [accent ${settings.accent}]")
+            setTheme(settings.accent.theme)
         }
     }
 
@@ -283,5 +354,7 @@ class MainActivity : AppCompatActivity() {
 
     private companion object {
         const val KEY_INTENT_USED = BuildConfig.APPLICATION_ID + ".key.FILE_INTENT_USED"
+        const val KEY_GATEKEEPER_DISMISSED =
+            BuildConfig.APPLICATION_ID + ".key.GATEKEEPER_DISMISSED"
     }
 }

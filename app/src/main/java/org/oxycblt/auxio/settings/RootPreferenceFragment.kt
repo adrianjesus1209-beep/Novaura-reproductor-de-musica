@@ -51,7 +51,6 @@ class RootPreferenceFragment : BasePreferenceFragment(R.xml.preferences_root) {
                     val intValue = (value as? Int) ?: 0
                     L.d("Language changed in root settings to $intValue")
                     uiSettings.setLanguage(intValue)
-                    requireActivity().recreate()
                     true
                 }
         }

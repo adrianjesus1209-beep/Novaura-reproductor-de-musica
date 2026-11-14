@@ -20,6 +20,7 @@ package org.oxycblt.musikr.tag.interpret
 
 import android.icu.text.Transliterator
 import android.os.Build
+import androidx.annotation.RequiresApi
 import java.text.CollationKey
 import java.text.Collator
 import org.oxycblt.musikr.tag.Name
@@ -57,15 +58,35 @@ private val threadLocalCollator: ThreadLocal<Collator> = ThreadLocal.withInitial
 private val punctRegex by lazy { Regex("[\\p{Punct}+]") }
 
 private object TransliteratorHolder {
-    val transliterator: Transliterator? by lazy {
+    private val api29Transliterator: Any? by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            Api29Impl.createTransliterator()
+        } else {
+            null
+        }
+    }
+
+    fun transliterate(input: String): String {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return input
+        }
+        return Api29Impl.transliterate(api29Transliterator, input)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private object Api29Impl {
+        fun createTransliterator(): Transliterator? =
             runCatching {
                     if (Transliterator.getAvailableIDs().asSequence().any { it == "Any-Latin" }) {
                         Transliterator.getInstance("Any-Latin;")
                     } else null
                 }
                 .getOrNull()
-        } else null
+
+        fun transliterate(instance: Any?, input: String): String {
+            val transliterator = instance as? Transliterator ?: return input
+            return transliterator.transliterate(input)
+        }
     }
 }
 
@@ -119,9 +140,7 @@ private data class IntelligentKnownName(override val raw: String, override val s
                 }
 
         // Transliterate to latin if available
-        TransliteratorHolder.transliterator?.let {
-            stripped = it.transliterate(stripped)
-        }
+        stripped = TransliteratorHolder.transliterate(stripped)
 
         // To properly compare numeric components in names, we have to split them up into
         // individual lexicographic and numeric tokens and then individually compare them

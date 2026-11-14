@@ -18,7 +18,9 @@
  
 #include "JInputStream.h"
 
-#include <cmath>
+#include <algorithm>
+#include <cstdint>
+#include <limits>
 
 #include "JClassRef.h"
 #include "JByteArrayRef.h"
@@ -26,6 +28,9 @@
 
 JInputStream::JInputStream(JNIEnv *env, jobject jInputStream) : env(env), jInputStream(
         jInputStream) {
+    if (jInputStream == nullptr) {
+        throw std::runtime_error("NativeInputStream is null");
+    }
     JClassRef jInputStreamClass = { env,
             "org/oxycblt/musikr/metadata/NativeInputStream" };
     if (env->ExceptionCheck()
@@ -82,11 +87,29 @@ jint JInputStream::readBlockImpl(TagLib::ByteVector &buf) {
 }
 
 TagLib::ByteVector JInputStream::readBlock(size_t length) {
+    if (length == 0) {
+        return TagLib::ByteVector();
+    }
+    constexpr size_t kMaxBlockBytes = 32 * 1024 * 1024;
+    size_t boundedLength = std::min(length, kMaxBlockBytes);
+    if (boundedLength > 1024 * 1024) {
+        TagLib::offset_t totalLen = this->length();
+        TagLib::offset_t pos = this->tell();
+        TagLib::offset_t remaining = (totalLen > pos) ? (totalLen - pos) : 0;
+        boundedLength = std::min(boundedLength, static_cast<size_t>(remaining));
+        if (boundedLength == 0) {
+            return TagLib::ByteVector();
+        }
+    }
     // We have to invert the buffer allocation here
-    TagLib::ByteVector buf { static_cast<unsigned int>(length), 0 };
+    TagLib::ByteVector buf { static_cast<unsigned int>(boundedLength), 0 };
     jint read = readBlockImpl(buf);
     if (read >= 0) {
-        buf.resize(read);
+        if (static_cast<size_t>(read) > buf.size()) {
+            throw std::runtime_error(
+                    "readBlock read count exceeded buffer size");
+        }
+        buf.resize(static_cast<unsigned int>(read));
         return buf;
     } else if (read == -1) {
         buf.resize(0);
@@ -124,7 +147,7 @@ bool JInputStream::isOpen() const {
 }
 
 void JInputStream::seek(TagLib::offset_t offset, Position p) {
-    auto joffset = static_cast<jlong>(std::llround(offset));
+    auto joffset = static_cast<jlong>(offset);
     jboolean result;
     switch (p) {
     case Beginning:

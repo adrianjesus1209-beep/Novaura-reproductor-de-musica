@@ -26,6 +26,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.ForegroundListener
@@ -73,11 +74,10 @@ private constructor(
             )
     }
 
-    private val indexJob = Job()
+    private val indexJob = SupervisorJob()
     private val indexScope = CoroutineScope(indexJob + Dispatchers.IO)
     private var currentIndexJob: Job? = null
     private val indexingNotification by lazy { IndexingNotification(workerContext) }
-    private val observingNotification by lazy { ObservingNotification(workerContext) }
     private val wakeLockLazy = lazy {
         workerContext
             .getSystemServiceCompat(PowerManager::class)
@@ -99,15 +99,20 @@ private constructor(
 
     fun release() {
         stopTracking()
+        cancelIndexing()
+        indexJob.cancel()
+        musicRepository.unregisterWorker(this)
+        musicRepository.removeIndexingListener(this)
+        musicRepository.removeUpdateListener(this)
+        musicSettings.unregisterListener(this)
+    }
+
+    fun cancelIndexing() {
         currentIndexJob?.cancel()
         currentIndexJob = null
         if (wakeLockLazy.isInitialized()) {
             wakeLock.releaseSafe()
         }
-        musicRepository.unregisterWorker(this)
-        musicRepository.removeIndexingListener(this)
-        musicRepository.removeUpdateListener(this)
-        musicSettings.unregisterListener(this)
     }
 
     private var lastAutoScanUptime = 0L
@@ -130,24 +135,19 @@ private constructor(
         }
     }
 
-    fun createNotification(post: (ForegroundServiceNotification?) -> Unit) {
+    fun createNotification(
+        force: Boolean = false,
+        post: (ForegroundServiceNotification?) -> Unit,
+    ) {
         val state = musicRepository.indexingState
         if (state is IndexingState.Indexing) {
-            // There are a few reasons why we stay in the foreground with automatic rescanning:
-            // 1. Newer versions of Android have become more and more restrictive regarding
-            // how a foreground service starts. Thus, it's best to go foreground now so that
-            // we can go foreground later.
-            // 2. If a non-foreground service is killed, the app will probably still be alive,
-            // and thus the music library will not be updated at all.
-            val changed = indexingNotification.updateIndexingState(state.progress)
-            if (changed) {
+            val changed = indexingNotification.updateIndexingState(state.progress, force = force)
+            if (changed || force) {
                 post(indexingNotification)
             }
-        } else if (musicSettings.shouldBeObserving) {
-            // Not observing and done loading, exit foreground.
-            L.d("Exiting foreground")
-            post(observingNotification)
         } else {
+            indexingNotification.reset()
+            L.d("Exiting indexer foreground")
             post(null)
         }
     }

@@ -18,9 +18,11 @@
  
 package org.oxycblt.auxio.util
 
+import android.annotation.SuppressLint
 import android.util.Log
 import timber.log.Timber
 
+@SuppressLint("LogNotTimber")
 class CopyleftNoticeTree : Timber.DebugTree() {
     // Feel free to remove this logger if you are forking the project in good faith.
     //

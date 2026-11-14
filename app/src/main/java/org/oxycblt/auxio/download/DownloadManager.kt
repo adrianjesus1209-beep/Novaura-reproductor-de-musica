@@ -21,6 +21,7 @@ package org.oxycblt.auxio.download
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Parcelable
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -50,156 +51,289 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
     private val _events = MutableSharedFlow<DownloadEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<DownloadEvent> = _events.asSharedFlow()
 
+    private val stateLock = Any()
+
     fun enqueueDownload(song: OnlineSong) {
-        val existing = _downloadItems.value.find { it.song.webUrl == song.webUrl }
-        if (existing != null && existing.status == DownloadStatus.DOWNLOADING) {
-            L.d("Download already in progress for: ${song.title}")
-            return
+        synchronized(stateLock) {
+            val existing = _downloadItems.value.find { it.song.webUrl == song.webUrl }
+            if (existing != null && existing.status == DownloadStatus.DOWNLOADING) {
+                L.d("Download already in progress for: ${song.title}")
+                return
+            }
+
+            val newItem =
+                DownloadItem(song = song, progress = 0, status = DownloadStatus.DOWNLOADING)
+            _downloadItems.value =
+                listOf(newItem) + _downloadItems.value.filter { it.song.webUrl != song.webUrl }
+
+            _downloadProgress.value = _downloadProgress.value + (song.webUrl to 0)
+            _activeCount.value = countActiveLocked()
         }
-
-        val newItem = DownloadItem(song = song, progress = 0, status = DownloadStatus.DOWNLOADING)
-        _downloadItems.value =
-            listOf(newItem) + _downloadItems.value.filter { it.song.webUrl != song.webUrl }
-
-        _downloadProgress.value = _downloadProgress.value + (song.webUrl to 0)
-        _activeCount.value = countActive()
         _events.tryEmit(DownloadEvent.Started(song.title))
 
-        startServiceWithAction(DownloadService.ACTION_ENQUEUE) {
-            putExtra(DownloadService.EXTRA_SONG, song)
+        if (
+            !startServiceWithAction(DownloadService.ACTION_ENQUEUE) {
+                putExtra(DownloadService.EXTRA_SONG, song as Parcelable)
+            }
+        ) {
+            onDownloadFinished(song.webUrl, false, song.title)
         }
     }
 
     fun pauseDownload(webUrl: String) {
-        val item = _downloadItems.value.find { it.song.webUrl == webUrl } ?: return
-        if (item.status != DownloadStatus.DOWNLOADING) return
+        val paused =
+            synchronized(stateLock) {
+                val item = _downloadItems.value.find { it.song.webUrl == webUrl } ?: return
+                if (item.status != DownloadStatus.DOWNLOADING) return
 
-        _downloadItems.value =
-            _downloadItems.value.map {
-                if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.PAUSED) else it
+                _downloadItems.value =
+                    _downloadItems.value.map {
+                        if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.PAUSED)
+                        else it
+                    }
+                _downloadProgress.value = _downloadProgress.value - webUrl
+                _activeCount.value = countActiveLocked()
+                true
             }
-        _downloadProgress.value = _downloadProgress.value - webUrl
-        _activeCount.value = countActive()
-
-        startServiceWithAction(DownloadService.ACTION_PAUSE) {
-            putExtra(DownloadService.EXTRA_URL, webUrl)
+        if (paused && DownloadService.isRunning) {
+            sendActionIfRunning(DownloadService.ACTION_PAUSE) {
+                putExtra(DownloadService.EXTRA_URL, webUrl)
+            }
         }
     }
 
     fun resumeDownload(webUrl: String) {
-        val item = _downloadItems.value.find { it.song.webUrl == webUrl } ?: return
-        if (item.status != DownloadStatus.PAUSED && item.status != DownloadStatus.ERROR) return
+        val itemToResume =
+            synchronized(stateLock) {
+                val item = _downloadItems.value.find { it.song.webUrl == webUrl } ?: return
+                if (item.status != DownloadStatus.PAUSED && item.status != DownloadStatus.ERROR) {
+                    return
+                }
 
-        _downloadItems.value =
-            _downloadItems.value.map {
-                if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.DOWNLOADING) else it
+                _downloadItems.value =
+                    _downloadItems.value.map {
+                        if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.DOWNLOADING)
+                        else it
+                    }
+                _downloadProgress.value = _downloadProgress.value + (webUrl to item.progress)
+                _activeCount.value = countActiveLocked()
+                item
             }
-        _downloadProgress.value = _downloadProgress.value + (webUrl to item.progress)
-        _activeCount.value = countActive()
 
-        startServiceWithAction(DownloadService.ACTION_ENQUEUE) {
-            putExtra(DownloadService.EXTRA_SONG, item.song)
+        if (
+            !startServiceWithAction(DownloadService.ACTION_ENQUEUE) {
+                putExtra(DownloadService.EXTRA_SONG, itemToResume.song as Parcelable)
+            }
+        ) {
+            onDownloadFinished(itemToResume.song.webUrl, false, itemToResume.song.title)
         }
     }
 
     fun cancelDownload(webUrl: String) {
-        _downloadItems.value = _downloadItems.value.filter { it.song.webUrl != webUrl }
-        _downloadProgress.value = _downloadProgress.value - webUrl
-        _activeCount.value = countActive()
+        synchronized(stateLock) {
+            _downloadItems.value = _downloadItems.value.filter { it.song.webUrl != webUrl }
+            _downloadProgress.value = _downloadProgress.value - webUrl
+            _activeCount.value = countActiveLocked()
+        }
 
-        startServiceWithAction(DownloadService.ACTION_CANCEL) {
-            putExtra(DownloadService.EXTRA_URL, webUrl)
+        if (DownloadService.isRunning) {
+            sendActionIfRunning(DownloadService.ACTION_CANCEL) {
+                putExtra(DownloadService.EXTRA_URL, webUrl)
+            }
         }
     }
 
     internal fun setPausedFromService(webUrl: String) {
-        val item = _downloadItems.value.find { it.song.webUrl == webUrl } ?: return
-        if (item.status != DownloadStatus.DOWNLOADING) return
-        _downloadItems.value =
-            _downloadItems.value.map {
-                if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.PAUSED) else it
-            }
-        _downloadProgress.value = _downloadProgress.value - webUrl
-        _activeCount.value = countActive()
+        synchronized(stateLock) {
+            val item = _downloadItems.value.find { it.song.webUrl == webUrl } ?: return
+            if (item.status != DownloadStatus.DOWNLOADING) return
+            _downloadItems.value =
+                _downloadItems.value.map {
+                    if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.PAUSED) else it
+                }
+            _downloadProgress.value = _downloadProgress.value - webUrl
+            _activeCount.value = countActiveLocked()
+        }
     }
 
     internal fun setCancelledFromService(webUrl: String) {
-        _downloadItems.value = _downloadItems.value.filter { it.song.webUrl != webUrl }
-        _downloadProgress.value = _downloadProgress.value - webUrl
-        _activeCount.value = countActive()
+        synchronized(stateLock) {
+            _downloadItems.value = _downloadItems.value.filter { it.song.webUrl != webUrl }
+            _downloadProgress.value = _downloadProgress.value - webUrl
+            _activeCount.value = countActiveLocked()
+        }
+    }
+
+    internal fun pauseAllFromService() {
+        synchronized(stateLock) {
+            val pausedUrls = mutableListOf<String>()
+            _downloadItems.value =
+                _downloadItems.value.map {
+                    if (it.status == DownloadStatus.DOWNLOADING) {
+                        pausedUrls.add(it.song.webUrl)
+                        it.copy(status = DownloadStatus.PAUSED)
+                    } else {
+                        it
+                    }
+                }
+            _downloadProgress.value = _downloadProgress.value - pausedUrls.toSet()
+            _activeCount.value = countActiveLocked()
+        }
+    }
+
+    internal fun clearAllFromService() {
+        synchronized(stateLock) {
+            _downloadItems.value = emptyList()
+            _downloadProgress.value = emptyMap()
+            _activeCount.value = 0
+        }
     }
 
     fun pauseAll() {
-        val downloading = _downloadItems.value.filter { it.status == DownloadStatus.DOWNLOADING }
-        for (item in downloading) {
-            pauseDownload(item.song.webUrl)
+        val hadDownloading =
+            synchronized(stateLock) {
+                val anyDownloading =
+                    _downloadItems.value.any { it.status == DownloadStatus.DOWNLOADING }
+                if (!anyDownloading) return
+                val pausedUrls = mutableListOf<String>()
+                _downloadItems.value =
+                    _downloadItems.value.map {
+                        if (it.status == DownloadStatus.DOWNLOADING) {
+                            pausedUrls.add(it.song.webUrl)
+                            it.copy(status = DownloadStatus.PAUSED)
+                        } else {
+                            it
+                        }
+                    }
+                _downloadProgress.value = _downloadProgress.value - pausedUrls.toSet()
+                _activeCount.value = countActiveLocked()
+                true
+            }
+        if (hadDownloading && DownloadService.isRunning) {
+            sendActionIfRunning(DownloadService.ACTION_PAUSE_ALL)
         }
     }
 
     fun resumeAll() {
-        val paused = _downloadItems.value.filter { it.status == DownloadStatus.PAUSED }
-        for (item in paused) {
-            resumeDownload(item.song.webUrl)
+        val pausedItems =
+            synchronized(stateLock) {
+                val paused = _downloadItems.value.filter { it.status == DownloadStatus.PAUSED }
+                if (paused.isEmpty()) return
+                val pausedUrls = paused.map { it.song.webUrl }.toSet()
+                _downloadItems.value =
+                    _downloadItems.value.map {
+                        if (it.song.webUrl in pausedUrls)
+                            it.copy(status = DownloadStatus.DOWNLOADING)
+                        else it
+                    }
+                _downloadProgress.value =
+                    _downloadProgress.value + paused.associate { it.song.webUrl to it.progress }
+                _activeCount.value = countActiveLocked()
+                paused
+            }
+        for (item in pausedItems) {
+            if (
+                !startServiceWithAction(DownloadService.ACTION_ENQUEUE) {
+                    putExtra(DownloadService.EXTRA_SONG, item.song as Parcelable)
+                }
+            ) {
+                onDownloadFinished(item.song.webUrl, false, item.song.title)
+            }
         }
     }
 
     fun cancelAll() {
-        val items = _downloadItems.value.toList()
-        for (item in items) {
-            cancelDownload(item.song.webUrl)
+        synchronized(stateLock) {
+            _downloadItems.value = emptyList()
+            _downloadProgress.value = emptyMap()
+            _activeCount.value = 0
+        }
+        if (DownloadService.isRunning) {
+            sendActionIfRunning(DownloadService.ACTION_CANCEL_ALL)
         }
     }
 
     fun clearCompleted() {
-        _downloadItems.value =
-            _downloadItems.value.filter {
-                it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.PAUSED
-            }
-    }
-
-    internal fun updateProgress(webUrl: String, progressPercent: Int) {
-        _downloadProgress.value = _downloadProgress.value + (webUrl to progressPercent)
-        _downloadItems.value =
-            _downloadItems.value.map {
-                if (it.song.webUrl == webUrl)
-                    it.copy(progress = progressPercent, status = DownloadStatus.DOWNLOADING)
-                else it
-            }
-    }
-
-    internal fun onDownloadFinished(webUrl: String, success: Boolean, title: String) {
-        _downloadProgress.value = _downloadProgress.value - webUrl
-        _downloadItems.value =
-            _downloadItems.value.map {
-                if (it.song.webUrl == webUrl) {
-                    it.copy(
-                        progress = if (success) 100 else it.progress,
-                        status = if (success) DownloadStatus.COMPLETED else DownloadStatus.ERROR,
-                    )
-                } else {
-                    it
+        synchronized(stateLock) {
+            _downloadItems.value =
+                _downloadItems.value.filter {
+                    it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.PAUSED
                 }
-            }
-        _activeCount.value = countActive()
-
-        if (success) {
-            _events.tryEmit(DownloadEvent.Success(title, webUrl))
-        } else {
-            _events.tryEmit(DownloadEvent.Error(title))
         }
     }
 
-    private fun countActive(): Int =
+    internal fun updateProgress(webUrl: String, progressPercent: Int) {
+        synchronized(stateLock) {
+            _downloadProgress.value = _downloadProgress.value + (webUrl to progressPercent)
+            _downloadItems.value =
+                _downloadItems.value.map {
+                    if (it.song.webUrl == webUrl && it.status == DownloadStatus.DOWNLOADING) {
+                        it.copy(progress = progressPercent)
+                    } else {
+                        it
+                    }
+                }
+        }
+    }
+
+    internal fun onDownloadFinished(webUrl: String, success: Boolean, title: String) {
+        val emitEvent =
+            synchronized(stateLock) {
+                val existing = _downloadItems.value.find { it.song.webUrl == webUrl }
+                _downloadProgress.value = _downloadProgress.value - webUrl
+                _downloadItems.value =
+                    _downloadItems.value.map {
+                        if (it.song.webUrl == webUrl) {
+                            it.copy(
+                                progress = if (success) 100 else it.progress,
+                                status =
+                                    if (success) DownloadStatus.COMPLETED else DownloadStatus.ERROR,
+                            )
+                        } else {
+                            it
+                        }
+                    }
+                _activeCount.value = countActiveLocked()
+                existing != null
+            }
+
+        if (emitEvent) {
+            if (success) {
+                _events.tryEmit(DownloadEvent.Success(title, webUrl))
+            } else {
+                _events.tryEmit(DownloadEvent.Error(title))
+            }
+        }
+    }
+
+    private fun countActiveLocked(): Int =
         _downloadItems.value.count { it.status == DownloadStatus.DOWNLOADING }
 
-    private fun startServiceWithAction(actionName: String, block: Intent.() -> Unit = {}) {
+    private fun sendActionIfRunning(actionName: String, block: Intent.() -> Unit = {}) {
+        if (!DownloadService.isRunning) return
+        val intent =
+            Intent(context, DownloadService::class.java).apply {
+                action = actionName
+                block()
+            }
+        try {
+            context.startService(intent)
+        } catch (e: Exception) {
+            L.w(e, "Unable to send $actionName to DownloadService")
+        }
+    }
+
+    private fun startServiceWithAction(
+        actionName: String,
+        block: Intent.() -> Unit = {},
+    ): Boolean {
         val intent =
             Intent(context, DownloadService::class.java).apply {
                 action = actionName
                 block()
             }
 
-        try {
+        return try {
             if (
                 actionName == DownloadService.ACTION_ENQUEUE &&
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
@@ -208,8 +342,10 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
             } else {
                 context.startService(intent)
             }
+            true
         } catch (e: Exception) {
             L.e(e, "Failed to send action $actionName to DownloadService")
+            false
         }
     }
 }

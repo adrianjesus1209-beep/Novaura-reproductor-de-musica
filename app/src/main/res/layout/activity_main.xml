@@ -6,12 +6,27 @@
     android:layout_height="match_parent"
     android:background="?attr/colorSurface">
 
+    <ImageView
+        android:id="@+id/activity_wallpaper_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop" />
+
+    <View
+        android:id="@+id/activity_wallpaper_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0"
+        android:background="@android:color/black" />
+
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/nav_host"
         android:name="androidx.navigation.fragment.NavHostFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="?attr/colorSurface"
+        android:background="@android:color/transparent"
         app:defaultNavHost="true"
         app:navGraph="@navigation/outer"
         tools:layout="@layout/fragment_main" />

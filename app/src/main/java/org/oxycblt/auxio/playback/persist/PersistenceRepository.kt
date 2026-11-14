@@ -53,16 +53,21 @@ constructor(
 
     override suspend fun readState(): PlaybackStateManager.SavedState? {
         val library = musicRepository.library?.takeIf { !it.empty() } ?: return null
-        val playbackState: PlaybackState
-        val heapItems: List<QueueHeapItem>
-        val mappingItems: List<QueueShuffledMappingItem>
-        try {
-            playbackState = playbackStateDao.getState() ?: return null
-            heapItems = queueDao.getHeap()
-            mappingItems = queueDao.getShuffledMapping()
-        } catch (e: Exception) {
-            L.e("Unable read playback state")
-            L.e(e.stackTraceToString())
+        val (playbackState, heapItems, mappingItems) =
+            try {
+                database.withTransaction {
+                    Triple(
+                        playbackStateDao.getState(),
+                        queueDao.getHeap(),
+                        queueDao.getShuffledMapping(),
+                    )
+                }
+            } catch (e: Exception) {
+                L.e("Unable read playback state")
+                L.e(e.stackTraceToString())
+                return null
+            }
+        if (playbackState == null) {
             return null
         }
 

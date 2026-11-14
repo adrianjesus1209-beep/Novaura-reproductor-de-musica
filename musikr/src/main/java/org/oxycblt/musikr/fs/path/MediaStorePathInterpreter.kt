@@ -141,11 +141,17 @@ private constructor(private val cursor: Cursor, volumeManager: VolumeManager) :
                 val volume = path.volume.components ?: continue
                 template +=
                     if (args.isEmpty()) {
-                        "${MediaStore.Audio.AudioColumns.DATA} LIKE ?"
+                        "${MediaStore.Audio.AudioColumns.DATA} LIKE ? ESCAPE '\\'"
                     } else {
-                        " OR ${MediaStore.Audio.AudioColumns.DATA} LIKE ?"
+                        " OR ${MediaStore.Audio.AudioColumns.DATA} LIKE ? ESCAPE '\\'"
                     }
-                args.add("/${volume}/${path.components}%")
+                val prefix =
+                    if (path.components.components.isEmpty()) {
+                        "/${escapeSqlLike(volume.unixString)}/"
+                    } else {
+                        "/${escapeSqlLike(volume.unixString)}/${escapeSqlLike(path.components.unixString)}/"
+                    }
+                args.add("$prefix%")
             }
 
             if (template.isEmpty()) {
@@ -221,18 +227,25 @@ private constructor(private val cursor: Cursor, volumeManager: VolumeManager) :
                 val volumeName = path.volume.mediaStoreName ?: continue
                 template +=
                     if (args.isEmpty()) {
-                        "(${MediaStore.Audio.AudioColumns.VOLUME_NAME} LIKE ? " +
-                            "AND ${MediaStore.Audio.AudioColumns.RELATIVE_PATH} LIKE ?)"
+                        "(${MediaStore.Audio.AudioColumns.VOLUME_NAME} = ? " +
+                            "AND ${MediaStore.Audio.AudioColumns.RELATIVE_PATH} LIKE ? ESCAPE '\\')"
                     } else {
-                        " OR (${MediaStore.Audio.AudioColumns.VOLUME_NAME} LIKE ? " +
-                            "AND ${MediaStore.Audio.AudioColumns.RELATIVE_PATH} LIKE ?)"
+                        " OR (${MediaStore.Audio.AudioColumns.VOLUME_NAME} = ? " +
+                            "AND ${MediaStore.Audio.AudioColumns.RELATIVE_PATH} LIKE ? ESCAPE '\\')"
                     }
                 // MediaStore uses a different naming scheme for it's volume column. Convert this
                 // directory's volume to it.
                 args.add(volumeName)
-                // "%" signifies to accept any DATA value that begins with the Directory's path,
-                // thus recursively filtering all files in the directory.
-                args.add("${path.components}%")
+                // "%" signifies to accept any RELATIVE_PATH value that begins with the Directory's
+                // path, requiring a trailing slash so "/Music/Pop" does not match "/Music/Pop
+                // Punk".
+                args.add(
+                    if (path.components.components.isEmpty()) {
+                        "%"
+                    } else {
+                        "${escapeSqlLike(path.components.unixString)}/%"
+                    }
+                )
             }
 
             if (template.isEmpty()) {
@@ -246,3 +259,6 @@ private constructor(private val cursor: Cursor, volumeManager: VolumeManager) :
             VolumeMediaStorePathInterpreter(cursor, volumeManager)
     }
 }
+
+private fun escapeSqlLike(value: String): String =
+    value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

@@ -67,21 +67,25 @@ object ThumbnailLoader {
         blurView?.tag = url
 
         val cached = memoryCache.get(url)
-        val cachedBlur = blurCache.get(url)
+        val cachedBlur = if (blurView != null) blurCache.get(url) else null
 
-        if (cached != null) {
+        if (cached != null && !cached.isRecycled) {
             imageView.setImageBitmap(cached)
             if (blurView != null) {
-                if (cachedBlur != null) {
+                if (cachedBlur != null && !cachedBlur.isRecycled) {
                     blurView.setImageBitmap(cachedBlur)
                 } else {
                     val blurViewRef = WeakReference(blurView)
                     scope.launch {
                         val blurred = BlurTransformation.blur(cached, radius = 22, sampling = 0.2f)
-                        blurCache.put(url, blurred)
+                        if (!blurred.isRecycled) {
+                            blurCache.put(url, blurred)
+                        }
                         withContext(Dispatchers.Main) {
                             val targetBlur = blurViewRef.get()
-                            if (targetBlur != null && targetBlur.tag == url) {
+                            if (
+                                targetBlur != null && targetBlur.tag == url && !blurred.isRecycled
+                            ) {
                                 targetBlur.setImageBitmap(blurred)
                             }
                         }
@@ -98,34 +102,81 @@ object ThumbnailLoader {
         val blurViewRef = blurView?.let { WeakReference(it) }
 
         scope.launch {
-            try {
-                val req = Request.Builder().url(url).build()
-                client.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) return@use
-                    val bytes = resp.body?.bytes()
-                    if (bytes != null) {
-                        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                        if (bitmap != null) {
-                            memoryCache.put(url, bitmap)
-                            val blurred =
-                                BlurTransformation.blur(bitmap, radius = 22, sampling = 0.2f)
-                            blurCache.put(url, blurred)
-                            withContext(Dispatchers.Main) {
-                                val targetImage = imageViewRef.get()
-                                if (targetImage != null && targetImage.tag == url) {
-                                    targetImage.setImageBitmap(bitmap)
-                                }
-                                val targetBlur = blurViewRef?.get()
-                                if (targetBlur != null && targetBlur.tag == url) {
-                                    targetBlur.setImageBitmap(blurred)
-                                }
-                            }
-                        }
+            val bitmap = fetchBitmapSync(url, maxSizePx = 512) ?: return@launch
+            if (bitmap.isRecycled) return@launch
+            val blurred =
+                if (blurViewRef != null) {
+                    BlurTransformation.blur(bitmap, radius = 22, sampling = 0.2f).also {
+                        if (!it.isRecycled) blurCache.put(url, it)
                     }
+                } else {
+                    null
                 }
-            } catch (_: Exception) {
-                // Ignore loading failure, placeholder remains
+            withContext(Dispatchers.Main) {
+                val targetImage = imageViewRef.get()
+                if (targetImage != null && targetImage.tag == url && !bitmap.isRecycled) {
+                    targetImage.setImageBitmap(bitmap)
+                }
+                val targetBlur = blurViewRef?.get()
+                if (
+                    targetBlur != null &&
+                        targetBlur.tag == url &&
+                        blurred != null &&
+                        !blurred.isRecycled
+                ) {
+                    targetBlur.setImageBitmap(blurred)
+                }
             }
         }
     }
+
+    fun fetchBitmapSync(url: String?, maxSizePx: Int = 512): Bitmap? {
+        if (url.isNullOrBlank()) return null
+        memoryCache
+            .get(url)
+            ?.takeIf { !it.isRecycled }
+            ?.let {
+                return it
+            }
+        return try {
+            val req = Request.Builder().url(url).build()
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) return@use null
+                val body = resp.body ?: return@use null
+                val contentLength = body.contentLength()
+                if (contentLength > MAX_IMAGE_BYTES) return@use null
+                val source = body.source()
+                source.request(MAX_IMAGE_BYTES + 1L)
+                if (source.buffer.size > MAX_IMAGE_BYTES) return@use null
+                val bytes = body.bytes()
+                val decoded = decodeSampledBitmap(bytes, maxSizePx)
+                if (decoded != null && !decoded.isRecycled) {
+                    memoryCache.put(url, decoded)
+                }
+                decoded
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun decodeSampledBitmap(bytes: ByteArray, maxSizePx: Int): Bitmap? {
+        if (bytes.isEmpty()) return null
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        var inSampleSize = 1
+        if (bounds.outHeight > maxSizePx || bounds.outWidth > maxSizePx) {
+            val halfHeight = bounds.outHeight / 2
+            val halfWidth = bounds.outWidth / 2
+            while (
+                halfHeight / inSampleSize >= maxSizePx && halfWidth / inSampleSize >= maxSizePx
+            ) {
+                inSampleSize *= 2
+            }
+        }
+        val opts = BitmapFactory.Options().apply { this.inSampleSize = inSampleSize }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+    }
+
+    private const val MAX_IMAGE_BYTES = 8L * 1024L * 1024L
 }

@@ -28,6 +28,7 @@ import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import dagger.hilt.android.AndroidEntryPoint
+import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentDetailBinding
 import org.oxycblt.auxio.detail.list.PlaylistDetailListAdapter
@@ -68,10 +69,12 @@ class PlaylistDetailFragment :
     // as a UID, as that is the only safe way to parcel an playlist.
     private val args: PlaylistDetailFragmentArgs by navArgs()
     private val playlistListAdapter = PlaylistDetailListAdapter(this)
+    private var dragCallback: PlaylistDragCallback? = null
     private var touchHelper: ItemTouchHelper? = null
     private var editNavigationListener: DialogAwareNavigationListener? = null
     private var getContentLauncher: ActivityResultLauncher<String>? = null
     private var pendingImportTarget: Playlist? = null
+    private var pendingImportTargetUid: Music.UID? = null
 
     override fun getDetailListAdapter() = playlistListAdapter
 
@@ -79,16 +82,29 @@ class PlaylistDetailFragment :
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingImportTargetUid =
+            savedInstanceState?.getString(KEY_PENDING_IMPORT_TARGET_UID)?.let(Music.UID::fromString)
         getContentLauncher =
             registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+                val target =
+                    pendingImportTarget ?: pendingImportTargetUid?.let(musicModel::findPlaylist)
+                pendingImportTarget = null
+                pendingImportTargetUid = null
                 if (uri == null) {
                     L.w("No URI returned from file picker")
                     return@registerForActivityResult
                 }
 
                 L.d("Received playlist URI $uri")
-                musicModel.importPlaylist(uri, pendingImportTarget)
+                musicModel.importPlaylist(uri, target)
             }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        pendingImportTargetUid?.let {
+            outState.putString(KEY_PENDING_IMPORT_TARGET_UID, it.toString())
+        }
     }
 
     override fun onBindingCreated(binding: FragmentDetailBinding, savedInstanceState: Bundle?) {
@@ -103,8 +119,9 @@ class PlaylistDetailFragment :
             setOnMenuItemClickListener(this@PlaylistDetailFragment)
         }
 
+        val callback = PlaylistDragCallback(detailModel).also { dragCallback = it }
         touchHelper =
-            ItemTouchHelper(PlaylistDragCallback(detailModel)).also {
+            ItemTouchHelper(callback).also {
                 it.attachToRecyclerView(binding.detailRecycler)
             }
 
@@ -164,6 +181,10 @@ class PlaylistDetailFragment :
     override fun onDestroyBinding(binding: FragmentDetailBinding) {
         super.onDestroyBinding(binding)
         binding.detailNormalToolbar.setOnMenuItemClickListener(null)
+        binding.detailEditToolbar.setOnMenuItemClickListener(null)
+        dragCallback?.cancelAnimations()
+        dragCallback = null
+        touchHelper?.attachToRecyclerView(null)
         touchHelper = null
         binding.detailRecycler.adapter = null
         // Avoid possible race conditions that could cause a bad replace instruction to be consumed
@@ -370,6 +391,7 @@ class PlaylistDetailFragment :
                 is PlaylistDecision.Import -> {
                     L.d("Importing playlist")
                     pendingImportTarget = decision.target
+                    pendingImportTargetUid = decision.target?.uid
                     requireNotNull(getContentLauncher) {
                             "Content picker launcher was not available"
                         }
@@ -402,10 +424,12 @@ class PlaylistDetailFragment :
                 }
                 is PlaylistDecision.New -> {
                     L.w("Ignoring unexpected playlist decision $decision")
+                    musicModel.playlistDecision.consume()
                     return
                 }
             }
         findNavController().navigateSafe(directions)
+        musicModel.playlistDecision.consume()
     }
 
     private fun handlePlaylistMessage(message: PlaylistMessage?) {
@@ -477,5 +501,10 @@ class PlaylistDetailFragment :
             }
 
         requireBinding().detailToolbar.setVisible(id)
+    }
+
+    private companion object {
+        const val KEY_PENDING_IMPORT_TARGET_UID =
+            "${BuildConfig.APPLICATION_ID}.key.PENDING_IMPORT_TARGET_UID"
     }
 }
