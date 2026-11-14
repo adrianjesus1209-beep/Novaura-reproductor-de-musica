@@ -19,11 +19,13 @@
 package org.oxycblt.auxio.playback
 
 import android.annotation.SuppressLint
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
+import android.widget.TextView
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.updatePadding
 import androidx.dynamicanimation.animation.SpringForce
@@ -32,6 +34,7 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import coil3.ImageLoader
@@ -46,11 +49,14 @@ import org.oxycblt.auxio.databinding.FragmentPlaybackPanelBinding
 import org.oxycblt.auxio.detail.DetailViewModel
 import org.oxycblt.auxio.image.coil.BlurTransformation
 import org.oxycblt.auxio.list.ListViewModel
+import org.oxycblt.auxio.music.decision.AddToPlaylistDialogArgs
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.music.resolveNames
 import org.oxycblt.auxio.playback.audio.AudioLevelProcessor
 import org.oxycblt.auxio.playback.queue.QueueViewModel
+import org.oxycblt.auxio.playback.session.SessionPlaylistManager
 import org.oxycblt.auxio.playback.state.RepeatMode
+import org.oxycblt.auxio.playback.stats.PlaybackStatsManager
 import org.oxycblt.auxio.playback.ui.StyledSeekBar
 import org.oxycblt.auxio.playback.ui.stepper.Direction
 import org.oxycblt.auxio.playback.ui.stepper.StepperOverlay
@@ -86,6 +92,18 @@ class PlaybackPanelFragment :
     @Inject lateinit var audioLevelProcessor: AudioLevelProcessor
     @Inject lateinit var imageLoader: ImageLoader
     @Inject lateinit var favoritesManager: org.oxycblt.auxio.music.FavoritesManager
+    @Inject lateinit var sessionPlaylistManager: SessionPlaylistManager
+    @Inject lateinit var playbackStatsManager: PlaybackStatsManager
+
+    private enum class QueueFilterMode {
+        ALL,
+        RECENT,
+        POPULAR,
+        DISCOVER,
+    }
+
+    private var currentFilterMode = QueueFilterMode.ALL
+    private var displayedTracks: List<Song> = emptyList()
 
     private val audioLevelProvider = { audioLevelProcessor.level }
     private val audioReactivityProvider = { audioLevelProcessor.strength }
@@ -100,12 +118,27 @@ class PlaybackPanelFragment :
     private var trackTouchHelper: ItemTouchHelper? = null
     private val trackAdapter =
         PlaybackTrackAdapter(
-            onTrackClick = { index -> queueModel.goto(index) },
+            onTrackClick = { index, song ->
+                val queue = queueModel.queue.value
+                if (
+                    currentFilterMode == QueueFilterMode.ALL &&
+                        queue.size > 1 &&
+                        queue.getOrNull(index)?.uid == song.uid
+                ) {
+                    queueModel.goto(index)
+                } else if (displayedTracks.isNotEmpty()) {
+                    playbackModel.playFromSongList(song, displayedTracks)
+                } else {
+                    queueModel.goto(index)
+                }
+            },
             onTrackLongClick = { song ->
                 listModel.openMenu(R.menu.song, song, PlaySong.ByItself)
             },
             onStartDrag = { holder ->
-                trackTouchHelper?.startDrag(holder)
+                if (currentFilterMode == QueueFilterMode.ALL && queueModel.queue.value.size > 1) {
+                    trackTouchHelper?.startDrag(holder)
+                }
             },
         )
     private var userAwarePagerCallback: UserAwarePagerCallback? = null
@@ -217,20 +250,12 @@ class PlaybackPanelFragment :
         binding.playbackShuffle.setOnClickListener { playbackModel.toggleShuffled() }
         binding.btnPlaybackSave?.setOnClickListener {
             val song = playbackModel.song.value ?: return@setOnClickListener
-            try {
-                val navController =
-                    requireActivity().findViewById<View>(R.id.explore_nav_host)?.findNavController()
-                        ?: findNavController()
-                navController.navigate(
-                    R.id.add_to_playlist_dialog,
-                    org.oxycblt.auxio.music.decision
-                        .AddToPlaylistDialogArgs(arrayOf(song.uid))
-                        .toBundle(),
-                )
-            } catch (e: Exception) {
-                L.w(e, "Failed to navigate to AddToPlaylistDialog")
-            }
+            openAddToPlaylistDialog(listOf(song))
         }
+        binding.btnQueueSave?.setOnClickListener {
+            openAddToPlaylistDialog(resolveSongsToSave())
+        }
+        setupQueueFilterChips(binding)
         binding.playbackMore?.setOnClickListener {
             playbackModel.song.value?.let {
                 listModel.openMenu(R.menu.song, it, PlaySong.ByItself)
@@ -249,6 +274,12 @@ class PlaybackPanelFragment :
                         viewHolder: RecyclerView.ViewHolder,
                         target: RecyclerView.ViewHolder,
                     ): Boolean {
+                        if (
+                            currentFilterMode != QueueFilterMode.ALL ||
+                                queueModel.queue.value.size <= 1
+                        ) {
+                            return false
+                        }
                         val from = viewHolder.bindingAdapterPosition
                         val to = target.bindingAdapterPosition
                         if (
@@ -311,23 +342,14 @@ class PlaybackPanelFragment :
         collectImmediately(playbackModel.isPlaying, ::updatePlaying)
         collectImmediately(playbackModel.isShuffled, ::updateShuffled)
         collectImmediately(playbackModel.pagerQueue, ::updatePager)
-        collectImmediately(queueModel.queue) { songs ->
-            trackAdapter.submitList(songs)
+        collectImmediately(queueModel.queue) { refreshDisplayedTracks() }
+        collectImmediately(sessionPlaylistManager.sessionSongs) {
+            refreshDisplayedTracks()
+            updatePlayingFromTitle()
         }
-        collectImmediately(queueModel.index) { index ->
-            trackAdapter.currentIndex = index
-            if (index >= 0) {
-                val tracklist = binding.playbackTracklist
-                if (tracklist != null) {
-                    val lm =
-                        tracklist.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager
-                    if (lm != null) {
-                        lm.scrollToPositionWithOffset(index, 0)
-                    } else {
-                        tracklist.smoothScrollToPosition(index)
-                    }
-                }
-            }
+        collectImmediately(queueModel.index) {
+            refreshDisplayedTracks()
+            scrollToCurrentTrack()
         }
         collectImmediately(favoritesManager.favoriteUids) { uids ->
             val song = playbackModel.song.value ?: return@collectImmediately
@@ -442,6 +464,9 @@ class PlaybackPanelFragment :
         } else {
             binding.playbackBlurBackground.setImageDrawable(null)
         }
+
+        updatePlayingFromTitle()
+        refreshDisplayedTracks()
     }
 
     private fun updateParent(parent: MusicParent?) {
@@ -449,6 +474,8 @@ class PlaybackPanelFragment :
         val context = requireContext()
         binding.playbackToolbar.subtitle =
             parent?.run { name.resolve(context) } ?: context.getString(R.string.lbl_all_songs)
+        updatePlayingFromTitle()
+        updateSaveButtonState()
     }
 
     private fun updatePosition(positionDs: Long) {
@@ -574,6 +601,136 @@ class PlaybackPanelFragment :
         when (direction) {
             Direction.FORWARDS -> playbackModel.stepForward()
             Direction.BACKWARDS -> playbackModel.stepBackwards()
+        }
+    }
+
+    private fun openAddToPlaylistDialog(songs: List<Song>) {
+        if (songs.isEmpty()) return
+        try {
+            val navController =
+                requireActivity().findViewById<View>(R.id.explore_nav_host)?.findNavController()
+                    ?: findNavController()
+            navController.navigate(
+                R.id.add_to_playlist_dialog,
+                AddToPlaylistDialogArgs(songs.map { it.uid }.toTypedArray()).toBundle(),
+            )
+        } catch (e: Exception) {
+            L.w(e, "Failed to navigate to AddToPlaylistDialog")
+        }
+    }
+
+    private fun queueChips(
+        binding: FragmentPlaybackPanelBinding
+    ): List<Pair<TextView, QueueFilterMode>> =
+        listOfNotNull(
+            binding.chipQueueAll?.let { it to QueueFilterMode.ALL },
+            binding.chipQueueRecent?.let { it to QueueFilterMode.RECENT },
+            binding.chipQueuePopular?.let { it to QueueFilterMode.POPULAR },
+            binding.chipQueueDiscover?.let { it to QueueFilterMode.DISCOVER },
+        )
+
+    private fun setupQueueFilterChips(binding: FragmentPlaybackPanelBinding) {
+        val chips = queueChips(binding)
+        for ((chip, mode) in chips) {
+            chip.setOnClickListener {
+                if (currentFilterMode != mode) {
+                    currentFilterMode = mode
+                    updateChipStyles(chips)
+                    refreshDisplayedTracks()
+                }
+            }
+        }
+        updateChipStyles(chips)
+    }
+
+    private fun updateChipStyles(chips: List<Pair<TextView, QueueFilterMode>>) {
+        for ((chip, mode) in chips) {
+            val selected = mode == currentFilterMode
+            chip.setBackgroundResource(
+                if (selected) R.drawable.bg_ytm_chip_selected else R.drawable.bg_ytm_chip_unselected
+            )
+            chip.setTextColor(if (selected) Color.BLACK else Color.WHITE)
+        }
+    }
+
+    private fun refreshDisplayedTracks() {
+        val queue = queueModel.queue.value
+        val session = sessionPlaylistManager.sessionSongs.value
+        val tracks =
+            when (currentFilterMode) {
+                QueueFilterMode.ALL -> {
+                    if (queue.size <= 1 && session.size > 1) {
+                        session
+                    } else {
+                        queue
+                    }
+                }
+                QueueFilterMode.RECENT -> session.ifEmpty { queue }
+                QueueFilterMode.POPULAR ->
+                    (session + queue)
+                        .distinctBy { it.uid }
+                        .sortedByDescending { playbackStatsManager.getPlayCount(it) }
+                QueueFilterMode.DISCOVER ->
+                    (session + queue)
+                        .distinctBy { it.uid }
+                        .sortedBy { playbackStatsManager.getPlayCount(it) }
+            }
+        displayedTracks = tracks
+        val currentSong = playbackModel.song.value
+        trackAdapter.currentSongUid = currentSong?.uid
+        val activeIndex =
+            if (currentSong != null) {
+                tracks.indexOfFirst { it.uid == currentSong.uid }
+            } else {
+                queueModel.index.value
+            }
+        trackAdapter.currentIndex = activeIndex
+        trackAdapter.submitList(tracks)
+        updateSaveButtonState()
+    }
+
+    private fun resolveSongsToSave(): List<Song> {
+        val session = sessionPlaylistManager.sessionSongs.value
+        return when (currentFilterMode) {
+            QueueFilterMode.RECENT -> session.ifEmpty { displayedTracks }
+            QueueFilterMode.POPULAR,
+            QueueFilterMode.DISCOVER -> displayedTracks
+            QueueFilterMode.ALL -> {
+                if (playbackModel.parent.value == null && session.isNotEmpty()) {
+                    session
+                } else {
+                    displayedTracks
+                }
+            }
+        }
+    }
+
+    private fun updateSaveButtonState() {
+        val hasSongs = resolveSongsToSave().isNotEmpty()
+        binding?.btnQueueSave?.apply {
+            isEnabled = hasSongs
+            alpha = if (hasSongs) 1.0f else 0.5f
+        }
+    }
+
+    private fun updatePlayingFromTitle() {
+        val title =
+            sessionPlaylistManager.generateMixTitle(
+                playbackModel.parent.value,
+                playbackModel.song.value,
+            )
+        binding?.playbackPlayingFromTitle?.text = title
+    }
+
+    private fun scrollToCurrentTrack() {
+        val activeIndex = trackAdapter.currentIndex
+        if (activeIndex < 0) return
+        val tracklist = binding?.playbackTracklist ?: return
+        val lm = tracklist.layoutManager as? LinearLayoutManager
+        if (lm != null) {
+            lm.scrollToPositionWithOffset(activeIndex, 0)
+        } else {
+            tracklist.smoothScrollToPosition(activeIndex)
         }
     }
 }

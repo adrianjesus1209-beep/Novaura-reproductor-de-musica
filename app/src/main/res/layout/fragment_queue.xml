@@ -18,30 +18,63 @@
         android:paddingEnd="@dimen/spacing_medium"
         android:paddingBottom="@dimen/spacing_small">
 
-        <TextView
-            android:id="@+id/queue_info_text"
-            style="@style/Widget.Auxio.TextView.Secondary.Compact"
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/spacing_small"
             android:layout_weight="1"
-            android:ellipsize="end"
-            android:singleLine="true"
-            tools:text="12 canciones • 48 min" />
+            android:orientation="vertical">
 
-        <com.google.android.material.button.MaterialButton
+            <TextView
+                android:id="@+id/queue_playing_from_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:text="@string/lbl_playing_from"
+                android:textColor="#B3FFFFFF"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/queue_info_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                tools:text="Mix de Artist • 12 canciones" />
+        </LinearLayout>
+
+        <LinearLayout
             android:id="@+id/btn_save_queue"
-            style="@style/Widget.Material3.Button.TonalButton"
             android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:paddingStart="12dp"
-            android:paddingEnd="14dp"
-            android:text="@string/lbl_save_queue"
-            android:textSize="12sp"
-            app:cornerRadius="18dp"
-            app:icon="@drawable/ic_playlist_add_24"
-            app:iconSize="16dp" />
+            android:layout_height="34dp"
+            android:background="@drawable/bg_ytm_pill"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginEnd="6dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_playlist_add_24"
+                app:tint="@android:color/white" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/lbl_save"
+                android:textColor="@android:color/white"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
     <FrameLayout

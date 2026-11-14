@@ -102,6 +102,8 @@ class PlaybackStatsManager @Inject constructor(@ApplicationContext context: Cont
         return sorted.take(limit)
     }
 
+    fun getPlayCount(song: Song): Int = prefs.getInt(KEY_SONG_COUNT_PREFIX + song.uid, 0)
+
     fun getTopArtists(allArtists: List<Artist>, limit: Int = 10): List<Artist> {
         if (allArtists.isEmpty()) return emptyList()
 

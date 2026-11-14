@@ -547,5 +547,10 @@
     <string name="msg_added_to_playlist">Guardado en %s</string>
     <string name="msg_added_to_liked_music">Añadida a Música que te gustó</string>
     <string name="msg_removed_from_liked_music">Eliminada de Música que te gustó</string>
+    <string name="lbl_playing_from">Reproduciendo desde</string>
+    <string name="chip_queue_all">Todo</string>
+    <string name="chip_queue_recent">Recién escuchadas</string>
+    <string name="chip_queue_popular">Popular</string>
+    <string name="chip_queue_discover">Canciones por descubrir</string>
 </resources>
 

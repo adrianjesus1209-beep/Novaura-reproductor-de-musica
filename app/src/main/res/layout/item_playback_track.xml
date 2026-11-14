@@ -9,15 +9,32 @@
     android:focusable="true"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingStart="@dimen/spacing_medium"
-    android:paddingTop="10dp"
-    android:paddingEnd="@dimen/spacing_medium"
-    android:paddingBottom="10dp">
+    android:paddingStart="16dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="8dp">
 
     <FrameLayout
-        android:layout_width="28dp"
-        android:layout_height="28dp"
-        android:layout_marginEnd="@dimen/spacing_small">
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginEnd="12dp">
+
+        <org.oxycblt.auxio.image.CoverView
+            android:id="@+id/track_cover"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:visibility="gone"
+            app:enablePlaybackIndicator="false"
+            app:enableSelectionBadge="false"
+            app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.Small"
+            tools:visibility="visible" />
+
+        <View
+            android:id="@+id/track_playing_scrim"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#80000000"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/track_number"
@@ -26,6 +43,7 @@
             android:gravity="center"
             android:textColor="#80FFFFFF"
             android:textSize="13sp"
+            android:visibility="gone"
             tools:text="1." />
 
         <ImageView
@@ -55,17 +73,18 @@
             android:singleLine="true"
             android:textColor="@android:color/white"
             android:textSize="14sp"
-            tools:text="Something In The Air - Bonobo Remix" />
+            tools:text="Cool for the Summer" />
 
         <TextView
             android:id="@+id/track_subtitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
             android:ellipsize="end"
             android:singleLine="true"
-            android:textColor="#80FFFFFF"
+            android:textColor="#B3FFFFFF"
             android:textSize="12sp"
-            tools:text="Night Vision" />
+            tools:text="traceyourself • 3:25" />
 
     </LinearLayout>
 
@@ -76,7 +95,8 @@
         android:layout_marginStart="@dimen/spacing_small"
         android:textColor="#80FFFFFF"
         android:textSize="13sp"
-        tools:text="4:49" />
+        tools:text="4:49"
+        tools:visibility="gone" />
 
     <ImageView
         android:id="@+id/track_drag_handle"

@@ -23,24 +23,22 @@ import android.content.SharedPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.music.MusicRepository
+import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.playback.state.PlaybackStateManager
 import org.oxycblt.musikr.Music
+import org.oxycblt.musikr.MusicParent
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
 import timber.log.Timber as L
 
 /**
- * Manages active listening sessions and dynamically creates/updates the "My Recent Mix" smart
- * playlist (YouTube Music style) when multiple songs are played in a session.
+ * Manages active listening sessions and tracks recently played songs so the user can inspect and
+ * explicitly save them as a playlist from the queue section (YouTube Music style).
  */
 @Singleton
 class SessionPlaylistManager
@@ -49,11 +47,10 @@ constructor(
     @ApplicationContext private val context: Context,
     private val musicRepository: MusicRepository,
     private val playbackManager: PlaybackStateManager,
-) : PlaybackStateManager.Listener {
+) : PlaybackStateManager.Listener, MusicRepository.UpdateListener {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val sessionSongUids = mutableListOf<Music.UID>()
     private val _sessionSongs = MutableStateFlow<List<Song>>(emptyList())
@@ -64,6 +61,14 @@ constructor(
     init {
         restoreSession()
         playbackManager.addListener(this)
+        musicRepository.addUpdateListener(this)
+        resolveSongs()
+    }
+
+    override fun onMusicChanges(changes: MusicRepository.Changes) {
+        if (changes.deviceLibrary) {
+            resolveSongs()
+        }
     }
 
     override fun onIndexMoved(index: Int) {
@@ -71,7 +76,18 @@ constructor(
         recordSong(song)
     }
 
-    /** Records a played [Song] in the current listening session. */
+    override fun onNewPlayback(
+        parent: MusicParent?,
+        queue: List<Song>,
+        index: Int,
+        isShuffled: Boolean,
+    ) {
+        val song = playbackManager.currentSong ?: return
+        recordSong(song)
+    }
+
+    /** Records a played [Song] in the current listening session without duplicating entries. */
+    @Synchronized
     fun recordSong(song: Song) {
         val now = System.currentTimeMillis()
         if (lastPlaybackTimeMs > 0 && (now - lastPlaybackTimeMs) > SESSION_TIMEOUT_MS) {
@@ -80,42 +96,39 @@ constructor(
         }
         lastPlaybackTimeMs = now
 
-        // Avoid adding the exact same song consecutively
-        if (sessionSongUids.lastOrNull() != song.uid) {
-            sessionSongUids.add(song.uid)
-            // Limit session to most recent 50 tracks
-            if (sessionSongUids.size > MAX_SESSION_SONGS) {
-                sessionSongUids.removeAt(0)
-            }
-            saveSession()
-            resolveAndSyncSongs()
+        // Avoid duplicates while preserving listening order (latest played moves to the end)
+        sessionSongUids.remove(song.uid)
+        sessionSongUids.add(song.uid)
+        // Limit session to most recent 50 tracks
+        if (sessionSongUids.size > MAX_SESSION_SONGS) {
+            sessionSongUids.removeAt(0)
         }
+        saveSession()
+        resolveSongs()
     }
 
-    private fun resolveAndSyncSongs() {
-        val resolved = sessionSongUids.mapNotNull { uid ->
-            musicRepository.find(uid) as? Song
-        }
+    @Synchronized
+    private fun resolveSongs() {
+        val resolved = sessionSongUids.mapNotNull { uid -> musicRepository.find(uid) as? Song }
         _sessionSongs.value = resolved
-
-        if (resolved.size >= MIN_SESSION_SONGS) {
-            scope.launch {
-                syncSmartPlaylist(resolved)
-            }
-        }
     }
 
-    private suspend fun syncSmartPlaylist(songs: List<Song>) {
-        val playlistName = context.getString(R.string.lbl_recent_mix)
-        val library = musicRepository.library ?: return
-        val existingPlaylist = library.playlists.find { it.name.raw == playlistName }
+    /**
+     * Generates a YouTube Music-style "Playing from" title (e.g. parent name or "Mix de <Artist>").
+     */
+    fun generateMixTitle(parent: MusicParent?, currentSong: Song?): String {
+        if (parent != null) {
+            return parent.name.resolve(context)
+        }
+        val songs = _sessionSongs.value
+        val dominantArtist =
+            songs.flatMap { it.artists }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+                ?: currentSong?.artists?.firstOrNull()
 
-        if (existingPlaylist != null) {
-            L.d("Updating existing '$playlistName' with ${songs.size} tracks")
-            musicRepository.rewritePlaylist(existingPlaylist, songs)
+        return if (dominantArtist != null) {
+            context.getString(R.string.fmt_mix_artist, dominantArtist.name.resolve(context))
         } else {
-            L.d("Auto-creating '$playlistName' with ${songs.size} tracks")
-            musicRepository.createPlaylist(playlistName, songs)
+            context.getString(R.string.lbl_all_songs)
         }
     }
 
@@ -162,6 +175,6 @@ constructor(
         private const val KEY_LAST_TIME = "session_last_time"
         const val MIN_SESSION_SONGS = 3
         const val MAX_SESSION_SONGS = 50
-        const val SESSION_TIMEOUT_MS = 30 * 60 * 1000L // 30 minutes
+        const val SESSION_TIMEOUT_MS = 6 * 60 * 60 * 1000L // 6 hours
     }
 }

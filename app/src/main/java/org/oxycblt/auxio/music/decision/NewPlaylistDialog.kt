@@ -21,6 +21,7 @@ package org.oxycblt.auxio.music.decision
 import android.os.Bundle
 import android.text.Editable
 import android.view.LayoutInflater
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.activityViewModels
@@ -68,6 +69,7 @@ class NewPlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNameBi
                         is ChosenName.Empty -> pendingPlaylist.preferredName
                         else -> return@setPositiveButton
                     }
+                val context = requireContext().applicationContext
                 // TODO: Navigate to playlist if there are songs in it
                 musicModel.createPlaylist(name, pendingPlaylist.songs, pendingPlaylist.reason)
                 findNavController().apply {
@@ -76,6 +78,12 @@ class NewPlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNameBi
                     // needed. If that dialog isn't present, this should be a no-op. Hopefully.
                     navigateUp()
                 }
+                Toast.makeText(
+                        context,
+                        context.getString(R.string.msg_added_to_playlist, name),
+                        Toast.LENGTH_SHORT,
+                    )
+                    .show()
             }
             .setNegativeButton(R.string.lbl_cancel, null)
     }

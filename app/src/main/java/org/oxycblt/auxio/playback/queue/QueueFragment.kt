@@ -29,24 +29,20 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import dagger.hilt.android.AndroidEntryPoint
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import javax.inject.Inject
 import kotlin.math.min
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.FragmentQueueBinding
-import org.oxycblt.auxio.home.HomeFragmentDirections
 import org.oxycblt.auxio.list.EditClickListListener
 import org.oxycblt.auxio.list.ListViewModel
-import org.oxycblt.auxio.music.MusicViewModel
-import org.oxycblt.auxio.music.PlaylistDecision
+import org.oxycblt.auxio.music.decision.AddToPlaylistDialogArgs
 import org.oxycblt.auxio.playback.PlaySong
 import org.oxycblt.auxio.playback.PlaybackViewModel
 import org.oxycblt.auxio.playback.formatDurationMs
+import org.oxycblt.auxio.playback.session.SessionPlaylistManager
 import org.oxycblt.auxio.ui.ViewBindingFragment
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.getPlural
-import org.oxycblt.auxio.util.navigateSafe
 import org.oxycblt.musikr.Song
 import timber.log.Timber as L
 
@@ -57,10 +53,11 @@ import timber.log.Timber as L
  */
 @AndroidEntryPoint
 class QueueFragment : ViewBindingFragment<FragmentQueueBinding>(), EditClickListListener<Song> {
+    @Inject lateinit var sessionPlaylistManager: SessionPlaylistManager
+
     private val queueModel: QueueViewModel by viewModels()
     private val playbackModel: PlaybackViewModel by activityViewModels()
     private val listModel: ListViewModel by activityViewModels()
-    private val musicModel: MusicViewModel by activityViewModels()
     private val queueAdapter =
         QueueAdapter(this) { song ->
             listModel.openMenu(R.menu.song, song, PlaySong.ByItself)
@@ -102,6 +99,9 @@ class QueueFragment : ViewBindingFragment<FragmentQueueBinding>(), EditClickList
             playbackModel.isPlaying,
             ::updateQueue,
         )
+        collectImmediately(playbackModel.parent) { updateQueueHeader() }
+        collectImmediately(playbackModel.song) { updateQueueHeader() }
+        collectImmediately(sessionPlaylistManager.sessionSongs) { updateQueueHeader() }
     }
 
     override fun onDestroyBinding(binding: FragmentQueueBinding) {
@@ -130,12 +130,7 @@ class QueueFragment : ViewBindingFragment<FragmentQueueBinding>(), EditClickList
 
     private fun updateQueue(queue: List<Song>, index: Int, isPlaying: Boolean) {
         val binding = requireBinding()
-
-        val countStr = requireContext().getPlural(R.plurals.fmt_song_count, queue.size)
-        val totalDurationMs = queue.sumOf { it.durationMs }
-        val durationStr = totalDurationMs.formatDurationMs(true)
-        binding.queueInfoText.text = "$countStr • $durationStr"
-        binding.btnSaveQueue.isEnabled = queue.isNotEmpty()
+        updateQueueHeader()
 
         queueAdapter.update(queue, queueModel.queueInstructions.consume())
         queueAdapter.setPosition(index, isPlaying)
@@ -166,38 +161,55 @@ class QueueFragment : ViewBindingFragment<FragmentQueueBinding>(), EditClickList
         }
     }
 
-    private fun saveQueueAsPlaylist() {
-        val songs = queueModel.queue.value
-        if (songs.isEmpty()) return
-        val template = generateSuggestedPlaylistName(songs)
-        val navController =
-            try {
-                requireActivity().findNavController(R.id.explore_nav_host)
-            } catch (e: Exception) {
-                findNavController()
+    private fun updateQueueHeader() {
+        val binding = binding ?: return
+        val queue = queueModel.queue.value
+        val session = sessionPlaylistManager.sessionSongs.value
+        val songsForStats =
+            if (playbackModel.parent.value == null && session.isNotEmpty() && queue.size <= 1) {
+                session
+            } else {
+                queue
             }
-        navController.navigateSafe(
-            HomeFragmentDirections.newPlaylist(
-                songs.map { it.uid }.toTypedArray(),
-                template,
-                PlaylistDecision.New.Reason.NEW,
+        val mixTitle =
+            sessionPlaylistManager.generateMixTitle(
+                playbackModel.parent.value,
+                playbackModel.song.value,
             )
-        )
+        val countStr = requireContext().getPlural(R.plurals.fmt_song_count, songsForStats.size)
+        val durationStr = songsForStats.sumOf { it.durationMs }.formatDurationMs(true)
+        binding.queueInfoText.text = "$mixTitle • $countStr • $durationStr"
+
+        val hasSongsToSave = resolveSongsToSave().isNotEmpty()
+        binding.btnSaveQueue.isEnabled = hasSongsToSave
+        binding.btnSaveQueue.alpha = if (hasSongsToSave) 1.0f else 0.5f
     }
 
-    private fun generateSuggestedPlaylistName(songs: List<Song>): String {
-        val context = requireContext()
-        if (songs.isEmpty()) return context.getString(R.string.lbl_new_playlist)
-        val primaryArtist =
-            songs.flatMap { it.artists }.groupingBy { it.name }.eachCount().maxByOrNull { it.value }
-
-        return if (
-            primaryArtist != null && primaryArtist.value >= (songs.size / 2).coerceAtLeast(2)
-        ) {
-            context.getString(R.string.fmt_mix_artist, primaryArtist.key)
+    private fun resolveSongsToSave(): List<Song> {
+        val session = sessionPlaylistManager.sessionSongs.value
+        return if (playbackModel.parent.value == null && session.isNotEmpty()) {
+            session
         } else {
-            val dateFormat = SimpleDateFormat("d MMM", Locale.getDefault()).format(Date())
-            context.getString(R.string.fmt_mix_date, dateFormat)
+            queueModel.queue.value
+        }
+    }
+
+    private fun saveQueueAsPlaylist() {
+        val songsToSave = resolveSongsToSave()
+        if (songsToSave.isEmpty()) return
+        try {
+            val navController =
+                try {
+                    requireActivity().findNavController(R.id.explore_nav_host)
+                } catch (e: Exception) {
+                    findNavController()
+                }
+            navController.navigate(
+                R.id.add_to_playlist_dialog,
+                AddToPlaylistDialogArgs(songsToSave.map { it.uid }.toTypedArray()).toBundle(),
+            )
+        } catch (e: Exception) {
+            L.w(e, "Failed to navigate to AddToPlaylistDialog")
         }
     }
 }

@@ -690,6 +690,11 @@
     <string name="msg_added_to_playlist">Saved to %s</string>
     <string name="msg_added_to_liked_music">Added to Liked music</string>
     <string name="msg_removed_from_liked_music">Removed from Liked music</string>
+    <string name="lbl_playing_from">Playing from</string>
+    <string name="chip_queue_all">All</string>
+    <string name="chip_queue_recent">Recently played</string>
+    <string name="chip_queue_popular">Popular</string>
+    <string name="chip_queue_discover">Discover</string>
 </resources>
 
 

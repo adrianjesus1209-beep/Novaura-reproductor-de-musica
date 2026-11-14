@@ -21,22 +21,24 @@ package org.oxycblt.auxio.playback.ui.tracklist
 import android.annotation.SuppressLint
 import android.graphics.Color
 import android.graphics.drawable.AnimationDrawable
+import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.ItemPlaybackTrackBinding
 import org.oxycblt.auxio.music.resolve
+import org.oxycblt.auxio.music.resolveNames
 import org.oxycblt.auxio.playback.formatDurationMs
 import org.oxycblt.auxio.util.inflater
+import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Song
 
 /** Adapter for the integrated inline tracklist rendered on the playback panel. */
 class PlaybackTrackAdapter(
-    private val onTrackClick: (Int) -> Unit,
+    private val onTrackClick: (Int, Song) -> Unit,
     private val onTrackLongClick: (Song) -> Unit,
     private val onStartDrag: (RecyclerView.ViewHolder) -> Unit,
 ) : RecyclerView.Adapter<PlaybackTrackViewHolder>() {
@@ -51,10 +53,27 @@ class PlaybackTrackAdapter(
             if (value in 0 until itemCount) notifyItemChanged(value)
         }
 
+    var currentSongUid: Music.UID? = null
+        set(value) {
+            if (field == value) return
+            val oldUid = field
+            field = value
+            for (i in currentTracks.indices) {
+                val uid = currentTracks[i].uid
+                if (uid == oldUid || uid == value) {
+                    notifyItemChanged(i)
+                }
+            }
+        }
+
     var isPlaying: Boolean = false
         set(value) {
             field = value
-            if (currentIndex in 0 until itemCount) notifyItemChanged(currentIndex)
+            for (i in currentTracks.indices) {
+                if (i == currentIndex || currentTracks[i].uid == currentSongUid) {
+                    notifyItemChanged(i)
+                }
+            }
         }
 
     fun submitList(songs: List<Song>?) {
@@ -104,10 +123,17 @@ class PlaybackTrackAdapter(
 
     override fun onBindViewHolder(holder: PlaybackTrackViewHolder, position: Int) {
         val song = currentTracks[position]
-        val isCurrent = position == currentIndex
+        val isCurrent =
+            if (
+                currentIndex in currentTracks.indices &&
+                    (currentSongUid == null || currentTracks[currentIndex].uid == currentSongUid)
+            ) {
+                position == currentIndex
+            } else {
+                currentSongUid != null && song.uid == currentSongUid
+            }
         holder.bind(
             song,
-            position,
             isCurrent,
             isPlaying,
             onTrackClick,
@@ -120,49 +146,66 @@ class PlaybackTrackAdapter(
 class PlaybackTrackViewHolder(private val binding: ItemPlaybackTrackBinding) :
     RecyclerView.ViewHolder(binding.root) {
 
+    private val selectableBgResId: Int by lazy {
+        val typedValue = TypedValue()
+        binding.root.context.theme.resolveAttribute(
+            android.R.attr.selectableItemBackground,
+            typedValue,
+            true,
+        )
+        typedValue.resourceId
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     fun bind(
         song: Song,
-        position: Int,
         isCurrent: Boolean,
         isPlaying: Boolean,
-        onTrackClick: (Int) -> Unit,
+        onTrackClick: (Int, Song) -> Unit,
         onTrackLongClick: (Song) -> Unit,
         onStartDrag: (RecyclerView.ViewHolder) -> Unit,
     ) {
         val context = binding.root.context
-        val goldColor = ContextCompat.getColor(context, R.color.player_accent_gold)
-        val mutedColor = 0x80FFFFFF.toInt()
+
+        binding.trackCover.isVisible = true
+        binding.trackCover.bind(song)
+        binding.trackNumber.isVisible = false
+        binding.trackDuration.isVisible = false
 
         binding.trackName.text = song.name.resolve(context)
-        binding.trackSubtitle.text = song.album.name.resolve(context)
-        binding.trackDuration.text = song.durationMs.formatDurationMs(false)
+        binding.trackSubtitle.text =
+            "${song.artists.resolveNames(context)} • ${song.durationMs.formatDurationMs(false)}"
 
+        val currentAnim = binding.trackEqualizerIcon.drawable as? AnimationDrawable
         if (isCurrent) {
-            binding.trackNumber.isVisible = false
+            binding.root.setBackgroundColor(0x1FFFFFFF)
+            binding.trackPlayingScrim.isVisible = true
             binding.trackEqualizerIcon.isVisible = true
-            val anim = binding.trackEqualizerIcon.drawable as? AnimationDrawable
             if (isPlaying) {
-                anim?.start()
+                binding.trackEqualizerIcon.setImageResource(R.drawable.ic_playing_indicator_24)
+                val playingAnim = binding.trackEqualizerIcon.drawable as? AnimationDrawable
+                playingAnim?.start()
             } else {
-                anim?.stop()
+                currentAnim?.stop()
+                binding.trackEqualizerIcon.setImageResource(R.drawable.ic_paused_indicator_24)
             }
-            binding.trackName.setTextColor(goldColor)
-            binding.trackDuration.setTextColor(goldColor)
-        } else {
-            binding.trackNumber.isVisible = true
-            binding.trackNumber.text = "${position + 1}."
-            binding.trackEqualizerIcon.isVisible = false
-            val anim = binding.trackEqualizerIcon.drawable as? AnimationDrawable
-            anim?.stop()
             binding.trackName.setTextColor(Color.WHITE)
-            binding.trackDuration.setTextColor(mutedColor)
+        } else {
+            if (selectableBgResId != 0) {
+                binding.root.setBackgroundResource(selectableBgResId)
+            } else {
+                binding.root.setBackgroundColor(Color.TRANSPARENT)
+            }
+            binding.trackPlayingScrim.isVisible = false
+            binding.trackEqualizerIcon.isVisible = false
+            currentAnim?.stop()
+            binding.trackName.setTextColor(Color.WHITE)
         }
 
         binding.root.setOnClickListener {
             val adapterPos = bindingAdapterPosition
             if (adapterPos != RecyclerView.NO_POSITION) {
-                onTrackClick(adapterPos)
+                onTrackClick(adapterPos, song)
             }
         }
 
