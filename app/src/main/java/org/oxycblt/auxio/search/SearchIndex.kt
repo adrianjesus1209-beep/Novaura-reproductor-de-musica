@@ -21,6 +21,7 @@ package org.oxycblt.auxio.search
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.text.Normalizer
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
@@ -47,7 +48,7 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
         val song: Song,
         val normalizedName: String,
         val sortName: String?,
-        val normalizedArtist: String?,
+        val normalizedArtists: List<String>,
         val normalizedAlbum: String?,
         val pathName: String?,
     )
@@ -56,7 +57,7 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
         val album: Album,
         val normalizedName: String,
         val sortName: String?,
-        val normalizedArtist: String?,
+        val normalizedArtists: List<String>,
     )
 
     data class IndexedArtist(
@@ -102,10 +103,8 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
                     val resolvedName = song.name.resolve(context)
                     val normalizedName = normalizeString(resolvedName)
                     val sortName = song.name.sort?.let { normalizeString(it) }
-                    val artistName =
-                        song.artists.firstOrNull()?.name?.resolve(context)?.let {
-                            normalizeString(it)
-                        }
+                    val artistNames =
+                        song.artists.map { artist -> normalizeString(artist.name.resolve(context)) }
                     val albumName = normalizeString(song.album.name.resolve(context))
                     val pathName = song.path.name?.let { normalizeString(it) }
 
@@ -114,7 +113,7 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
                             song = song,
                             normalizedName = normalizedName,
                             sortName = sortName,
-                            normalizedArtist = artistName,
+                            normalizedArtists = artistNames,
                             normalizedAlbum = albumName,
                             pathName = pathName,
                         )
@@ -126,16 +125,16 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
                     val resolvedName = album.name.resolve(context)
                     val normalizedName = normalizeString(resolvedName)
                     val sortName = (album.name as? Name.Known)?.sort?.let { normalizeString(it) }
-                    val artistName =
-                        album.artists.firstOrNull()?.name?.resolve(context)?.let {
-                            normalizeString(it)
+                    val artistNames =
+                        album.artists.map { artist ->
+                            normalizeString(artist.name.resolve(context))
                         }
                     albumsList.add(
                         IndexedAlbum(
                             album = album,
                             normalizedName = normalizedName,
                             sortName = sortName,
-                            normalizedArtist = artistName,
+                            normalizedArtists = artistNames,
                         )
                     )
                 }
@@ -196,7 +195,7 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
     fun searchSongs(query: String, filterCollection: Collection<Song>?): List<Song> {
         val currentSnapshot = snapshot
         val cleanQuery = normalizeString(query)
-        val rawQuery = query.trim().lowercase()
+        val rawQuery = query.trim().lowercase(Locale.ROOT)
         if (cleanQuery.isEmpty() && rawQuery.isEmpty()) return emptyList()
 
         val allowedSet = filterCollection?.toSet()
@@ -209,21 +208,20 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
                 if (cleanQuery.isNotEmpty()) {
                     item.normalizedName.contains(cleanQuery) ||
                         (item.sortName != null && item.sortName.contains(cleanQuery)) ||
-                        (item.normalizedArtist != null &&
-                            item.normalizedArtist.contains(cleanQuery)) ||
+                        item.normalizedArtists.any { it.contains(cleanQuery) } ||
                         (item.normalizedAlbum != null &&
                             item.normalizedAlbum.contains(cleanQuery)) ||
                         (item.pathName != null && item.pathName.contains(cleanQuery))
                 } else {
-                    item.song.name.resolve(context).lowercase().contains(rawQuery) ||
-                        (item.song.artists
-                            .firstOrNull()
-                            ?.name
-                            ?.resolve(context)
-                            ?.lowercase()
-                            ?.contains(rawQuery) == true) ||
-                        item.song.album.name.resolve(context).lowercase().contains(rawQuery) ||
-                        (item.song.path.name?.lowercase()?.contains(rawQuery) == true)
+                    item.song.name.resolve(context).lowercase(Locale.ROOT).contains(rawQuery) ||
+                        item.song.artists.any {
+                            it.name.resolve(context).lowercase(Locale.ROOT).contains(rawQuery)
+                        } ||
+                        item.song.album.name
+                            .resolve(context)
+                            .lowercase(Locale.ROOT)
+                            .contains(rawQuery) ||
+                        (item.song.path.name?.lowercase(Locale.ROOT)?.contains(rawQuery) == true)
                 }
             if (matches) {
                 results.add(item.song)
@@ -235,7 +233,7 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
     fun searchAlbums(query: String, filterCollection: Collection<Album>?): List<Album> {
         val currentSnapshot = snapshot
         val cleanQuery = normalizeString(query)
-        val rawQuery = query.trim().lowercase()
+        val rawQuery = query.trim().lowercase(Locale.ROOT)
         if (cleanQuery.isEmpty() && rawQuery.isEmpty()) return emptyList()
 
         val allowedSet = filterCollection?.toSet()
@@ -248,16 +246,12 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
                 if (cleanQuery.isNotEmpty()) {
                     item.normalizedName.contains(cleanQuery) ||
                         (item.sortName != null && item.sortName.contains(cleanQuery)) ||
-                        (item.normalizedArtist != null &&
-                            item.normalizedArtist.contains(cleanQuery))
+                        item.normalizedArtists.any { it.contains(cleanQuery) }
                 } else {
-                    item.album.name.resolve(context).lowercase().contains(rawQuery) ||
-                        (item.album.artists
-                            .firstOrNull()
-                            ?.name
-                            ?.resolve(context)
-                            ?.lowercase()
-                            ?.contains(rawQuery) == true)
+                    item.album.name.resolve(context).lowercase(Locale.ROOT).contains(rawQuery) ||
+                        item.album.artists.any {
+                            it.name.resolve(context).lowercase(Locale.ROOT).contains(rawQuery)
+                        }
                 }
             if (matches) {
                 results.add(item.album)
@@ -269,7 +263,7 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
     fun searchArtists(query: String, filterCollection: Collection<Artist>?): List<Artist> {
         val currentSnapshot = snapshot
         val cleanQuery = normalizeString(query)
-        val rawQuery = query.trim().lowercase()
+        val rawQuery = query.trim().lowercase(Locale.ROOT)
         if (cleanQuery.isEmpty() && rawQuery.isEmpty()) return emptyList()
 
         val allowedSet = filterCollection?.toSet()
@@ -283,7 +277,7 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
                     item.normalizedName.contains(cleanQuery) ||
                         (item.sortName != null && item.sortName.contains(cleanQuery))
                 } else {
-                    item.artist.name.resolve(context).lowercase().contains(rawQuery)
+                    item.artist.name.resolve(context).lowercase(Locale.ROOT).contains(rawQuery)
                 }
             if (matches) {
                 results.add(item.artist)
@@ -295,7 +289,7 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
     fun searchGenres(query: String, filterCollection: Collection<Genre>?): List<Genre> {
         val currentSnapshot = snapshot
         val cleanQuery = normalizeString(query)
-        val rawQuery = query.trim().lowercase()
+        val rawQuery = query.trim().lowercase(Locale.ROOT)
         if (cleanQuery.isEmpty() && rawQuery.isEmpty()) return emptyList()
 
         val allowedSet = filterCollection?.toSet()
@@ -308,7 +302,7 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
                 if (cleanQuery.isNotEmpty()) {
                     item.normalizedName.contains(cleanQuery)
                 } else {
-                    item.genre.name.resolve(context).lowercase().contains(rawQuery)
+                    item.genre.name.resolve(context).lowercase(Locale.ROOT).contains(rawQuery)
                 }
             if (matches) {
                 results.add(item.genre)
@@ -320,7 +314,7 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
     fun searchPlaylists(query: String, filterCollection: Collection<Playlist>?): List<Playlist> {
         val currentSnapshot = snapshot
         val cleanQuery = normalizeString(query)
-        val rawQuery = query.trim().lowercase()
+        val rawQuery = query.trim().lowercase(Locale.ROOT)
         if (cleanQuery.isEmpty() && rawQuery.isEmpty()) return emptyList()
 
         val allowedSet = filterCollection?.toSet()
@@ -333,7 +327,7 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
                 if (cleanQuery.isNotEmpty()) {
                     item.normalizedName.contains(cleanQuery)
                 } else {
-                    item.playlist.name.resolve(context).lowercase().contains(rawQuery)
+                    item.playlist.name.resolve(context).lowercase(Locale.ROOT).contains(rawQuery)
                 }
             if (matches) {
                 results.add(item.playlist)
@@ -349,7 +343,7 @@ class SearchIndex @Inject constructor(@ApplicationContext private val context: C
 
         fun normalizeString(input: String): String {
             val normalized = Normalizer.normalize(input, Normalizer.Form.NFKD)
-            return NORMALIZE_POST_PROCESSING_REGEX.replace(normalized, "").lowercase()
+            return NORMALIZE_POST_PROCESSING_REGEX.replace(normalized, "").lowercase(Locale.ROOT)
         }
     }
 }

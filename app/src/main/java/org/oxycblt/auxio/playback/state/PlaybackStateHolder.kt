@@ -295,6 +295,9 @@ sealed interface DeferredPlayback {
      * @param uri The [Uri] of the audio file to start playing.
      */
     data class Open(val uri: Uri) : DeferredPlayback
+
+    /** Start playing music matching an external search query, falling back to shuffled library. */
+    data class Search(val query: String?) : DeferredPlayback
 }
 
 /** A representation of the current state of audio playback. Use [from] to create an instance. */

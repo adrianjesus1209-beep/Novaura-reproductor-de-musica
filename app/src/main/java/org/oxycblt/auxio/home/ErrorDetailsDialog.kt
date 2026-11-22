@@ -26,6 +26,7 @@ import android.view.LayoutInflater
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.navArgs
+import dagger.hilt.android.AndroidEntryPoint
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.DialogErrorDetailsBinding
 import org.oxycblt.auxio.music.MusicViewModel
@@ -37,10 +38,9 @@ import org.oxycblt.auxio.util.showToast
 /**
  * A dialog that shows a stack trace for a music loading error.
  *
- * @author Alexander Capehart (OxygenCobalt)
- *
  * TODO: Extend to other errors
  */
+@AndroidEntryPoint
 class ErrorDetailsDialog : ViewBindingMaterialDialogFragment<DialogErrorDetailsBinding>() {
     private val args: ErrorDetailsDialogArgs by navArgs()
     private var clipboardManager: ClipboardManager? = null
@@ -88,7 +88,6 @@ class ErrorDetailsDialog : ViewBindingMaterialDialogFragment<DialogErrorDetailsB
     private companion object {
         /** The URL to the bug report issue form */
         const val LINK_ISSUES =
-            "https://github.com/OxygenCobalt/Auxio/issues/new" +
-                "?assignees=OxygenCobalt&labels=bug&projects=&template=bug-crash-report.yml"
+            "https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/issues/new"
     }
 }

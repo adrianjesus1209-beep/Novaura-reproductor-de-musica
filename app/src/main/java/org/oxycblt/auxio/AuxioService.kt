@@ -84,6 +84,9 @@ class AuxioService :
             ensureForegroundNotification()
         }
         onHandleForeground(intent)
+        if (playbackFragment.notification == null) {
+            updateForeground(ForegroundListener.Change.MEDIA_SESSION)
+        }
         // If we die we want to not restart, we will immediately try to foreground in and just
         // fail to start again since the activity will be dead too. This is not the semantically
         // "correct" flag (normally you want START_STICKY for playback) but we need this to avoid
@@ -121,7 +124,7 @@ class AuxioService :
 
     override fun onTimeout(startId: Int, fgsType: Int) {
         Timber.w("Foreground service timeout (startId=$startId, fgsType=$fgsType)")
-        if (fgsType == ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) {
+        if ((fgsType and ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) != 0) {
             musicFragment.cancelIndexing()
         }
         val mediaNotification = playbackFragment.notification
@@ -197,15 +200,13 @@ class AuxioService :
         }
         val mediaNotification = playbackFragment.notification
         if (mediaNotification != null) {
-            if (change == ForegroundListener.Change.MEDIA_SESSION) {
+            if (!isForeground || change == ForegroundListener.Change.MEDIA_SESSION) {
                 isForeground =
                     startForegroundSafely(
                         mediaNotification.code,
                         mediaNotification.build(),
                         ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
                     )
-            } else {
-                isForeground = true
             }
         } else {
             musicFragment.createNotification(force = !isForeground) { notification ->
@@ -223,6 +224,10 @@ class AuxioService :
                         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
                     }
                     isForeground = false
+                    if (startedViaCommand) {
+                        startedViaCommand = false
+                        stopSelf()
+                    }
                 }
             }
         }
@@ -263,9 +268,11 @@ class AuxioService :
     companion object {
         const val ACTION_START = BuildConfig.APPLICATION_ID + ".service.START"
 
+        @Volatile
         var isForeground = false
             private set
 
+        @Volatile
         var isAlive = false
             internal set
 

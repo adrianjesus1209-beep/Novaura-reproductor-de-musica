@@ -22,6 +22,7 @@ import android.content.Context
 import io.mockk.mockk
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -64,5 +65,24 @@ class DownloadRepositoryTest {
         val emojiTooTight =
             repository.sanitizeFileComponent(emojiOnly, fallback = "alt", maxBytes = 2)
         assertEquals("alt", emojiTooTight)
+    }
+
+    @Test
+    fun computeTempPartFileName_disambiguatesFormatsForSameUrl() {
+        val url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        val m4aPart = DownloadRepository.computeTempPartFileName(url, "m4a")
+        val webmPart = DownloadRepository.computeTempPartFileName(url, "webm")
+
+        assertNotEquals(m4aPart, webmPart)
+        assertTrue(m4aPart.endsWith("_m4a.part"))
+        assertTrue(webmPart.endsWith("_webm.part"))
+    }
+
+    @Test
+    fun newPipeDownloader_separatesMetadataAndStreamingTimeouts() {
+        val downloader = NewPipeDownloader()
+        assertEquals(30_000, downloader.client.callTimeoutMillis)
+        assertEquals(0, downloader.streamClient.callTimeoutMillis)
+        assertEquals(60_000, downloader.streamClient.readTimeoutMillis)
     }
 }

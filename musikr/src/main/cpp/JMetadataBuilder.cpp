@@ -39,14 +39,45 @@ void JMetadataBuilder::setMimeType(TagLib::String type) {
     mimeType = type;
 }
 
+void JMetadataBuilder::setFallbackTag(TagLib::Tag &tag) {
+    if (!tag.title().isEmpty() && populatedId3Keys.insert("TIT2").second) {
+        id3v2.add_id("TIT2", tag.title());
+    }
+    if (!tag.artist().isEmpty() && populatedId3Keys.insert("TPE1").second) {
+        id3v2.add_id("TPE1", tag.artist());
+    }
+    if (!tag.album().isEmpty() && populatedId3Keys.insert("TALB").second) {
+        id3v2.add_id("TALB", tag.album());
+    }
+    if (tag.track() > 0 && populatedId3Keys.insert("TRCK").second) {
+        id3v2.add_id("TRCK", std::to_string(tag.track()));
+    }
+    if (tag.year() > 0 && populatedId3Keys.insert("TYER").second) {
+        id3v2.add_id("TYER", std::to_string(tag.year()));
+    }
+    if (!tag.genre().isEmpty() && populatedId3Keys.insert("TCON").second) {
+        id3v2.add_id("TCON", tag.genre());
+    }
+}
+
 void JMetadataBuilder::setId3v1(TagLib::ID3v1::Tag &tag) {
-    id3v2.add_id("TIT2", tag.title());
-    id3v2.add_id("TPE1", tag.artist());
-    id3v2.add_id("TALB", tag.album());
-    id3v2.add_id("TRCK", std::to_string(tag.track()));
-    id3v2.add_id("TYER", std::to_string(tag.year()));
+    if (!tag.title().isEmpty() && populatedId3Keys.insert("TIT2").second) {
+        id3v2.add_id("TIT2", tag.title());
+    }
+    if (!tag.artist().isEmpty() && populatedId3Keys.insert("TPE1").second) {
+        id3v2.add_id("TPE1", tag.artist());
+    }
+    if (!tag.album().isEmpty() && populatedId3Keys.insert("TALB").second) {
+        id3v2.add_id("TALB", tag.album());
+    }
+    if (tag.track() > 0 && populatedId3Keys.insert("TRCK").second) {
+        id3v2.add_id("TRCK", std::to_string(tag.track()));
+    }
+    if (tag.year() > 0 && populatedId3Keys.insert("TYER").second) {
+        id3v2.add_id("TYER", std::to_string(tag.year()));
+    }
     const int genreNumber = tag.genreNumber();
-    if (genreNumber != 255) {
+    if (genreNumber != 255 && populatedId3Keys.insert("TCON").second) {
         id3v2.add_id("TCON", std::to_string(genreNumber));
     }
 }
@@ -70,9 +101,15 @@ void JMetadataBuilder::setId3v2(TagLib::ID3v2::Tag &tag) {
                 dynamic_cast<TagLib::ID3v2::TextIdentificationFrame*>(frame)) {
             TagLib::String key = frame->frameID();
             TagLib::StringList frameText = textFrame->fieldList();
-            id3v2.add_id(key, frameText);
+            if (!frameText.isEmpty()) {
+                populatedId3Keys.insert(key.to8Bit(true));
+                id3v2.add_id(key, frameText);
+            }
         } else if (auto pictureFrame =
                 dynamic_cast<TagLib::ID3v2::AttachedPictureFrame*>(frame)) {
+            if (pictureFrame->picture().isEmpty()) {
+                continue;
+            }
             if (!firstPic) {
                 firstPic = pictureFrame;
             }
@@ -87,10 +124,15 @@ void JMetadataBuilder::setId3v2(TagLib::ID3v2::Tag &tag) {
     }
     if (frontCoverPic) {
         auto pic = *frontCoverPic;
-        cover = pic->picture();
-    } else if (firstPic) {
+        if (!pic->picture().isEmpty()) {
+            cover = pic->picture();
+            hasFrontCover = true;
+        }
+    } else if (firstPic && !cover.has_value()) {
         auto pic = *firstPic;
-        cover = pic->picture();
+        if (!pic->picture().isEmpty()) {
+            cover = pic->picture();
+        }
     }
 }
 
@@ -123,7 +165,6 @@ void mp4AddImpl(JTagMap &map, TagLib::String &itemName, T itemValue) {
 
 void JMetadataBuilder::setMp4(TagLib::MP4::Tag &tag) {
     auto map = tag.itemMap();
-    std::optional < TagLib::MP4::CoverArt > firstCover;
     for (auto item : map) {
         auto itemName = item.first;
         auto itemValue = item.second;
@@ -132,6 +173,9 @@ void JMetadataBuilder::setMp4(TagLib::MP4::Tag &tag) {
             // MP4 has no types, so just prioritize easier to decode covers (PNG, JPEG)
             auto pics = itemValue.toCoverArtList();
             for (auto &pic : pics) {
+                if (pic.data().isEmpty()) {
+                    continue;
+                }
                 auto format = pic.format();
                 if (format == TagLib::MP4::CoverArt::PNG
                         || format == TagLib::MP4::CoverArt::JPEG) {
@@ -139,8 +183,13 @@ void JMetadataBuilder::setMp4(TagLib::MP4::Tag &tag) {
                     break;
                 }
             }
-            if ((!cover.has_value() || cover->isEmpty()) && !pics.isEmpty()) {
-                cover = pics.front().data();
+            if (!cover.has_value() || cover->isEmpty()) {
+                for (auto &pic : pics) {
+                    if (!pic.data().isEmpty()) {
+                        cover = pic.data();
+                        break;
+                    }
+                }
             }
             continue;
         }
@@ -179,17 +228,44 @@ void JMetadataBuilder::setMp4(TagLib::MP4::Tag &tag) {
     }
 }
 
+void JMetadataBuilder::setMatroska(TagLib::Matroska::File &file) {
+    auto props = file.properties();
+    for (const auto &entry : props) {
+        xiph.add_custom(entry.first.upper(), entry.second);
+    }
+    auto pics = file.complexProperties("PICTURE");
+    for (const auto &pic : pics) {
+        auto it = pic.find("data");
+        if (it != pic.end()) {
+            bool ok = false;
+            TagLib::ByteVector data = it->second.toByteVector(&ok);
+            if (ok && !data.isEmpty()) {
+                cover = data;
+                break;
+            }
+        }
+    }
+}
+
 void JMetadataBuilder::setFlacPictures(
         TagLib::List<TagLib::FLAC::Picture*> &pics) {
-    // Find the front cover image. If it doesn't exist, fall back to the first image.
+    // Find the front cover image. If it doesn't exist, fall back to the first image
+    // only when no cover has already been selected.
     for (auto pic : pics) {
-        if (pic->type() == TagLib::FLAC::Picture::FrontCover) {
+        if (pic->type() == TagLib::FLAC::Picture::FrontCover
+                && !pic->data().isEmpty()) {
             cover = pic->data();
+            hasFrontCover = true;
             return;
         }
     }
-    if (!pics.isEmpty()) {
-        cover = pics.front()->data();
+    if (!hasFrontCover && (!cover.has_value() || cover->isEmpty())) {
+        for (auto pic : pics) {
+            if (!pic->data().isEmpty()) {
+                cover = pic->data();
+                return;
+            }
+        }
     }
 }
 
@@ -219,7 +295,7 @@ jobject JMetadataBuilder::build() {
     auto jId3v2Map = id3v2.getObject();
     auto jXiphMap = xiph.getObject();
     auto jMp4Map = mp4.getObject();
-    if (cover.has_value()) {
+    if (cover.has_value() && !cover->isEmpty()) {
         JByteArrayRef jCoverArray { env, cover.value() };
         cover.reset();
         jobject result = env->NewObject(*jMetadataClass, jMetadataInitMethod,

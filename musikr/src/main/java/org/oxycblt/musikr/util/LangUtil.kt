@@ -100,7 +100,7 @@ fun <T, R> CoroutineScope.mapParallel(
     block: suspend (T) -> R,
 ): Deferred<Result<Unit>> {
     return tryAsync(context) {
-        val deferreds = ArrayList<Deferred<Result<Unit>>>()
+        val deferreds = ArrayList<Deferred<Result<Unit>>>(n)
         try {
             for (i in 0 until n) {
                 val deferred =
@@ -111,16 +111,19 @@ fun <T, R> CoroutineScope.mapParallel(
                     }
                 deferreds.add(deferred)
             }
-            deferreds.tryAwaitAll()
+            // Wait for each worker; abort sibling workers as soon as any worker fails.
+            for (deferred in deferreds) {
+                deferred.await().getOrThrow()
+            }
             output.close()
         } catch (e: CancellationException) {
+            deferreds.forEach { it.cancel(e) }
             output.cancel(e)
             throw e
         } catch (e: Throwable) {
-            // A single unparseable file used to stop only its own worker, leaving the output
-            // channel open. The next stage then blocked on it indefinitely, so the index never
-            // reached a terminal state and the UI scanned forever. Close with the cause so the
-            // failure is reported instead of hanging.
+            // A single unparseable file used to leave siblings running or the output channel open.
+            // Cancel sibling workers immediately and close output with the failure cause.
+            deferreds.forEach { it.cancel() }
             output.close(e)
             throw e
         }
@@ -130,7 +133,7 @@ fun <T, R> CoroutineScope.mapParallel(
 suspend fun List<Deferred<Result<Unit>>>.tryAwaitAll() = awaitAll().forEach { it.getOrThrow() }
 
 fun CoroutineScope.merge(vararg deferreds: Deferred<Result<Unit>>): Deferred<Result<Unit>> =
-    tryAsync(Dispatchers.Main) {
+    tryAsync(Dispatchers.Default) {
         val results = awaitAll(*deferreds)
         results.forEach { result -> result.getOrThrow() }
     }

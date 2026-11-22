@@ -20,24 +20,29 @@ package org.oxycblt.auxio.download
 
 import android.content.Context
 import android.os.Parcelable
+import com.grack.nanojson.JsonArray
+import com.grack.nanojson.JsonObject
+import com.grack.nanojson.JsonParser
+import com.grack.nanojson.JsonWriter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
-import org.json.JSONArray
-import org.json.JSONObject
 import org.oxycblt.auxio.R
 import timber.log.Timber as L
 
@@ -50,13 +55,34 @@ data class OnlinePlaylist(
 ) : Parcelable
 
 @Singleton
-class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val context: Context) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val playlistFile by lazy { File(context.filesDir, "online_playlists.json") }
-    private val historyFile by lazy { File(context.filesDir, "online_history.json") }
-    private val countsFile by lazy { File(context.filesDir, "online_play_counts.json") }
+class OnlinePlaylistManager
+internal constructor(
+    private val filesDir: File,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val favoritesLabel: String = FAVORITES_NAME,
+    private val mixArtistTemplate: (String) -> String = { "Mix de $it" },
+    private val allSongsLabel: String = "Todas las canciones",
+) {
+    @Inject
+    constructor(
+        @ApplicationContext context: Context
+    ) : this(
+        filesDir = context.filesDir,
+        ioDispatcher = Dispatchers.IO,
+        favoritesLabel = context.getString(R.string.lbl_favorites),
+        mixArtistTemplate = { artist -> context.getString(R.string.fmt_mix_artist, artist) },
+        allSongsLabel = context.getString(R.string.lbl_all_songs),
+    )
+
+    private val scopeJob = SupervisorJob()
+    private val scope = CoroutineScope(scopeJob + ioDispatcher)
+    private val playlistFile by lazy { File(filesDir, "online_playlists.json") }
+    private val historyFile by lazy { File(filesDir, "online_history.json") }
+    private val countsFile by lazy { File(filesDir, "online_play_counts.json") }
+    private val knownSongsFile by lazy { File(filesDir, "online_known_songs.json") }
     private val fileMutex = Mutex()
     private val stateLock = Any()
+    private val knownSongs = LinkedHashMap<String, OnlineSong>(MAX_KNOWN_SONGS, 0.75f, true)
 
     private val _playlists = MutableStateFlow<List<OnlinePlaylist>>(emptyList())
     val playlists: StateFlow<List<OnlinePlaylist>> = _playlists.asStateFlow()
@@ -67,60 +93,45 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
     private val _playCounts = MutableStateFlow<Map<String, Int>>(emptyMap())
     val playCounts: StateFlow<Map<String, Int>> = _playCounts.asStateFlow()
 
-    init {
-        scope.launch {
-            fileMutex.withLock {
-                loadPlaylistsLocked()
-                loadHistoryAndCountsLocked()
-            }
+    private val initJob: Job = scope.launch {
+        fileMutex.withLock {
+            loadPlaylistsLocked()
+            loadHistoryAndCountsLocked()
         }
     }
 
+    internal suspend fun awaitIdle() {
+        initJob.join()
+        scopeJob.children.toList().joinAll()
+    }
+
     private suspend fun loadPlaylistsLocked() =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             if (!playlistFile.exists()) {
                 return@withContext
             }
 
             try {
                 val content = playlistFile.readText()
-                val array = JSONArray(content)
+                val array = JsonParser.array().from(content)
                 val loaded = mutableListOf<OnlinePlaylist>()
                 var migratedFavoritesId = false
 
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    val rawId = obj.optString("id", UUID.randomUUID().toString())
-                    val name = obj.optString("name", "Mi Lista")
-                    val createdAt = obj.optLong("createdAt", System.currentTimeMillis())
-                    val songsArray = obj.optJSONArray("songs") ?: JSONArray()
-                    val songs = mutableListOf<OnlineSong>()
-
-                    for (j in 0 until songsArray.length()) {
-                        val sObj = songsArray.getJSONObject(j)
-                        songs.add(
-                            OnlineSong(
-                                id = sObj.optString("id"),
-                                title = sObj.optString("title"),
-                                artist = sObj.optString("artist"),
-                                durationText = sObj.optString("durationText"),
-                                durationSeconds = sObj.optLong("durationSeconds"),
-                                thumbnailUrl =
-                                    sObj.optString("thumbnailUrl").takeIf { it.isNotBlank() },
-                                webUrl = sObj.optString("webUrl"),
-                                viewCount = sObj.optLong("viewCount", 0L),
-                            )
-                        )
-                    }
+                for (i in 0 until array.size) {
+                    val obj = array.getObject(i) ?: continue
+                    val rawId =
+                        obj.getString("id")?.takeIf { it.isNotBlank() }
+                            ?: UUID.randomUUID().toString()
+                    val name = obj.getString("name")?.takeIf { it.isNotBlank() } ?: "Mi Lista"
+                    val createdAt = obj.getLong("createdAt", System.currentTimeMillis())
+                    val songsArray = obj.getArray("songs") ?: JsonArray()
+                    val songs = parseJsonSongArray(songsArray)
 
                     val isLegacyFavorites =
                         rawId != ID_FAVORITES &&
                             !migratedFavoritesId &&
                             (name.equals(FAVORITES_NAME, ignoreCase = true) ||
-                                name.equals(
-                                    context.getString(R.string.lbl_favorites),
-                                    ignoreCase = true,
-                                ))
+                                name.equals(favoritesLabel, ignoreCase = true))
                     val normalizedId =
                         if (isLegacyFavorites) {
                             migratedFavoritesId = true
@@ -172,7 +183,7 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
                 runCatching {
                     val backup =
                         File(
-                            context.filesDir,
+                            filesDir,
                             "online_playlists.corrupt.${System.currentTimeMillis()}.json",
                         )
                     playlistFile.copyTo(backup, overwrite = true)
@@ -181,38 +192,26 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
         }
 
     private suspend fun savePlaylists() =
-        withContext(Dispatchers.IO) { fileMutex.withLock { savePlaylistsLocked() } }
+        withContext(ioDispatcher) { fileMutex.withLock { savePlaylistsLocked() } }
 
     private fun savePlaylistsLocked() {
         try {
             val snapshot = synchronized(stateLock) { _playlists.value }
-            val array = JSONArray()
+            val array = JsonArray()
             for (p in snapshot) {
                 val obj =
-                    JSONObject().apply {
+                    JsonObject().apply {
                         put("id", p.id)
                         put("name", p.name)
                         put("createdAt", p.createdAt)
-                        val sArr = JSONArray()
-                        for (s in p.songs) {
-                            sArr.put(
-                                JSONObject().apply {
-                                    put("id", s.id)
-                                    put("title", s.title)
-                                    put("artist", s.artist)
-                                    put("durationText", s.durationText)
-                                    put("durationSeconds", s.durationSeconds)
-                                    put("thumbnailUrl", s.thumbnailUrl.orEmpty())
-                                    put("webUrl", s.webUrl)
-                                    put("viewCount", s.viewCount)
-                                }
-                            )
-                        }
-                        put("songs", sArr)
+                        put("songs", serializeSongArray(p.songs))
                     }
-                array.put(obj)
+                array.add(obj)
             }
-            writeFileAtomically(playlistFile, array.toString(2))
+            writeFileAtomically(
+                playlistFile,
+                JsonWriter.indent("  ").string().value(array).done(),
+            )
         } catch (e: Exception) {
             L.e(e, "Failed to save online playlists")
         }
@@ -314,7 +313,7 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
         list.firstOrNull {
             it.id == ID_FAVORITES ||
                 it.name.equals(FAVORITES_NAME, ignoreCase = true) ||
-                it.name.equals(context.getString(R.string.lbl_favorites), ignoreCase = true)
+                it.name.equals(favoritesLabel, ignoreCase = true)
         }
 
     fun isFavorite(song: OnlineSong): Boolean =
@@ -330,7 +329,7 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
                 existingFav
                     ?: OnlinePlaylist(
                             id = ID_FAVORITES,
-                            name = context.getString(R.string.lbl_favorites),
+                            name = favoritesLabel,
                         )
                         .also { created -> _playlists.value = current + created }
 
@@ -369,11 +368,17 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
         synchronized(stateLock) {
             val currentRecent =
                 _recentSongs.value.filterNot { it.webUrl == song.webUrl }.toMutableList()
-            currentRecent.add(song)
+            currentRecent.add(0, song)
             while (currentRecent.size > MAX_RECENT_SONGS) {
-                currentRecent.removeAt(0)
+                currentRecent.removeAt(currentRecent.lastIndex)
             }
             _recentSongs.value = currentRecent
+
+            knownSongs[song.webUrl] = song
+            while (knownSongs.size > MAX_KNOWN_SONGS) {
+                val eldestKey = knownSongs.keys.firstOrNull() ?: break
+                knownSongs.remove(eldestKey)
+            }
 
             val updatedCounts = _playCounts.value.toMutableMap()
             updatedCounts[song.webUrl] = (updatedCounts[song.webUrl] ?: 0) + 1
@@ -391,9 +396,8 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
         synchronized(stateLock) {
             counts = _playCounts.value
             allKnown =
-                (_recentSongs.value + _playlists.value.flatMap { it.songs }).distinctBy {
-                    it.webUrl
-                }
+                (_recentSongs.value + knownSongs.values + _playlists.value.flatMap { it.songs })
+                    .distinctBy { it.webUrl }
         }
         return allKnown
             .filter { (counts[it.webUrl] ?: 0) > 0 }
@@ -427,56 +431,95 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
                     ?.key
 
         return if (dominantArtist != null) {
-            context.getString(R.string.fmt_mix_artist, dominantArtist)
+            mixArtistTemplate(dominantArtist)
         } else if (currentSong != null && currentSong.title.isNotBlank()) {
-            context.getString(R.string.fmt_mix_artist, currentSong.title)
+            mixArtistTemplate(currentSong.title)
         } else {
-            context.getString(R.string.lbl_all_songs)
+            allSongsLabel
         }
     }
 
+    private fun parseSongArray(content: String): MutableList<OnlineSong> =
+        parseJsonSongArray(JsonParser.array().from(content))
+
+    private fun parseJsonSongArray(array: JsonArray): MutableList<OnlineSong> {
+        val songs = mutableListOf<OnlineSong>()
+        for (i in 0 until array.size) {
+            val sObj = array.getObject(i) ?: continue
+            songs.add(
+                OnlineSong(
+                    id = sObj.getString("id").orEmpty(),
+                    title = sObj.getString("title").orEmpty(),
+                    artist = sObj.getString("artist").orEmpty(),
+                    durationText = sObj.getString("durationText").orEmpty(),
+                    durationSeconds = sObj.getLong("durationSeconds", 0L),
+                    thumbnailUrl = sObj.getString("thumbnailUrl")?.takeIf { it.isNotBlank() },
+                    webUrl = sObj.getString("webUrl").orEmpty(),
+                    viewCount = sObj.getLong("viewCount", 0L),
+                )
+            )
+        }
+        return songs
+    }
+
+    private fun serializeSongArray(songs: Collection<OnlineSong>): JsonArray {
+        val array = JsonArray()
+        for (s in songs) {
+            array.add(
+                JsonObject().apply {
+                    put("id", s.id)
+                    put("title", s.title)
+                    put("artist", s.artist)
+                    put("durationText", s.durationText)
+                    put("durationSeconds", s.durationSeconds)
+                    put("thumbnailUrl", s.thumbnailUrl.orEmpty())
+                    put("webUrl", s.webUrl)
+                    put("viewCount", s.viewCount)
+                }
+            )
+        }
+        return array
+    }
+
     private suspend fun loadHistoryAndCountsLocked() =
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             try {
                 if (historyFile.exists()) {
-                    val array = JSONArray(historyFile.readText())
-                    val recent = mutableListOf<OnlineSong>()
-                    for (i in 0 until array.length()) {
-                        val sObj = array.getJSONObject(i)
-                        recent.add(
-                            OnlineSong(
-                                id = sObj.optString("id"),
-                                title = sObj.optString("title"),
-                                artist = sObj.optString("artist"),
-                                durationText = sObj.optString("durationText"),
-                                durationSeconds = sObj.optLong("durationSeconds"),
-                                thumbnailUrl =
-                                    sObj.optString("thumbnailUrl").takeIf { it.isNotBlank() },
-                                webUrl = sObj.optString("webUrl"),
-                                viewCount = sObj.optLong("viewCount", 0L),
-                            )
-                        )
-                    }
+                    val recent = parseSongArray(historyFile.readText())
                     synchronized(stateLock) {
                         val early = _recentSongs.value
-                        if (early.isEmpty()) {
-                            _recentSongs.value = recent
-                        } else {
-                            val merged = (recent + early).distinctBy { it.webUrl }.toMutableList()
-                            while (merged.size > MAX_RECENT_SONGS) {
-                                merged.removeAt(0)
+                        _recentSongs.value =
+                            if (early.isEmpty()) {
+                                recent.take(MAX_RECENT_SONGS)
+                            } else {
+                                (early + recent).distinctBy { it.webUrl }.take(MAX_RECENT_SONGS)
                             }
-                            _recentSongs.value = merged
+                        for (s in recent) {
+                            knownSongs.putIfAbsent(s.webUrl, s)
+                        }
+                    }
+                }
+                if (knownSongsFile.exists()) {
+                    val loadedKnown = parseSongArray(knownSongsFile.readText())
+                    synchronized(stateLock) {
+                        val existingEarly = knownSongs.values.toList()
+                        for (s in loadedKnown) {
+                            knownSongs.putIfAbsent(s.webUrl, s)
+                        }
+                        for (s in existingEarly) {
+                            knownSongs[s.webUrl] = s
+                        }
+                        while (knownSongs.size > MAX_KNOWN_SONGS) {
+                            val eldestKey = knownSongs.keys.firstOrNull() ?: break
+                            knownSongs.remove(eldestKey)
                         }
                     }
                 }
                 if (countsFile.exists()) {
-                    val obj = JSONObject(countsFile.readText())
+                    val obj = JsonParser.`object`().from(countsFile.readText())
                     val map = mutableMapOf<String, Int>()
-                    val keys = obj.keys()
-                    while (keys.hasNext()) {
-                        val key = keys.next()
-                        map[key] = obj.optInt(key, 0)
+                    for (key in obj.keys) {
+                        map[key] = obj.getInt(key, 0)
                     }
                     synchronized(stateLock) {
                         val earlyCounts = _playCounts.value
@@ -492,39 +535,30 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
         }
 
     private suspend fun saveHistoryAndCounts() =
-        withContext(Dispatchers.IO) { fileMutex.withLock { saveHistoryAndCountsLocked() } }
+        withContext(ioDispatcher) { fileMutex.withLock { saveHistoryAndCountsLocked() } }
 
     private fun saveHistoryAndCountsLocked() {
         try {
             val recentSnapshot: List<OnlineSong>
+            val knownSnapshot: List<OnlineSong>
             val countsSnapshot: Map<String, Int>
             synchronized(stateLock) {
                 recentSnapshot = _recentSongs.value
+                knownSnapshot = knownSongs.values.toList()
                 countsSnapshot = _playCounts.value
             }
 
-            val hArr = JSONArray()
-            for (s in recentSnapshot) {
-                hArr.put(
-                    JSONObject().apply {
-                        put("id", s.id)
-                        put("title", s.title)
-                        put("artist", s.artist)
-                        put("durationText", s.durationText)
-                        put("durationSeconds", s.durationSeconds)
-                        put("thumbnailUrl", s.thumbnailUrl.orEmpty())
-                        put("webUrl", s.webUrl)
-                        put("viewCount", s.viewCount)
-                    }
-                )
-            }
-            writeFileAtomically(historyFile, hArr.toString())
+            writeFileAtomically(historyFile, JsonWriter.string(serializeSongArray(recentSnapshot)))
+            writeFileAtomically(
+                knownSongsFile,
+                JsonWriter.string(serializeSongArray(knownSnapshot)),
+            )
 
-            val cObj = JSONObject()
+            val cObj = JsonObject()
             for ((url, count) in countsSnapshot) {
                 cObj.put(url, count)
             }
-            writeFileAtomically(countsFile, cObj.toString())
+            writeFileAtomically(countsFile, JsonWriter.string(cObj))
         } catch (e: Exception) {
             L.e(e, "Failed to save online history and play counts")
         }
@@ -545,5 +579,6 @@ class OnlinePlaylistManager @Inject constructor(@ApplicationContext private val 
         const val ID_FAVORITES = "favorites_default"
         const val FAVORITES_NAME = "Favoritos"
         private const val MAX_RECENT_SONGS = 50
+        private const val MAX_KNOWN_SONGS = 300
     }
 }

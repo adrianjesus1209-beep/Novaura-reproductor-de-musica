@@ -68,6 +68,7 @@ class PlaybackTrackAdapter(
 
     var isPlaying: Boolean = false
         set(value) {
+            if (field == value) return
             field = value
             for (i in currentTracks.indices) {
                 if (i == currentIndex || currentTracks[i].uid == currentSongUid) {

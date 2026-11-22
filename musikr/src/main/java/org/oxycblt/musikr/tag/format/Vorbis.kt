@@ -32,7 +32,7 @@ import org.oxycblt.musikr.util.positiveOrNull
  */
 internal fun String.parseSlashPositionField() =
     split('/', limit = 2).let {
-        transformPositionField(it[0].toIntOrNull(), it.getOrNull(1)?.toIntOrNull())
+        transformPositionField(it[0].trim().toIntOrNull(), it.getOrNull(1)?.trim()?.toIntOrNull())
     }
 
 /**
@@ -48,7 +48,7 @@ internal fun String.parseSlashPositionField() =
  * @see transformPositionField
  */
 internal fun parseXiphPositionField(pos: String?, total: String?) = pos?.let { posStr ->
-    posStr.toIntOrNull()?.let { transformPositionField(it, total?.toIntOrNull()) }
+    posStr.trim().toIntOrNull()?.let { transformPositionField(it, total?.trim()?.toIntOrNull()) }
         ?: posStr.parseSlashPositionField()
 }
 
@@ -62,7 +62,7 @@ internal fun parseXiphPositionField(pos: String?, total: String?) = pos?.let { p
  * - The position was zeroed AND the total value was not present/zeroed
  */
 internal fun transformPositionField(pos: Int?, total: Int?) =
-    if (pos != null && (pos > 0 || (total?.positiveOrNull() != null))) {
+    if (pos != null && (pos > 0 || (pos == 0 && total?.positiveOrNull() != null))) {
         pos
     } else {
         null

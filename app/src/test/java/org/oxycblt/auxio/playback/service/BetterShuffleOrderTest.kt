@@ -92,4 +92,39 @@ class BetterShuffleOrderTest {
         assertEquals(C.INDEX_UNSET, cleared.firstIndex)
         assertEquals(C.INDEX_UNSET, cleared.lastIndex)
     }
+
+    @Test
+    fun cloneAndInsert_playNextPlacesNewTrackImmediatelyAfterCurrentShuffledTrack() {
+        // Shuffled order: 2 -> 0 -> 4 -> 1 -> 3
+        // Suppose track 4 (shuffled pos 2) is currently playing; playNext inserts at heap index
+        // 5? No: suppose track 0 (shuffled pos 1) is playing -> playNext inserts at heap index 1.
+        val order = BetterShuffleOrder(intArrayOf(2, 0, 4, 1, 3))
+        val afterPlaying0 =
+            order.cloneAndInsert(insertionIndex = 1, insertionCount = 2) as BetterShuffleOrder
+        val forward = collectForward(afterPlaying0)
+
+        assertEquals((0 until 7).toSet(), forward.toSet())
+        val pos0 = forward.indexOf(0)
+        // New items (1, 2) must play immediately after 0, before old next item (adjusted 4->6).
+        assertEquals(1, forward[pos0 + 1])
+        assertEquals(2, forward[pos0 + 2])
+    }
+
+    @Test
+    fun cloneAndInsert_appendAtEndLeavesExistingOrderIntactAndAppendsAtTail() {
+        val order = BetterShuffleOrder(intArrayOf(2, 0, 4, 1, 3))
+        val appended =
+            order.cloneAndInsert(insertionIndex = 5, insertionCount = 2) as BetterShuffleOrder
+        assertEquals(listOf(2, 0, 4, 1, 3, 5, 6), collectForward(appended))
+    }
+
+    @Test
+    fun cloneAndInsertAfter_handlesPlayNextFromLastHeapElement() {
+        // Last heap element (4) is in the middle of the shuffled order.
+        val order = BetterShuffleOrder(intArrayOf(2, 0, 4, 1, 3))
+        val anchored =
+            order.cloneAndInsertAfter(anchorHeapIndex = 4, insertionIndex = 5, insertionCount = 1)
+        val forward = collectForward(anchored)
+        assertEquals(listOf(2, 0, 4, 5, 1, 3), forward)
+    }
 }

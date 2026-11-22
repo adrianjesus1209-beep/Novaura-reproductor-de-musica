@@ -18,7 +18,9 @@
  
 package org.oxycblt.auxio.music
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
@@ -27,6 +29,7 @@ import android.os.SystemClock
 import android.os.storage.StorageManager
 import android.os.storage.StorageVolume
 import android.provider.DocumentsContract
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -740,7 +743,22 @@ constructor(
      * Only reached when a full query came back with no songs at all, so the cost of walking every
      * volume is paid at most once and only when something is actually wrong.
      */
+    private fun hasStoragePermission(): Boolean {
+        val permission =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Manifest.permission.READ_MEDIA_AUDIO
+            } else {
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            }
+        return ContextCompat.checkSelfPermission(context, permission) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+
     private fun requestMediaRescan() {
+        if (!hasStoragePermission()) {
+            L.d("Skipping media rescan request while storage permission is missing")
+            return
+        }
         if (mediaRescanRequested) {
             return
         }

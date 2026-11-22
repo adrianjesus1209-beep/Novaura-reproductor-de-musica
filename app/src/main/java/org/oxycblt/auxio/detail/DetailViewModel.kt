@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.detail.list.DiscDivider
 import org.oxycblt.auxio.detail.list.DiscHeader
@@ -322,7 +323,7 @@ constructor(
      */
     fun setAlbum(uid: Music.UID) {
         L.d("Opening album $uid")
-        if (uid === currentAlbum.value?.uid) {
+        if (uid == currentAlbum.value?.uid) {
             return
         }
         val album = detailGenerator.album(uid)
@@ -349,7 +350,7 @@ constructor(
      */
     fun setArtist(uid: Music.UID) {
         L.d("Opening artist $uid")
-        if (uid === currentArtist.value?.uid) {
+        if (uid == currentArtist.value?.uid) {
             return
         }
         val artist = detailGenerator.artist(uid)
@@ -373,7 +374,7 @@ constructor(
      */
     fun setGenre(uid: Music.UID) {
         L.d("Opening genre $uid")
-        if (uid === currentGenre.value?.uid) {
+        if (uid == currentGenre.value?.uid) {
             return
         }
         val genre = detailGenerator.genre(uid)
@@ -397,7 +398,7 @@ constructor(
      */
     fun setPlaylist(uid: Music.UID) {
         L.d("Opening playlist $uid")
-        if (uid === currentPlaylist.value?.uid) {
+        if (uid == currentPlaylist.value?.uid) {
             return
         }
         refreshPlaylist(uid)
@@ -421,10 +422,10 @@ constructor(
         L.d("Committing playlist edits")
         viewModelScope.launch(Dispatchers.IO) {
             musicRepository.rewritePlaylist(playlist, editedPlaylist)
-            // TODO: The user could probably press some kind of button if they were fast enough.
-            //  Think of a better way to handle this state.
-            this@DetailViewModel.editedPlaylist.value = null
-            refreshPlaylist(playlist.uid)
+            withContext(Dispatchers.Main) {
+                this@DetailViewModel.editedPlaylist.value = null
+                refreshPlaylist(playlist.uid)
+            }
         }
     }
 

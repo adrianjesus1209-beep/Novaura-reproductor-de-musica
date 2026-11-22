@@ -42,11 +42,19 @@ class DownloadNotificationReceiver : BroadcastReceiver() {
                 if (url.isNotEmpty()) {
                     downloadManager.cancelDownload(url)
                     notificationManager?.cancel(DownloadService.getSongNotificationId(url))
+                    if (
+                        downloadManager.downloadItems.value.none {
+                            it.status == DownloadStatus.PAUSED
+                        }
+                    ) {
+                        notificationManager?.cancel(DownloadService.PAUSED_SUMMARY_NOTIFICATION_ID)
+                    }
                 }
             }
             DownloadService.ACTION_CANCEL_ALL -> {
                 downloadManager.cancelAll()
                 notificationManager?.cancel(DownloadService.NOTIFICATION_ID)
+                notificationManager?.cancel(DownloadService.PAUSED_SUMMARY_NOTIFICATION_ID)
             }
         }
     }

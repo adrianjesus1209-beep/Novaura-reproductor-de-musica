@@ -33,6 +33,7 @@ import org.oxycblt.auxio.list.SelectableListListener
 import org.oxycblt.auxio.list.adapter.SelectionIndicatorAdapter
 import org.oxycblt.auxio.list.adapter.SimpleDiffCallback
 import org.oxycblt.auxio.music.areNamesTheSame
+import org.oxycblt.auxio.music.areTheSame
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.music.resolveNames
 import org.oxycblt.auxio.playback.formatDurationMs
@@ -145,9 +146,9 @@ class AlbumViewHolder private constructor(private val binding: ItemParentBinding
         val DIFF_CALLBACK =
             object : SimpleDiffCallback<Album>() {
                 override fun areContentsTheSame(oldItem: Album, newItem: Album) =
-                    oldItem.name == newItem.name &&
+                    oldItem.name.areTheSame(newItem.name) &&
                         oldItem.artists.areNamesTheSame(newItem.artists) &&
-                        oldItem.releaseType == newItem.releaseType
+                        oldItem.releaseType.areTheSame(newItem.releaseType)
             }
     }
 }
@@ -211,7 +212,7 @@ class ArtistViewHolder private constructor(private val binding: ItemParentBindin
         val DIFF_CALLBACK =
             object : SimpleDiffCallback<Artist>() {
                 override fun areContentsTheSame(oldItem: Artist, newItem: Artist) =
-                    oldItem.name == newItem.name &&
+                    oldItem.name.areTheSame(newItem.name) &&
                         oldItem.explicitAlbums.size == newItem.explicitAlbums.size &&
                         oldItem.songs.size == newItem.songs.size
             }
@@ -269,7 +270,7 @@ class GenreViewHolder private constructor(private val binding: ItemParentBinding
         val DIFF_CALLBACK =
             object : SimpleDiffCallback<Genre>() {
                 override fun areContentsTheSame(oldItem: Genre, newItem: Genre) =
-                    oldItem.name == newItem.name &&
+                    oldItem.name.areTheSame(newItem.name) &&
                         oldItem.artists.size == newItem.artists.size &&
                         oldItem.songs.size == newItem.songs.size
             }

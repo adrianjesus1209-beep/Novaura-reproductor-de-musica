@@ -114,14 +114,12 @@ private fun resolveSafeChild(dir: File, name: String): File? {
 }
 
 private class FSCoverStorage(private val dir: File, initialFiles: List<String>) : CoverStorage {
-    private val fileMutexes = mutableMapOf<String, Mutex>()
-    private val mapMutex = Mutex()
+    private val stripeMutexes = Array(MUTEX_STRIPE_COUNT) { Mutex() }
     private val existingFiles =
         java.util.concurrent.ConcurrentHashMap.newKeySet<String>().apply { addAll(initialFiles) }
 
-    private suspend fun getMutexForFile(file: String): Mutex {
-        return mapMutex.withLock { fileMutexes.getOrPut(file) { Mutex() } }
-    }
+    private fun getMutexForFile(file: String): Mutex =
+        stripeMutexes[(file.hashCode() and Int.MAX_VALUE) % MUTEX_STRIPE_COUNT]
 
     override suspend fun find(name: String): FDCover? =
         withContext(Dispatchers.IO) {
@@ -159,9 +157,9 @@ private class FSCoverStorage(private val dir: File, initialFiles: List<String>) 
                         }
                         existingFiles.add(name)
                         FSStoredCover(targetFile)
-                    } catch (e: IOException) {
+                    } catch (t: Throwable) {
                         tempFile.delete()
-                        throw e
+                        throw t
                     }
                 }
             } else {
@@ -186,12 +184,10 @@ private class FSCoverStorage(private val dir: File, initialFiles: List<String>) 
         fileMutex.withLock {
             withContext(Dispatchers.IO) { targetFile.deleteRecursively() }
         }
-        mapMutex.withLock {
-            val current = fileMutexes[name]
-            if (current != null && !current.isLocked) {
-                fileMutexes.remove(name)
-            }
-        }
+    }
+
+    private companion object {
+        const val MUTEX_STRIPE_COUNT = 64
     }
 }
 

@@ -28,6 +28,13 @@ import androidx.media3.common.util.UnstableApi
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import timber.log.Timber as L
 
 /**
@@ -61,6 +68,11 @@ class EqualizerController @Inject constructor(@ApplicationContext private val co
 
     private var currentState: EqualizerSettings.State = EqualizerSettings.load(context)
     private val desiredGains = mutableListOf<Short>()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val persistScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+    private var pendingPersistJob: Job? = null
 
     @Synchronized
     fun attachSession(sessionId: Int) {
@@ -109,6 +121,7 @@ class EqualizerController @Inject constructor(@ApplicationContext private val co
 
     @Synchronized
     fun releaseSession() {
+        flushPersistLocked()
         releaseEffectsLocked()
         currentSessionId = C.AUDIO_SESSION_ID_UNSET
     }
@@ -199,11 +212,19 @@ class EqualizerController @Inject constructor(@ApplicationContext private val co
         val eq = equalizer ?: return false
         try {
             eq.enabled = enabled
-            bassBoost?.enabled = enabled
-            virtualizer?.enabled = enabled
         } catch (e: RuntimeException) {
             L.w(e, "Failed to update equalizer enabled state")
             return false
+        }
+        try {
+            bassBoost?.enabled = enabled
+        } catch (e: RuntimeException) {
+            L.w(e, "Failed to update BassBoost enabled state")
+        }
+        try {
+            virtualizer?.enabled = enabled
+        } catch (e: RuntimeException) {
+            L.w(e, "Failed to update Virtualizer enabled state")
         }
 
         currentState = currentState.copy(enabled = enabled)
@@ -219,7 +240,7 @@ class EqualizerController @Inject constructor(@ApplicationContext private val co
                 }
             }
         }
-        persistLocked()
+        flushPersistLocked()
         return true
     }
 
@@ -230,16 +251,16 @@ class EqualizerController @Inject constructor(@ApplicationContext private val co
         if (band !in 0 until bandCount) {
             return false
         }
-        syncDesiredGainsLocked(eq, bandCount)
-        desiredGains[band] = levelMillis
-        currentState = currentState.copy(preset = -1, gains = desiredGains.toList())
         try {
             eq.setBandLevel(band.toShort(), levelMillis)
         } catch (e: RuntimeException) {
             L.w(e, "Failed to set band $band level")
             return false
         }
-        persistLocked()
+        syncDesiredGainsLocked(eq, bandCount)
+        desiredGains[band] = levelMillis
+        currentState = currentState.copy(preset = -1, gains = desiredGains.toList())
+        schedulePersistLocked()
         return true
     }
 
@@ -281,7 +302,7 @@ class EqualizerController @Inject constructor(@ApplicationContext private val co
                 }
             }
         }
-        persistLocked()
+        schedulePersistLocked()
     }
 
     @Synchronized
@@ -297,7 +318,7 @@ class EqualizerController @Inject constructor(@ApplicationContext private val co
                 }
             }
         }
-        persistLocked()
+        schedulePersistLocked()
     }
 
     @Synchronized
@@ -322,11 +343,15 @@ class EqualizerController @Inject constructor(@ApplicationContext private val co
             )
         try {
             if (bassBoost?.strengthSupported == true) bassBoost?.setStrength(0)
+        } catch (e: RuntimeException) {
+            L.w(e, "Failed to reset BassBoost")
+        }
+        try {
             if (virtualizer?.strengthSupported == true) virtualizer?.setStrength(0)
         } catch (e: RuntimeException) {
-            L.w(e, "Failed to reset audio effects")
+            L.w(e, "Failed to reset Virtualizer")
         }
-        persistLocked()
+        flushPersistLocked()
         return snapshot(currentSessionId)
     }
 
@@ -337,21 +362,33 @@ class EqualizerController @Inject constructor(@ApplicationContext private val co
 
         try {
             eq.enabled = currentState.enabled
+        } catch (e: RuntimeException) {
+            L.w(e, "Failed to apply equalizer enabled state")
+        }
+        if (currentState.enabled) {
+            for (band in 0 until bandCount) {
+                try {
+                    eq.setBandLevel(band.toShort(), desiredGains.getOrElse(band) { 0 })
+                } catch (e: RuntimeException) {
+                    L.w(e, "Failed to apply equalizer band $band")
+                }
+            }
+        }
+        try {
             bassBoost?.enabled = currentState.enabled
-            virtualizer?.enabled = currentState.enabled
             if (bassBoost?.strengthSupported == true) {
                 bassBoost?.setStrength(currentState.bassStrength.coerceIn(0, 1000))
             }
+        } catch (e: RuntimeException) {
+            L.w(e, "Failed to apply BassBoost profile")
+        }
+        try {
+            virtualizer?.enabled = currentState.enabled
             if (virtualizer?.strengthSupported == true) {
                 virtualizer?.setStrength(currentState.virtualizerStrength.coerceIn(0, 1000))
             }
-            if (currentState.enabled) {
-                for (band in 0 until bandCount) {
-                    eq.setBandLevel(band.toShort(), desiredGains.getOrElse(band) { 0 })
-                }
-            }
         } catch (e: RuntimeException) {
-            L.w(e, "Failed to apply persisted equalizer profile")
+            L.w(e, "Failed to apply Virtualizer profile")
         }
     }
 
@@ -378,15 +415,42 @@ class EqualizerController @Inject constructor(@ApplicationContext private val co
             0
         }
 
-    private fun persistLocked() {
+    private fun schedulePersistLocked() {
+        val snapshotState = currentState.copy(gains = desiredGains.toList())
+        pendingPersistJob?.cancel()
+        pendingPersistJob = persistScope.launch {
+            delay(PERSIST_DEBOUNCE_MS)
+            EqualizerSettings.save(
+                context,
+                snapshotState.enabled,
+                snapshotState.gains,
+                snapshotState.preset,
+                snapshotState.bassStrength,
+                snapshotState.virtualizerStrength,
+            )
+        }
+    }
+
+    private fun flushPersistLocked() {
+        pendingPersistJob?.cancel()
+        pendingPersistJob = null
+        val snapshotState = currentState.copy(gains = desiredGains.toList())
         EqualizerSettings.save(
             context,
-            currentState.enabled,
-            desiredGains,
-            currentState.preset,
-            currentState.bassStrength,
-            currentState.virtualizerStrength,
+            snapshotState.enabled,
+            snapshotState.gains,
+            snapshotState.preset,
+            snapshotState.bassStrength,
+            snapshotState.virtualizerStrength,
         )
+    }
+
+    private fun persistLocked() {
+        flushPersistLocked()
+    }
+
+    private companion object {
+        const val PERSIST_DEBOUNCE_MS = 150L
     }
 
     private fun releaseEffectsLocked() {

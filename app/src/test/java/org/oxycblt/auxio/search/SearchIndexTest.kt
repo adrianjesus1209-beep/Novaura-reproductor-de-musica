@@ -21,6 +21,7 @@ package org.oxycblt.auxio.search
 import android.content.Context
 import io.mockk.every
 import io.mockk.mockk
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -151,5 +152,49 @@ class SearchIndexTest {
                 }
             }
         jobs.awaitAll()
+    }
+
+    @Test
+    fun buildAndSearch_indexesSecondaryArtistsAndRespectsLocaleRoot() = runBlocking {
+        val primary =
+            mockk<Artist>(relaxed = true) { every { name } returns knownName("Lead Artist") }
+        val collaborator =
+            mockk<Artist>(relaxed = true) {
+                every { name } returns knownName("Collaborator Featured")
+            }
+        val songAlbum =
+            mockk<Album>(relaxed = true) {
+                every { name } returns knownName("Collab Album")
+                every { artists } returns listOf(primary, collaborator)
+            }
+        val song =
+            mockk<Song>(relaxed = true) {
+                every { name } returns knownName("ISTANBUL NIGHTS")
+                every { artists } returns listOf(primary, collaborator)
+                every { album } returns songAlbum
+                every { path } returns
+                    mockk<Path>(relaxed = true) { every { name } returns "track.mp3" }
+            }
+        val library =
+            mockk<Library>(relaxed = true) {
+                every { songs } returns setOf(song)
+                every { albums } returns setOf(songAlbum)
+                every { artists } returns setOf(primary, collaborator)
+                every { genres } returns emptySet()
+                every { playlists } returns emptySet()
+            }
+
+        val previousLocale = Locale.getDefault()
+        Locale.setDefault(Locale.forLanguageTag("tr-TR"))
+        try {
+            val index = SearchIndex(context)
+            index.build(library)
+
+            assertEquals(listOf(song), index.searchSongs("collaborator", null))
+            assertEquals(listOf(songAlbum), index.searchAlbums("collaborator", null))
+            assertEquals(listOf(song), index.searchSongs("istanbul", null))
+        } finally {
+            Locale.setDefault(previousLocale)
+        }
     }
 }

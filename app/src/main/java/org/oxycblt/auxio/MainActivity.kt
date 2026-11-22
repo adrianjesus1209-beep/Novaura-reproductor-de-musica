@@ -19,11 +19,13 @@
 package org.oxycblt.auxio
 
 import android.Manifest
+import android.app.SearchManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.provider.MediaStore
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -264,11 +266,15 @@ class MainActivity : AppCompatActivity(), UISettings.Listener {
     override fun onResume() {
         super.onResume()
 
-        startService(
-            Intent(this, AuxioService::class.java)
-                .setAction(AuxioService.ACTION_START)
-                .putExtra(AuxioService.INTENT_KEY_START_ID, IntegerTable.START_ID_ACTIVITY)
-        )
+        try {
+            startService(
+                Intent(this, AuxioService::class.java)
+                    .setAction(AuxioService.ACTION_START)
+                    .putExtra(AuxioService.INTENT_KEY_START_ID, IntegerTable.START_ID_ACTIVITY)
+            )
+        } catch (e: Exception) {
+            L.w(e, "Unable to start AuxioService on resume")
+        }
 
         if (!startIntentAction(intent)) {
             // No intent action to do, just restore the previously saved state.
@@ -341,6 +347,8 @@ class MainActivity : AppCompatActivity(), UISettings.Listener {
         val action =
             when (intent.action) {
                 Intent.ACTION_VIEW -> DeferredPlayback.Open(intent.data ?: return false)
+                MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH ->
+                    DeferredPlayback.Search(intent.getStringExtra(SearchManager.QUERY))
                 Auxio.INTENT_KEY_SHORTCUT_SHUFFLE -> DeferredPlayback.ShuffleAll
                 else -> {
                     L.w("Unexpected intent ${intent.action}")

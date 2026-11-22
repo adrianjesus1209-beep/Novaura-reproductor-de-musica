@@ -97,11 +97,14 @@ class OnlineAddToPlaylistBottomSheet :
         binding.choiceRecycler.adapter = null
     }
 
+    private fun isFavoritesPlaylist(playlist: OnlinePlaylist): Boolean =
+        playlist.id == OnlinePlaylistManager.ID_FAVORITES ||
+            playlist.name.equals(OnlinePlaylistManager.FAVORITES_NAME, ignoreCase = true) ||
+            playlist.name.equals(getString(R.string.lbl_favorites), ignoreCase = true)
+
     private fun updateUI(playlists: List<OnlinePlaylist>) {
         val binding = binding ?: return
-        val favPlaylist = playlists.firstOrNull {
-            it.name.equals(OnlinePlaylistManager.FAVORITES_NAME, ignoreCase = true)
-        }
+        val favPlaylist = playlists.firstOrNull(::isFavoritesPlaylist)
         val favCount = favPlaylist?.songs?.size ?: 0
         binding.likedMusicCount.text =
             when (favCount) {
@@ -114,9 +117,7 @@ class OnlineAddToPlaylistBottomSheet :
         val allFavorited = songsToSave.isNotEmpty() && songsToSave.all { it.webUrl in favUrls }
         binding.likedMusicCheck.isVisible = allFavorited
 
-        val userPlaylists = playlists.filterNot {
-            it.name.equals(OnlinePlaylistManager.FAVORITES_NAME, ignoreCase = true)
-        }
+        val userPlaylists = playlists.filterNot(::isFavoritesPlaylist)
         val targetUrls = songsToSave.map { it.webUrl }.toHashSet()
         val items = userPlaylists.map { playlist ->
             val playlistUrls = playlist.songs.map { it.webUrl }.toHashSet()

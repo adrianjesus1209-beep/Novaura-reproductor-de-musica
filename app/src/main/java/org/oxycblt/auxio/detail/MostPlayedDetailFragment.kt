@@ -18,142 +18,28 @@
  
 package org.oxycblt.auxio.detail
 
-import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.MenuItem
-import android.view.View
-import android.view.ViewGroup
-import androidx.appcompat.widget.Toolbar
-import androidx.core.view.updatePadding
-import androidx.fragment.app.activityViewModels
-import androidx.navigation.fragment.findNavController
-import com.google.android.material.appbar.AppBarLayout
-import com.google.android.material.transition.MaterialSharedAxis
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
 import org.oxycblt.auxio.R
-import org.oxycblt.auxio.databinding.FragmentDetailBinding
-import org.oxycblt.auxio.list.ListFragment
-import org.oxycblt.auxio.list.ListViewModel
-import org.oxycblt.auxio.list.SelectableListListener
-import org.oxycblt.auxio.list.adapter.SelectionIndicatorAdapter
 import org.oxycblt.auxio.list.menu.Menu
-import org.oxycblt.auxio.list.recycler.SongViewHolder
 import org.oxycblt.auxio.music.MusicRepository
-import org.oxycblt.auxio.music.MusicViewModel
-import org.oxycblt.auxio.music.PlaylistDecision
-import org.oxycblt.auxio.music.PlaylistMessage
-import org.oxycblt.auxio.music.SongDecision
-import org.oxycblt.auxio.music.SongMessage
-import org.oxycblt.auxio.playback.PlaySong
-import org.oxycblt.auxio.playback.PlaybackDecision
-import org.oxycblt.auxio.playback.PlaybackViewModel
-import org.oxycblt.auxio.playback.formatDurationMs
 import org.oxycblt.auxio.playback.stats.PlaybackStatsManager
-import org.oxycblt.auxio.util.collect
 import org.oxycblt.auxio.util.collectImmediately
-import org.oxycblt.auxio.util.getDimenPixels
-import org.oxycblt.auxio.util.getPlural
-import org.oxycblt.auxio.util.navigateSafe
-import org.oxycblt.auxio.util.showToast
-import org.oxycblt.auxio.util.systemBarInsetsCompat
+import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Song
-import timber.log.Timber as L
 
-/** A detail view presenting the most played songs according to playback statistics. */
+/** Detail view presenting the most played songs according to playback statistics. */
 @AndroidEntryPoint
-class MostPlayedDetailFragment :
-    ListFragment<Song, FragmentDetailBinding>(),
-    AppBarLayout.OnOffsetChangedListener,
-    Toolbar.OnMenuItemClickListener {
-
-    override val listModel: ListViewModel by activityViewModels()
-    override val musicModel: MusicViewModel by activityViewModels()
-    override val playbackModel: PlaybackViewModel by activityViewModels()
-    private val detailModel: DetailViewModel by activityViewModels()
+class MostPlayedDetailFragment : SmartPlaylistDetailFragment() {
     @Inject lateinit var musicRepository: MusicRepository
     @Inject lateinit var playbackStatsManager: PlaybackStatsManager
 
-    private val songAdapter = SongAdapter(this)
-    private var spacingSmall = 0
+    override val titleRes: Int = R.string.lbl_most_played
+    override val subheadRes: Int = R.string.lbl_most_played_subhead
+    override val emptyDescRes: Int = R.string.lbl_most_played_empty_desc
+    override val coverIconRes: Int = R.drawable.ic_headphones_24
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enterTransition = MaterialSharedAxis(MaterialSharedAxis.Z, true)
-        returnTransition = MaterialSharedAxis(MaterialSharedAxis.Z, false)
-        exitTransition = MaterialSharedAxis(MaterialSharedAxis.Z, true)
-        reenterTransition = MaterialSharedAxis(MaterialSharedAxis.Z, false)
-    }
-
-    override fun onCreateBinding(inflater: LayoutInflater) = FragmentDetailBinding.inflate(inflater)
-
-    override fun getSelectionToolbar(binding: FragmentDetailBinding) =
-        binding.detailSelectionToolbar
-
-    override fun onBindingCreated(binding: FragmentDetailBinding, savedInstanceState: Bundle?) {
-        super.onBindingCreated(binding, savedInstanceState)
-
-        binding.detailAppbar?.addOnOffsetChangedListener(this)
-
-        val pane = binding.detailPane
-        if (pane != null) {
-            binding.detailToolbar.setOnApplyWindowInsetsListener { view, insets ->
-                view.updatePadding(top = insets.systemBarInsetsCompat.top)
-                insets
-            }
-            binding.detailNormalToolbar.titleContainer.alpha = 0f
-            pane.setOnApplyWindowInsetsListener { view, insets ->
-                view.updatePadding(bottom = insets.systemBarInsetsCompat.bottom)
-                insets
-            }
-        }
-
-        binding.detailNormalToolbar.apply {
-            setNavigationOnClickListener { findNavController().navigateUp() }
-            setOnMenuItemClickListener(this@MostPlayedDetailFragment)
-        }
-
-        binding.detailRecycler.apply {
-            adapter = songAdapter
-        }
-
-        spacingSmall = requireContext().getDimenPixels(R.dimen.spacing_small)
-
-        collectImmediately(musicModel.indexingState) {
-            updateMostPlayed(binding)
-        }
-
-        collectImmediately(
-            playbackModel.song,
-            playbackModel.isPlaying,
-        ) { song, isPlaying ->
-            songAdapter.setPlaying(song, isPlaying)
-        }
-
-        collectImmediately(listModel.selected) { selection ->
-            songAdapter.setSelected(selection.filterIsInstanceTo(mutableSetOf()))
-        }
-
-        collect(detailModel.toShow.flow, ::handleShow)
-        collect(listModel.menu.flow, ::handleMenu)
-        collect(musicModel.playlistDecision.flow, ::handlePlaylistDecision)
-        collect(musicModel.playlistMessage.flow, ::handlePlaylistMessage)
-        collect(musicModel.songDecision.flow, ::handleSongDecision)
-        collect(musicModel.songMessage.flow, ::handleSongMessage)
-        collect(playbackModel.playbackDecision.flow, ::handlePlaybackDecision)
-    }
-
-    override fun onDestroyBinding(binding: FragmentDetailBinding) {
-        super.onDestroyBinding(binding)
-        binding.detailAppbar?.removeOnOffsetChangedListener(this)
-        binding.detailNormalToolbar.setOnMenuItemClickListener(null)
-        binding.detailRecycler.adapter = null
-    }
-
-    private fun getMostPlayedSongs(): List<Song> {
+    override fun loadSongs(): List<Song> {
         val library = musicRepository.library ?: return emptyList()
         return playbackStatsManager.getMostPlayedSongs(
             library.songs.toList(),
@@ -162,233 +48,37 @@ class MostPlayedDetailFragment :
         )
     }
 
-    private fun updateMostPlayed(binding: FragmentDetailBinding) {
-        val songs = getMostPlayedSongs()
-        val context = requireContext()
-
-        binding.detailType.text = getString(R.string.lbl_playlists).uppercase()
-        binding.detailName.text = getString(R.string.lbl_most_played)
-
-        val totalDurationMs = songs.sumOf { it.durationMs }
-        val durationFormatted = totalDurationMs.formatDurationMs(true)
-        val songCountStr = context.getPlural(R.plurals.fmt_song_count, songs.size)
-        binding.detailInfo.text = "$songCountStr • $durationFormatted"
-
-        if (songs.isNotEmpty()) {
-            binding.detailSubhead.text = getString(R.string.lbl_most_played_subhead)
-            binding.detailCover.bind(
-                songs,
-                getString(R.string.lbl_most_played),
-                R.drawable.ic_headphones_24,
-            )
-        } else {
-            binding.detailSubhead.text = getString(R.string.lbl_most_played_empty_desc)
-            binding.detailCover.bind(
-                emptyList(),
-                getString(R.string.lbl_most_played),
-                R.drawable.ic_headphones_24,
-            )
-        }
-
-        val hasSongs = songs.isNotEmpty()
-        binding.detailNormalToolbar.apply {
-            setMenuItemEnabled(R.id.action_play, hasSongs)
-            setMenuItemEnabled(R.id.action_shuffle, hasSongs)
-        }
-        binding.detailPlayButton?.apply {
-            isEnabled = hasSongs
-            setOnClickListener { playbackModel.play(songs) }
-        }
-        binding.detailShuffleButton?.apply {
-            isEnabled = hasSongs
-            setOnClickListener { playbackModel.shuffle(songs) }
-        }
-
-        songAdapter.update(songs, org.oxycblt.auxio.list.adapter.UpdateInstructions.Diff)
+    override fun observeSongUpdates() {
+        collectImmediately(musicModel.indexingState) { refreshSmartSongs() }
     }
 
-    override fun onRealClick(item: Song) {
-        val songs = getMostPlayedSongs()
-        playbackModel.playFromSongList(item, songs)
-    }
+    override fun openSongMenuDirections(parcel: Menu.ForSong.Parcel) =
+        MostPlayedDetailFragmentDirections.openSongMenu(parcel)
 
-    override fun onOpenMenu(item: Song) {
-        listModel.openMenu(R.menu.song, item, PlaySong.FromAll)
-    }
+    override fun openSelectionMenuDirections(parcel: Menu.ForSelection.Parcel) =
+        MostPlayedDetailFragmentDirections.openSelectionMenu(parcel)
 
-    override fun onMenuItemClick(item: MenuItem): Boolean {
-        val songs = getMostPlayedSongs()
-        return when (item.itemId) {
-            R.id.action_play -> {
-                if (songs.isNotEmpty()) {
-                    playbackModel.play(songs)
-                }
-                true
-            }
-            R.id.action_shuffle -> {
-                if (songs.isNotEmpty()) {
-                    playbackModel.shuffle(songs)
-                }
-                true
-            }
-            else -> false
-        }
-    }
+    override fun deleteSongDirections(uids: Array<Music.UID>) =
+        MostPlayedDetailFragmentDirections.deleteSong(uids)
 
-    override fun onOffsetChanged(appBarLayout: AppBarLayout, verticalOffset: Int) {
-        val binding = requireBinding()
-        val range = appBarLayout.totalScrollRange
-        if (range == 0) return
-        val ratio = abs(verticalOffset.toFloat()) / range.toFloat()
+    override fun showSongDirections(uid: Music.UID) =
+        MostPlayedDetailFragmentDirections.showSong(uid)
 
-        val outRatio = min(ratio * 2, 1f)
-        val detailHeader = binding.detailHeader
-        if (detailHeader != null) {
-            detailHeader.scaleX = 1 - 0.2f * outRatio / (5f / 3f)
-            detailHeader.scaleY = 1 - 0.2f * outRatio / (5f / 3f)
-            detailHeader.alpha = 1 - outRatio
-        }
+    override fun showAlbumDirections(uid: Music.UID) =
+        MostPlayedDetailFragmentDirections.showAlbum(uid)
 
-        val inRatio = max(ratio - 0.5f, 0f) * 2
-        animateToolbarView(binding.detailNormalToolbar.titleContainer, inRatio)
-        animateToolbarActionButton(
-            binding.detailNormalToolbar.getMenuButton(R.id.action_play),
-            inRatio,
-        )
-        animateToolbarActionButton(
-            binding.detailNormalToolbar.getMenuButton(R.id.action_shuffle),
-            inRatio,
-        )
+    override fun showArtistDirections(uid: Music.UID) =
+        MostPlayedDetailFragmentDirections.showArtist(uid)
 
-        binding.detailRecycler.fastScrollingEnabled = ratio == 1f
-    }
+    override fun showArtistChoicesDirections(uid: Music.UID) =
+        MostPlayedDetailFragmentDirections.showArtistChoices(uid)
 
-    private fun animateToolbarView(view: View?, ratio: Float) {
-        if (view == null) return
-        view.alpha = ratio
-        view.translationY = spacingSmall * (1 - ratio)
-    }
+    override fun addToPlaylistDirections(uids: Array<Music.UID>) =
+        MostPlayedDetailFragmentDirections.addToPlaylist(uids)
 
-    private fun animateToolbarActionButton(view: View?, ratio: Float) {
-        if (view == null) return
+    override fun playFromArtistDirections(uid: Music.UID) =
+        MostPlayedDetailFragmentDirections.playFromArtist(uid)
 
-        if (ratio <= 0f) {
-            view.alpha = 0f
-            view.translationY = spacingSmall.toFloat()
-            view.visibility = View.GONE
-            return
-        }
-
-        if (view.visibility != View.VISIBLE) {
-            view.visibility = View.VISIBLE
-        }
-        view.alpha = ratio
-        view.translationY = spacingSmall * (1 - ratio)
-    }
-
-    private fun handleMenu(menu: Menu?) {
-        if (menu == null) return
-        val directions =
-            when (menu) {
-                is Menu.ForSong -> MostPlayedDetailFragmentDirections.openSongMenu(menu.parcel)
-                is Menu.ForSelection ->
-                    MostPlayedDetailFragmentDirections.openSelectionMenu(menu.parcel)
-                else -> return
-            }
-        findNavController().navigateSafe(directions)
-    }
-
-    private fun handleSongDecision(decision: SongDecision?) {
-        if (decision == null) return
-        musicModel.songDecision.consume()
-        val directions =
-            when (decision) {
-                is SongDecision.Delete -> {
-                    L.d("Deleting ${decision.songs.size} songs")
-                    MostPlayedDetailFragmentDirections.deleteSong(
-                        decision.songs.map { it.uid }.toTypedArray()
-                    )
-                }
-            }
-        findNavController().navigateSafe(directions)
-    }
-
-    private fun handleSongMessage(message: SongMessage?) {
-        if (message == null) return
-        requireContext().showToast(message.stringRes)
-        musicModel.songMessage.consume()
-    }
-
-    private fun handleShow(show: Show?) {
-        if (show == null) return
-        val directions =
-            when (show) {
-                is Show.SongDetails -> {
-                    MostPlayedDetailFragmentDirections.showSong(show.song.uid)
-                }
-                is Show.SongAlbumDetails -> {
-                    MostPlayedDetailFragmentDirections.showAlbum(show.song.album.uid)
-                }
-                is Show.AlbumDetails -> {
-                    MostPlayedDetailFragmentDirections.showAlbum(show.album.uid)
-                }
-                is Show.ArtistDetails -> {
-                    MostPlayedDetailFragmentDirections.showArtist(show.artist.uid)
-                }
-                is Show.SongArtistDecision -> {
-                    MostPlayedDetailFragmentDirections.showArtistChoices(show.song.uid)
-                }
-                is Show.AlbumArtistDecision -> {
-                    MostPlayedDetailFragmentDirections.showArtistChoices(show.album.uid)
-                }
-                else -> return
-            }
-        findNavController().navigateSafe(directions)
-    }
-
-    private fun handlePlaylistDecision(decision: PlaylistDecision?) {
-        if (decision == null) return
-        musicModel.playlistDecision.consume()
-        val directions =
-            when (decision) {
-                is PlaylistDecision.Add -> {
-                    MostPlayedDetailFragmentDirections.addToPlaylist(
-                        decision.songs.map { it.uid }.toTypedArray()
-                    )
-                }
-                else -> return
-            }
-        findNavController().navigateSafe(directions)
-    }
-
-    private fun handlePlaylistMessage(message: PlaylistMessage?) {
-        if (message == null) return
-        requireContext().showToast(message.stringRes)
-        musicModel.playlistMessage.consume()
-    }
-
-    private fun handlePlaybackDecision(decision: PlaybackDecision?) {
-        if (decision == null) return
-        val directions =
-            when (decision) {
-                is PlaybackDecision.PlayFromArtist -> {
-                    MostPlayedDetailFragmentDirections.playFromArtist(decision.song.uid)
-                }
-                is PlaybackDecision.PlayFromGenre -> {
-                    MostPlayedDetailFragmentDirections.playFromGenre(decision.song.uid)
-                }
-            }
-        findNavController().navigateSafe(directions)
-    }
-
-    private class SongAdapter(private val listener: SelectableListListener<Song>) :
-        SelectionIndicatorAdapter<Song, SongViewHolder>(SongViewHolder.DIFF_CALLBACK) {
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-            SongViewHolder.from(parent)
-
-        override fun onBindViewHolder(holder: SongViewHolder, position: Int) {
-            holder.bind(getItem(position), listener)
-        }
-    }
+    override fun playFromGenreDirections(uid: Music.UID) =
+        MostPlayedDetailFragmentDirections.playFromGenre(uid)
 }

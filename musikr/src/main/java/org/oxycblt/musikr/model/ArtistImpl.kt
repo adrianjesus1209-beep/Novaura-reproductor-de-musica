@@ -49,7 +49,8 @@ internal class ArtistImpl(private val core: ArtistCore) : Artist {
     override val genres: List<Genre>
         get() = core.resolveGenres().toList()
 
-    override val durationMs = core.songs.sumOf { it.durationMs }
+    override val durationMs: Long? =
+        if (core.songs.isEmpty()) null else core.songs.sumOf { it.durationMs }
     override val covers =
         CoverCollection.from(
             core.songs.mapNotNull { it.cover }.ifEmpty { core.albums.flatMap { it.covers.covers } }

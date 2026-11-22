@@ -21,14 +21,9 @@ package org.oxycblt.musikr.tag.parse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import org.junit.runner.RunWith
 import org.oxycblt.musikr.metadata.Metadata
 import org.oxycblt.musikr.metadata.Properties
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [30])
 class TagParserTest {
     private val tagParser = TagParser.new()
 

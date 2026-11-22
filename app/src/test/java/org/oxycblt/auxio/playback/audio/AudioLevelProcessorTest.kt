@@ -194,6 +194,30 @@ class AudioLevelProcessorTest {
         )
     }
 
+    @Test
+    fun queueInput_offModeReportsInactiveSoPipelineCanBypass() {
+        val processor = newProcessor(AudioReactivity.OFF)
+        assertEquals(false, processor.isActive())
+    }
+
+    @Test
+    fun queueInput_nanFloatSamplesDoNotPoisonSmoothedLevel() {
+        val processor =
+            AudioLevelProcessor(FakePlaybackSettings(AudioReactivity.NORMAL)).apply {
+                configure(AudioFormat(SAMPLE_RATE, 2, C.ENCODING_PCM_FLOAT))
+            }
+        val buf = ByteBuffer.allocateDirect(16).order(ByteOrder.LITTLE_ENDIAN)
+        buf.putInt(Float.NaN.toRawBits())
+        buf.putInt(0.5f.toRawBits())
+        buf.putInt(Float.POSITIVE_INFINITY.toRawBits())
+        buf.putInt((-0.5f).toRawBits())
+        buf.flip()
+
+        processor.queueInput(buf)
+        assertTrue("Level must stay finite even with NaN/Inf inputs", processor.level.isFinite())
+        assertTrue("Level must remain bounded", processor.level in 0f..1f)
+    }
+
     // --- HELPERS ---
 
     /** Build a configured processor with the given reactivity already applied. */

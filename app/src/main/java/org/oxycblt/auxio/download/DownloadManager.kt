@@ -56,13 +56,16 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
     fun enqueueDownload(song: OnlineSong) {
         synchronized(stateLock) {
             val existing = _downloadItems.value.find { it.song.webUrl == song.webUrl }
-            if (existing != null && existing.status == DownloadStatus.DOWNLOADING) {
-                L.d("Download already in progress for: ${song.title}")
+            if (
+                existing != null &&
+                    (existing.status == DownloadStatus.DOWNLOADING ||
+                        existing.status == DownloadStatus.QUEUED)
+            ) {
+                L.d("Download already active/queued for: ${song.title}")
                 return
             }
 
-            val newItem =
-                DownloadItem(song = song, progress = 0, status = DownloadStatus.DOWNLOADING)
+            val newItem = DownloadItem(song = song, progress = 0, status = DownloadStatus.QUEUED)
             _downloadItems.value =
                 listOf(newItem) + _downloadItems.value.filter { it.song.webUrl != song.webUrl }
 
@@ -84,7 +87,12 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
         val paused =
             synchronized(stateLock) {
                 val item = _downloadItems.value.find { it.song.webUrl == webUrl } ?: return
-                if (item.status != DownloadStatus.DOWNLOADING) return
+                if (
+                    item.status != DownloadStatus.DOWNLOADING &&
+                        item.status != DownloadStatus.QUEUED
+                ) {
+                    return
+                }
 
                 _downloadItems.value =
                     _downloadItems.value.map {
@@ -112,7 +120,7 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
 
                 _downloadItems.value =
                     _downloadItems.value.map {
-                        if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.DOWNLOADING)
+                        if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.QUEUED)
                         else it
                     }
                 _downloadProgress.value = _downloadProgress.value + (webUrl to item.progress)
@@ -143,10 +151,26 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
         }
     }
 
+    internal fun setDownloadingFromService(webUrl: String) {
+        synchronized(stateLock) {
+            val item = _downloadItems.value.find { it.song.webUrl == webUrl } ?: return
+            if (item.status == DownloadStatus.QUEUED) {
+                _downloadItems.value =
+                    _downloadItems.value.map {
+                        if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.DOWNLOADING)
+                        else it
+                    }
+                _activeCount.value = countActiveLocked()
+            }
+        }
+    }
+
     internal fun setPausedFromService(webUrl: String) {
         synchronized(stateLock) {
             val item = _downloadItems.value.find { it.song.webUrl == webUrl } ?: return
-            if (item.status != DownloadStatus.DOWNLOADING) return
+            if (item.status != DownloadStatus.DOWNLOADING && item.status != DownloadStatus.QUEUED) {
+                return
+            }
             _downloadItems.value =
                 _downloadItems.value.map {
                     if (it.song.webUrl == webUrl) it.copy(status = DownloadStatus.PAUSED) else it
@@ -169,7 +193,10 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
             val pausedUrls = mutableListOf<String>()
             _downloadItems.value =
                 _downloadItems.value.map {
-                    if (it.status == DownloadStatus.DOWNLOADING) {
+                    if (
+                        it.status == DownloadStatus.DOWNLOADING ||
+                            it.status == DownloadStatus.QUEUED
+                    ) {
                         pausedUrls.add(it.song.webUrl)
                         it.copy(status = DownloadStatus.PAUSED)
                     } else {
@@ -192,13 +219,19 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
     fun pauseAll() {
         val hadDownloading =
             synchronized(stateLock) {
-                val anyDownloading =
-                    _downloadItems.value.any { it.status == DownloadStatus.DOWNLOADING }
-                if (!anyDownloading) return
+                val anyActive =
+                    _downloadItems.value.any {
+                        it.status == DownloadStatus.DOWNLOADING ||
+                            it.status == DownloadStatus.QUEUED
+                    }
+                if (!anyActive) return
                 val pausedUrls = mutableListOf<String>()
                 _downloadItems.value =
                     _downloadItems.value.map {
-                        if (it.status == DownloadStatus.DOWNLOADING) {
+                        if (
+                            it.status == DownloadStatus.DOWNLOADING ||
+                                it.status == DownloadStatus.QUEUED
+                        ) {
                             pausedUrls.add(it.song.webUrl)
                             it.copy(status = DownloadStatus.PAUSED)
                         } else {
@@ -222,8 +255,7 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
                 val pausedUrls = paused.map { it.song.webUrl }.toSet()
                 _downloadItems.value =
                     _downloadItems.value.map {
-                        if (it.song.webUrl in pausedUrls)
-                            it.copy(status = DownloadStatus.DOWNLOADING)
+                        if (it.song.webUrl in pausedUrls) it.copy(status = DownloadStatus.QUEUED)
                         else it
                     }
                 _downloadProgress.value =
@@ -257,7 +289,9 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
         synchronized(stateLock) {
             _downloadItems.value =
                 _downloadItems.value.filter {
-                    it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.PAUSED
+                    it.status == DownloadStatus.DOWNLOADING ||
+                        it.status == DownloadStatus.QUEUED ||
+                        it.status == DownloadStatus.PAUSED
                 }
         }
     }
@@ -267,8 +301,12 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
             _downloadProgress.value = _downloadProgress.value + (webUrl to progressPercent)
             _downloadItems.value =
                 _downloadItems.value.map {
-                    if (it.song.webUrl == webUrl && it.status == DownloadStatus.DOWNLOADING) {
-                        it.copy(progress = progressPercent)
+                    if (
+                        it.song.webUrl == webUrl &&
+                            (it.status == DownloadStatus.DOWNLOADING ||
+                                it.status == DownloadStatus.QUEUED)
+                    ) {
+                        it.copy(status = DownloadStatus.DOWNLOADING, progress = progressPercent)
                     } else {
                         it
                     }
@@ -307,7 +345,9 @@ class DownloadManager @Inject constructor(@ApplicationContext private val contex
     }
 
     private fun countActiveLocked(): Int =
-        _downloadItems.value.count { it.status == DownloadStatus.DOWNLOADING }
+        _downloadItems.value.count {
+            it.status == DownloadStatus.DOWNLOADING || it.status == DownloadStatus.QUEUED
+        }
 
     private fun sendActionIfRunning(actionName: String, block: Intent.() -> Unit = {}) {
         if (!DownloadService.isRunning) return

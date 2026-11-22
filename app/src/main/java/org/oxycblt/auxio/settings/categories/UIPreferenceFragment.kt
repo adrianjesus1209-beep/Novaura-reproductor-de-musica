@@ -18,6 +18,7 @@
  
 package org.oxycblt.auxio.settings.categories
 
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.navigation.fragment.findNavController
 import androidx.preference.Preference
 import dagger.hilt.android.AndroidEntryPoint
@@ -56,6 +57,9 @@ class UIPreferenceFragment : BasePreferenceFragment(R.xml.preferences_ui) {
                 preference.onPreferenceChangeListener =
                     Preference.OnPreferenceChangeListener { _, value ->
                         val intValue = (value as? Int) ?: 0
+                        if (intValue == uiSettings.language) {
+                            return@OnPreferenceChangeListener true
+                        }
                         L.d("Language changed in UI settings to $intValue")
                         uiSettings.setLanguage(intValue)
                         requireActivity().recreate()
@@ -66,8 +70,12 @@ class UIPreferenceFragment : BasePreferenceFragment(R.xml.preferences_ui) {
                 L.d("Configuring theme setting")
                 preference.onPreferenceChangeListener =
                     Preference.OnPreferenceChangeListener { _, value ->
-                        L.d("Theme changed, recreating")
-                        requireActivity().recreate()
+                        val intValue = (value as? Int) ?: uiSettings.theme
+                        if (intValue != uiSettings.theme) {
+                            L.d("Theme changed to $intValue, applying night mode and recreating")
+                            AppCompatDelegate.setDefaultNightMode(intValue)
+                            requireActivity().recreate()
+                        }
                         true
                     }
             }

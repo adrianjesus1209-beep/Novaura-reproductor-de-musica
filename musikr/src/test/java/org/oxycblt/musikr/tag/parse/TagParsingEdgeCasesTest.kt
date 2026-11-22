@@ -22,14 +22,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
 import org.oxycblt.musikr.metadata.Metadata
 import org.oxycblt.musikr.metadata.Properties
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [30])
 class TagParsingEdgeCasesTest {
     private val tagParser = TagParser.new()
 
@@ -188,13 +183,13 @@ class TagParsingEdgeCasesTest {
         var metadata = createTestMetadata(id3v2Tags = mapOf("TYER" to listOf("2018")))
         assertEquals("2018", metadata.date().toString())
 
-        // Year and date
+        // Year and date (TDAT is DDMM per ID3v2.3 spec)
         metadata =
             createTestMetadata(
                 id3v2Tags =
                     mapOf(
                         "TYER" to listOf("2018"),
-                        "TDAT" to listOf("0315"), // March 15
+                        "TDAT" to listOf("1503"), // March 15
                     )
             )
         assertEquals("2018-03-15", metadata.date().toString())
@@ -205,7 +200,7 @@ class TagParsingEdgeCasesTest {
                 id3v2Tags =
                     mapOf(
                         "TYER" to listOf("2018"),
-                        "TDAT" to listOf("0315"), // March 15
+                        "TDAT" to listOf("1503"), // March 15
                         "TIME" to listOf("1422"), // 14:22
                     )
             )

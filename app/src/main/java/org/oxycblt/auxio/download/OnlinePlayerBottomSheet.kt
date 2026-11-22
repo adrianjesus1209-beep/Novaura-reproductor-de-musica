@@ -69,6 +69,7 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
     private var lastSongUrl: String? = null
     private var lastIsPlaying: Boolean? = null
     private var lastQueueIndex: Int? = null
+    private var lastQueueUrls: List<String> = emptyList()
     private var activeQueueFilter: Int = FILTER_ALL
     private var displayedQueueSongs: List<OnlineSong> = emptyList()
     private var discoverShuffleSeed: Long = System.nanoTime()
@@ -223,7 +224,13 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 downloadModel.playerState.collectLatest { state ->
-                    val song = state.song ?: return@collectLatest
+                    val song = state.song
+                    if (song == null) {
+                        if (!state.isLoading && isAdded && dialog?.isShowing == true) {
+                            dismissAllowingStateLoss()
+                        }
+                        return@collectLatest
+                    }
 
                     if (lastSongUrl != song.webUrl) {
                         lastSongUrl = song.webUrl
@@ -257,7 +264,13 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
                         binding.onlinePlayerSeekBar.setSongSeed(song.webUrl.hashCode().toLong())
                     }
 
-                    if (lastQueueIndex != state.queueIndex || lastIsPlaying != state.isPlaying) {
+                    val queueUrls = state.queue.map { it.webUrl }
+                    if (
+                        lastQueueUrls != queueUrls ||
+                            lastQueueIndex != state.queueIndex ||
+                            lastIsPlaying != state.isPlaying
+                    ) {
+                        lastQueueUrls = queueUrls
                         lastQueueIndex = state.queueIndex
                         lastIsPlaying = state.isPlaying
                         refreshDisplayedQueue(state)
@@ -413,6 +426,12 @@ class OnlinePlayerBottomSheet : DialogFragment(), StyledSeekBar.Listener {
     }
 
     override fun onDestroyView() {
+        _binding?.onlinePlayerSeekBar?.listener = null
+        _binding?.onlinePlayerTracklist?.adapter = null
+        lastSongUrl = null
+        lastIsPlaying = null
+        lastQueueIndex = null
+        lastQueueUrls = emptyList()
         super.onDestroyView()
         _binding = null
     }

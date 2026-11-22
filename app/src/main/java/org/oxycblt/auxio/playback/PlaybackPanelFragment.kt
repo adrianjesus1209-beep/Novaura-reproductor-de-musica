@@ -692,7 +692,9 @@ class PlaybackPanelFragment :
         trackAdapter.submitList(tracks)
         trackAdapter.currentSongUid = currentSong?.uid
         val activeIndex =
-            if (currentSong != null) {
+            if (currentFilterMode == QueueFilterMode.ALL && tracks === queue) {
+                queueModel.index.value.takeIf { it in tracks.indices } ?: -1
+            } else if (currentSong != null) {
                 tracks.indexOfFirst { it.uid == currentSong.uid }
             } else {
                 queueModel.index.value

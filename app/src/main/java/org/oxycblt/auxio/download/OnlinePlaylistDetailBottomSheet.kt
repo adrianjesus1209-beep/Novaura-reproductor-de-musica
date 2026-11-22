@@ -50,6 +50,7 @@ class OnlinePlaylistDetailBottomSheet :
 
     private var playlistTitle: String = ""
     private var playlistId: String? = null
+    private var smartKey: String? = null
     private var currentSongs: List<OnlineSong> = emptyList()
 
     override fun onCreateBinding(inflater: LayoutInflater) =
@@ -67,16 +68,27 @@ class OnlinePlaylistDetailBottomSheet :
 
         playlistTitle = arguments?.getString(ARG_TITLE).orEmpty()
         playlistId = arguments?.getString(ARG_PLAYLIST_ID)
+        smartKey = arguments?.getString(ARG_SMART_KEY)
         currentSongs =
-            arguments
-                ?.let {
-                    androidx.core.os.BundleCompat.getParcelableArrayList(
-                        it,
-                        ARG_SONGS,
-                        OnlineSong::class.java,
-                    )
-                }
-                ?.toList() ?: emptyList()
+            when {
+                playlistId != null ->
+                    downloadModel.onlinePlaylists.value
+                        .find { it.id == playlistId }
+                        ?.songs
+                        .orEmpty()
+                smartKey == SMART_RECENT -> downloadModel.recentOnlineSongs.value
+                smartKey == SMART_MOST_PLAYED -> downloadModel.getMostPlayedOnlineSongs()
+                else ->
+                    arguments
+                        ?.let {
+                            androidx.core.os.BundleCompat.getParcelableArrayList(
+                                it,
+                                ARG_SONGS,
+                                OnlineSong::class.java,
+                            )
+                        }
+                        ?.toList() ?: emptyList()
+            }
 
         binding.detailClose.setOnClickListener { dismiss() }
 
@@ -126,12 +138,28 @@ class OnlinePlaylistDetailBottomSheet :
 
         renderSongs(currentSongs)
 
-        playlistId?.let { id ->
-            collectImmediately(downloadModel.onlinePlaylists) { playlists ->
-                val found = playlists.find { it.id == id }
-                if (found != null) {
-                    playlistTitle = found.name
-                    renderSongs(found.songs)
+        val observedPlaylistId = playlistId
+        val observedSmartKey = smartKey
+        when {
+            observedPlaylistId != null -> {
+                collectImmediately(downloadModel.onlinePlaylists) { playlists ->
+                    val found = playlists.find { it.id == observedPlaylistId }
+                    if (found != null) {
+                        playlistTitle = found.name
+                        renderSongs(found.songs)
+                    } else if (isAdded) {
+                        dismissAllowingStateLoss()
+                    }
+                }
+            }
+            observedSmartKey == SMART_RECENT -> {
+                collectImmediately(downloadModel.recentOnlineSongs) { songs ->
+                    renderSongs(songs)
+                }
+            }
+            observedSmartKey == SMART_MOST_PLAYED -> {
+                collectImmediately(downloadModel.onlinePlayCounts) { _ ->
+                    renderSongs(downloadModel.getMostPlayedOnlineSongs())
                 }
             }
         }
@@ -214,7 +242,9 @@ class OnlinePlaylistDetailBottomSheet :
                 itemBinding.trackDragHandle.alpha = 0.7f
 
                 itemBinding.root.setOnClickListener {
-                    downloadModel.playQueue(currentSongs, position, playlistTitle)
+                    val adapterPos = bindingAdapterPosition
+                    if (adapterPos == RecyclerView.NO_POSITION) return@setOnClickListener
+                    downloadModel.playQueue(currentSongs, adapterPos, playlistTitle)
                     dismiss()
                     if (
                         parentFragmentManager.findFragmentByTag(OnlinePlayerBottomSheet.TAG) == null
@@ -225,47 +255,54 @@ class OnlinePlaylistDetailBottomSheet :
                 }
 
                 val showRowMenu: (View) -> Unit = { anchor ->
-                    val popup = PopupMenu(anchor.context, anchor)
-                    popup.menu.add(Menu.NONE, 1, 1, R.string.lbl_play)
-                    popup.menu.add(Menu.NONE, 2, 2, R.string.lbl_save)
-                    popup.menu.add(Menu.NONE, 3, 3, R.string.lbl_download)
-                    if (playlistId != null) {
-                        popup.menu.add(Menu.NONE, 4, 4, R.string.lbl_delete)
-                    }
-                    popup.setOnMenuItemClickListener { item ->
-                        when (item.itemId) {
-                            1 -> {
-                                downloadModel.playQueue(currentSongs, position, playlistTitle)
-                                dismiss()
-                                true
-                            }
-                            2 -> {
-                                OnlineAddToPlaylistBottomSheet.show(
-                                    parentFragmentManager,
-                                    listOf(song),
-                                )
-                                true
-                            }
-                            3 -> {
-                                downloadModel.download(song)
-                                Toast.makeText(
-                                        requireContext(),
-                                        getString(R.string.lbl_download_started, song.title),
-                                        Toast.LENGTH_SHORT,
-                                    )
-                                    .show()
-                                true
-                            }
-                            4 -> {
-                                playlistId?.let { id ->
-                                    downloadModel.removeSongFromPlaylist(id, song.webUrl)
-                                }
-                                true
-                            }
-                            else -> false
+                    val adapterPos = bindingAdapterPosition
+                    if (adapterPos != RecyclerView.NO_POSITION) {
+                        val currentSong = currentSongs.getOrNull(adapterPos) ?: song
+                        val popup = PopupMenu(anchor.context, anchor)
+                        popup.menu.add(Menu.NONE, 1, 1, R.string.lbl_play)
+                        popup.menu.add(Menu.NONE, 2, 2, R.string.lbl_save)
+                        popup.menu.add(Menu.NONE, 3, 3, R.string.lbl_download)
+                        if (playlistId != null) {
+                            popup.menu.add(Menu.NONE, 4, 4, R.string.lbl_delete)
                         }
+                        popup.setOnMenuItemClickListener { item ->
+                            when (item.itemId) {
+                                1 -> {
+                                    downloadModel.playQueue(currentSongs, adapterPos, playlistTitle)
+                                    dismiss()
+                                    true
+                                }
+                                2 -> {
+                                    OnlineAddToPlaylistBottomSheet.show(
+                                        parentFragmentManager,
+                                        listOf(currentSong),
+                                    )
+                                    true
+                                }
+                                3 -> {
+                                    downloadModel.download(currentSong)
+                                    Toast.makeText(
+                                            requireContext(),
+                                            getString(
+                                                R.string.lbl_download_started,
+                                                currentSong.title,
+                                            ),
+                                            Toast.LENGTH_SHORT,
+                                        )
+                                        .show()
+                                    true
+                                }
+                                4 -> {
+                                    playlistId?.let { id ->
+                                        downloadModel.removeSongFromPlaylist(id, currentSong.webUrl)
+                                    }
+                                    true
+                                }
+                                else -> false
+                            }
+                        }
+                        popup.show()
                     }
-                    popup.show()
                 }
 
                 itemBinding.trackDragHandle.setOnClickListener { showRowMenu(it) }
@@ -288,26 +325,33 @@ class OnlinePlaylistDetailBottomSheet :
 
     companion object {
         const val TAG = BuildConfig.APPLICATION_ID + ".tag.ONLINE_PLAYLIST_DETAIL"
+        const val SMART_RECENT = "smart_recent"
+        const val SMART_MOST_PLAYED = "smart_most_played"
         private const val ARG_TITLE = "arg_title"
         private const val ARG_SONGS = "arg_songs"
         private const val ARG_PLAYLIST_ID = "arg_playlist_id"
+        private const val ARG_SMART_KEY = "arg_smart_key"
 
         fun show(
             fragmentManager: FragmentManager,
             title: String,
-            songs: List<OnlineSong>,
+            songs: List<OnlineSong> = emptyList(),
             playlistId: String? = null,
+            smartKey: String? = null,
         ) {
             if (fragmentManager.findFragmentByTag(TAG) != null) return
-            OnlinePlaylistDetailBottomSheet()
-                .apply {
-                    arguments =
-                        bundleOf(
-                            ARG_TITLE to title,
-                            ARG_SONGS to ArrayList(songs),
-                            ARG_PLAYLIST_ID to playlistId,
-                        )
+            val bundle =
+                if (playlistId != null || smartKey != null) {
+                    bundleOf(
+                        ARG_TITLE to title,
+                        ARG_PLAYLIST_ID to playlistId,
+                        ARG_SMART_KEY to smartKey,
+                    )
+                } else {
+                    bundleOf(ARG_TITLE to title, ARG_SONGS to ArrayList(songs))
                 }
+            OnlinePlaylistDetailBottomSheet()
+                .apply { arguments = bundle }
                 .show(fragmentManager, TAG)
         }
     }

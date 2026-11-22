@@ -22,11 +22,14 @@
 #include <jni.h>
 #include <string_view>
 #include <optional>
+#include <unordered_set>
 
 #include "taglib/id3v1tag.h"
 #include "taglib/id3v2tag.h"
 #include "taglib/xiphcomment.h"
 #include "taglib/mp4tag.h"
+#include "taglib/matroskafile.h"
+#include "taglib/matroskatag.h"
 #include "taglib/audioproperties.h"
 
 #include "JTagMap.h"
@@ -38,8 +41,10 @@ public:
     void setMimeType(TagLib::String type);
     void setId3v1(TagLib::ID3v1::Tag &tag);
     void setId3v2(TagLib::ID3v2::Tag &tag);
+    void setFallbackTag(TagLib::Tag &tag);
     void setXiph(TagLib::Ogg::XiphComment &tag);
     void setMp4(TagLib::MP4::Tag &tag);
+    void setMatroska(TagLib::Matroska::File &file);
     void setFlacPictures(TagLib::List<TagLib::FLAC::Picture*> &pics);
     void setProperties(TagLib::AudioProperties *properties);
 
@@ -51,7 +56,9 @@ private:
     TagLib::String mimeType;
 
     std::optional<TagLib::ByteVector> cover;
+    bool hasFrontCover = false;
     TagLib::AudioProperties *properties;
+    std::unordered_set<std::string> populatedId3Keys;
 
     JTagMap id3v2;
     JTagMap xiph;

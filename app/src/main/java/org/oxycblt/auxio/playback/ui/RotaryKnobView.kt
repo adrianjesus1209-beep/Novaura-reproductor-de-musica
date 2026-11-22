@@ -99,6 +99,7 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
 
     private var accentColor: Int = Color.WHITE
     private var lastTouchY: Float = 0f
+    private var accumulatedDelta: Float = 0f
 
     init {
         val primary = context.getAttrColorCompat(androidx.appcompat.R.attr.colorPrimary)
@@ -174,16 +175,23 @@ constructor(context: Context, attrs: AttributeSet? = null, @AttrRes defStyleAttr
             MotionEvent.ACTION_DOWN -> {
                 parent?.requestDisallowInterceptTouchEvent(true)
                 lastTouchY = event.y
+                accumulatedDelta = 0f
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
                 val deltaY = lastTouchY - event.y
                 lastTouchY = event.y
-                val deltaValue = (deltaY * 5f).toInt()
-                val newValue = (value + deltaValue).coerceIn(0, 1000)
-                if (newValue != value) {
-                    value = newValue
-                    onValueChangedListener?.invoke(value, true)
+                val density = resources.displayMetrics.density.coerceAtLeast(1f)
+                // Full 0..1000 sweep over ~120dp vertical drag, preserving sub-pixel remainder.
+                accumulatedDelta += deltaY * (1000f / (120f * density))
+                val deltaValue = accumulatedDelta.toInt()
+                if (deltaValue != 0) {
+                    accumulatedDelta -= deltaValue
+                    val newValue = (value + deltaValue).coerceIn(0, 1000)
+                    if (newValue != value) {
+                        value = newValue
+                        onValueChangedListener?.invoke(value, true)
+                    }
                 }
                 return true
             }

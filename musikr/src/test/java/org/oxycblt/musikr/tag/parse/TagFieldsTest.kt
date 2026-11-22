@@ -23,14 +23,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
 import org.oxycblt.musikr.metadata.Metadata
 import org.oxycblt.musikr.metadata.Properties
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [30])
 class TagFieldsTest {
 
     @Test
@@ -161,13 +156,13 @@ class TagFieldsTest {
 
     @Test
     fun metadata_id3v23Date() {
-        // Test ID3v2.3 date components
+        // Test ID3v2.3 date components (TDAT is DDMM per spec)
         val metadata =
             createTestMetadata(
                 id3v2Tags =
                     mapOf(
                         "TYER" to listOf("2019"),
-                        "TDAT" to listOf("0523"), // May 23
+                        "TDAT" to listOf("2305"), // May 23
                         "TIME" to listOf("2145"), // 21:45
                     )
             )
@@ -177,6 +172,32 @@ class TagFieldsTest {
         assertEquals(23, date?.day)
         assertEquals(21, date?.hour)
         assertEquals(45, date?.minute)
+    }
+
+    @Test
+    fun metadata_id3v23Date_invalidMonthFallsBackToYear() {
+        val metadata =
+            createTestMetadata(
+                id3v2Tags = mapOf("TYER" to listOf("2019"), "TDAT" to listOf("0523"))
+            )
+        val date = metadata.date()
+        assertEquals("2019", date?.toString())
+        assertNull(date?.month)
+    }
+
+    @Test
+    fun metadata_replayGainAndComposerSort_edgeCases() {
+        val commaGain =
+            createTestMetadata(
+                id3v2Tags = mapOf("TXXX:REPLAYGAIN_TRACK_GAIN" to listOf("-3,5 dB")),
+                mp4Tags = mapOf("soco" to listOf("Composer Sort Lower")),
+            )
+        assertEquals(-3.5f, commaGain.replayGainTrackAdjustment()!!, 0.001f)
+        assertEquals(listOf("Composer Sort Lower"), commaGain.composerSortNames())
+
+        val emptyGain =
+            createTestMetadata(id3v2Tags = mapOf("TXXX:REPLAYGAIN_TRACK_GAIN" to emptyList()))
+        assertNull(emptyGain.replayGainTrackAdjustment())
     }
 
     @Test

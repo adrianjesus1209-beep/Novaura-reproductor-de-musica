@@ -132,6 +132,9 @@ constructor(
     var currentTabTypes = homeGenerator.tabs()
         private set
 
+    private val _tabTypes = MutableStateFlow(currentTabTypes)
+    val tabTypes: StateFlow<List<MusicType>> = _tabTypes
+
     companion object {
         const val NAV_TAB_HOME = 0
         const val NAV_TAB_SONGS = 1
@@ -224,6 +227,22 @@ constructor(
 
     override fun invalidateTabs() {
         currentTabTypes = homeGenerator.tabs()
+        _tabTypes.value = currentTabTypes
+        if (_currentTabType.value !in currentTabTypes && currentTabTypes.isNotEmpty()) {
+            _currentTabType.value = currentTabTypes.first()
+        }
+        val activeNavMusicType =
+            when (_currentNavTab.value) {
+                NAV_TAB_SONGS -> MusicType.SONGS
+                NAV_TAB_ALBUMS -> MusicType.ALBUMS
+                NAV_TAB_ARTISTS -> MusicType.ARTISTS
+                NAV_TAB_GENRES -> MusicType.GENRES
+                NAV_TAB_PLAYLISTS -> MusicType.PLAYLISTS
+                else -> null
+            }
+        if (activeNavMusicType != null && activeNavMusicType !in currentTabTypes) {
+            _currentNavTab.value = NAV_TAB_HOME
+        }
         recreateTabs.put(Unit)
     }
 

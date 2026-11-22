@@ -21,6 +21,7 @@ package org.oxycblt.auxio.list.menu
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.Menu as AndroidMenu
 import android.view.MenuItem
 import androidx.appcompat.view.SupportMenuInflater
 import androidx.appcompat.view.menu.MenuBuilder
@@ -80,7 +81,7 @@ abstract class MenuDialogFragment<M : Menu> :
      * @param menu The [MenuBuilder] that was inflated.
      * @param menuData The currently-shown menu [M].
      */
-    @SuppressLint("RestrictedApi") open fun onPrepareMenu(menu: MenuBuilder, menuData: M) {}
+    open fun onPrepareMenu(menu: AndroidMenu, menuData: M) {}
 
     override fun onCreateBinding(inflater: LayoutInflater) = DialogMenuBinding.inflate(inflater)
 

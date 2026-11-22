@@ -28,6 +28,7 @@ import org.oxycblt.auxio.list.Item
 import org.oxycblt.auxio.list.SelectableListListener
 import org.oxycblt.auxio.list.adapter.SelectionIndicatorAdapter
 import org.oxycblt.auxio.list.adapter.SimpleDiffCallback
+import org.oxycblt.auxio.music.areTheSame
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.util.context
 import org.oxycblt.auxio.util.inflater
@@ -135,7 +136,7 @@ private class ArtistAlbumViewHolder private constructor(private val binding: Ite
         val DIFF_CALLBACK =
             object : SimpleDiffCallback<Album>() {
                 override fun areContentsTheSame(oldItem: Album, newItem: Album) =
-                    oldItem.name == newItem.name && oldItem.dates == newItem.dates
+                    oldItem.name.areTheSame(newItem.name) && oldItem.dates == newItem.dates
             }
     }
 }
@@ -187,7 +188,8 @@ private class ArtistSongViewHolder private constructor(private val binding: Item
         val DIFF_CALLBACK =
             object : SimpleDiffCallback<Song>() {
                 override fun areContentsTheSame(oldItem: Song, newItem: Song) =
-                    oldItem.name == newItem.name && oldItem.album.name == newItem.album.name
+                    oldItem.name == newItem.name &&
+                        oldItem.album.name.areTheSame(newItem.album.name)
             }
     }
 }

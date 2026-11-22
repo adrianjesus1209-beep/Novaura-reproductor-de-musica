@@ -22,7 +22,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.os.Build
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -69,6 +68,7 @@ private constructor(
     private val bitmapProvider: BitmapProvider,
     private val imageSettings: ImageSettings,
     private val mediaSessionInterface: MediaSessionInterface,
+    private val sessionCoordinator: MediaSessionCoordinator,
 ) : PlaybackStateManager.Listener, ImageSettings.Listener {
 
     class Factory
@@ -78,6 +78,7 @@ private constructor(
         private val bitmapProvider: BitmapProvider,
         private val imageSettings: ImageSettings,
         private val mediaSessionInterface: MediaSessionInterface,
+        private val sessionCoordinator: MediaSessionCoordinator,
     ) {
         fun create(context: Context, foregroundListener: ForegroundListener) =
             MediaSessionHolder(
@@ -87,6 +88,7 @@ private constructor(
                 bitmapProvider,
                 imageSettings,
                 mediaSessionInterface,
+                sessionCoordinator,
             )
     }
 
@@ -100,8 +102,14 @@ private constructor(
     fun attach() {
         playbackManager.addListener(this)
         imageSettings.registerListener(this)
+        sessionCoordinator.registerLocal {
+            if (playbackManager.progression.isPlaying) {
+                playbackManager.playing(false)
+            }
+            mediaSession.isActive = false
+        }
         mediaSession.apply {
-            isActive = true
+            isActive = playbackManager.currentSong != null
             setQueueTitle(context.getString(R.string.lbl_queue))
             setCallback(mediaSessionInterface)
         }
@@ -115,6 +123,7 @@ private constructor(
      * the [PlaybackNotification].
      */
     fun release() {
+        sessionCoordinator.unregisterLocal()
         bitmapProvider.release()
         playbackManager.removeListener(this)
         imageSettings.unregisterListener(this)
@@ -163,6 +172,7 @@ private constructor(
         index: Int,
         isShuffled: Boolean,
     ) {
+        sessionCoordinator.activateLocal()
         mediaSession.isActive = true
         updateMediaMetadata(playbackManager.currentSong, parent)
         updateQueue(queue)
@@ -179,6 +189,10 @@ private constructor(
     }
 
     override fun onProgressionChanged(progression: Progression) {
+        if (progression.isPlaying) {
+            sessionCoordinator.activateLocal()
+            mediaSession.isActive = true
+        }
         invalidateSessionState()
         notification.updatePlaying(playbackManager.progression.isPlaying)
         foregroundListener.updateForeground(ForegroundListener.Change.MEDIA_SESSION)
@@ -289,15 +303,12 @@ private constructor(
             song,
             object : BitmapProvider.Target {
                 override fun onConfigRequest(builder: ImageRequest.Builder): ImageRequest.Builder =
-                    // Android 17 optimized cover downsampling which accidentally made it so that
-                    // hardware bitmap covers would actually crash it. Fix this by manually
-                    // downsampling to whatever the system imagines, as disabling hardware bitmaps
-                    // trashes performance. If I remember correctly this is somehow still higher
-                    // quality than the URI loading.
+                    // MediaMetadataCompat and Notification bitmaps must be software-backed because
+                    // SystemUI/Bluetooth Binder IPC and remote views reject HARDWARE Bitmaps.
                     builder
                         .size(MediaSessionCompat.getBitmapDimensionLimit())
                         .memoryCachePolicy(CachePolicy.READ_ONLY)
-                        .allowHardware(Build.VERSION.SDK_INT < 37)
+                        .allowHardware(false)
 
                 override fun onCompleted(bitmap: Bitmap?) {
                     L.d("Bitmap loaded, applying media session and posting notification")

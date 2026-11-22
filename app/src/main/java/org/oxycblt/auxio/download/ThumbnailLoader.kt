@@ -23,9 +23,12 @@ import android.graphics.BitmapFactory
 import android.util.LruCache
 import android.widget.ImageView
 import java.lang.ref.WeakReference
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -34,16 +37,18 @@ import org.oxycblt.auxio.image.coil.BlurTransformation
 
 object ThumbnailLoader {
     private val memoryCache =
-        object : LruCache<String, Bitmap>(16 * 1024) {
+        object : LruCache<String, Bitmap>(8 * 1024) {
             override fun sizeOf(key: String, value: Bitmap): Int =
                 (value.allocationByteCount / 1024).coerceAtLeast(1)
         }
 
     private val blurCache =
-        object : LruCache<String, Bitmap>(8 * 1024) {
+        object : LruCache<String, Bitmap>(2 * 1024) {
             override fun sizeOf(key: String, value: Bitmap): Int =
                 (value.allocationByteCount / 1024).coerceAtLeast(1)
         }
+
+    private val inFlightRequests = ConcurrentHashMap<String, Deferred<Bitmap?>>()
 
     private val client
         get() = NewPipeDownloader.getInstance().client
@@ -102,13 +107,15 @@ object ThumbnailLoader {
         val blurViewRef = blurView?.let { WeakReference(it) }
 
         scope.launch {
-            val bitmap = fetchBitmapSync(url, maxSizePx = 512) ?: return@launch
+            val bitmap = fetchBitmapDeduplicated(url, maxSizePx = 512) ?: return@launch
             if (bitmap.isRecycled) return@launch
             val blurred =
                 if (blurViewRef != null) {
-                    BlurTransformation.blur(bitmap, radius = 22, sampling = 0.2f).also {
-                        if (!it.isRecycled) blurCache.put(url, it)
-                    }
+                    val existingBlur = blurCache.get(url)?.takeIf { !it.isRecycled }
+                    existingBlur
+                        ?: BlurTransformation.blur(bitmap, radius = 22, sampling = 0.2f).also {
+                            if (!it.isRecycled) blurCache.put(url, it)
+                        }
                 } else {
                     null
                 }
@@ -128,6 +135,27 @@ object ThumbnailLoader {
                 }
             }
         }
+    }
+
+    private suspend fun fetchBitmapDeduplicated(url: String, maxSizePx: Int): Bitmap? {
+        memoryCache
+            .get(url)
+            ?.takeIf { !it.isRecycled }
+            ?.let {
+                return it
+            }
+        val key = "$maxSizePx:$url"
+        val deferred =
+            inFlightRequests.computeIfAbsent(key) {
+                scope.async {
+                    try {
+                        fetchBitmapSync(url, maxSizePx)
+                    } finally {
+                        inFlightRequests.remove(key)
+                    }
+                }
+            }
+        return deferred.await()
     }
 
     fun fetchBitmapSync(url: String?, maxSizePx: Int = 512): Bitmap? {

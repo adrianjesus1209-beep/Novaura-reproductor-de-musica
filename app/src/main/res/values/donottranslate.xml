@@ -14,7 +14,18 @@
     <string name="cdc_vorbis">Vorbis</string>
     <string name="cdc_opus">Opus</string>
     <string name="cdc_wav">Microsoft WAVE</string>
+    <string name="cdc_aiff">AIFF</string>
+    <string name="cdc_speex">Speex</string>
+    <string name="cdc_dsf">DSF</string>
+    <string name="cdc_dsdiff">DSDIFF</string>
+    <string name="cdc_ac3">AC-3</string>
+    <string name="cdc_eac3">E-AC-3</string>
+    <string name="cdc_dts">DTS</string>
+    <string name="cdc_webm">WebM</string>
+    <string name="cdc_matroska">Matroska</string>
     <string name="cnt_ogg">Ogg %s</string>
+    <string name="cnt_webm">WebM (%s)</string>
+    <string name="cnt_matroska">Matroska (%s)</string>
 
     <!-- Pkg Namespace | Dynamic package names -->
     <string name="pkg_authority_cover">com.novaura.music.image.CoverProvider</string>

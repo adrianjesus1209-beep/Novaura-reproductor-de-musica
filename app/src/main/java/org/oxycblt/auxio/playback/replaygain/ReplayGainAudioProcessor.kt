@@ -146,20 +146,22 @@ constructor(
             }
 
         val amplifiedAdjustment =
-            if (resolvedAdjustment != null) {
-                // Successfully resolved an adjustment, apply the corresponding pre-amp
-                L.d("Applying with pre-amp")
-                resolvedAdjustment + preAmp.with
-            } else {
-                // No adjustment found, use the corresponding user-defined pre-amp
-                L.d("Applying without pre-amp")
-                preAmp.without
-            }
+            (if (resolvedAdjustment != null && resolvedAdjustment.isFinite()) {
+                    // Successfully resolved an adjustment, apply the corresponding pre-amp
+                    L.d("Applying with pre-amp")
+                    resolvedAdjustment + preAmp.with
+                } else {
+                    // No adjustment found, use the corresponding user-defined pre-amp
+                    L.d("Applying without pre-amp")
+                    preAmp.without
+                })
+                .takeIf { it.isFinite() }
+                ?.coerceIn(MIN_GAIN_DB, MAX_GAIN_DB) ?: 0f
 
         L.d("Applying ReplayGain adjustment ${amplifiedAdjustment}db")
 
-        // Final adjustment along the volume curve.
-        volume = 10f.pow(amplifiedAdjustment / 20f)
+        // Final adjustment along the volume curve, bounded to prevent extreme amplification.
+        volume = 10f.pow(amplifiedAdjustment / 20f).coerceIn(0f, MAX_VOLUME_MULTIPLIER)
     }
 
     // --- AUDIO PROCESSOR IMPLEMENTATION ---
@@ -228,7 +230,13 @@ constructor(
                 C.ENCODING_PCM_FLOAT -> {
                     for (i in pos until limit step 4) {
                         val sample = Float.fromBits(inputBuffer.getLeInt32(i))
-                        val scaled = (sample * currentVolume).coerceIn(-1f, 1f)
+                        val scaled =
+                            if (sample.isFinite()) {
+                                val gained = sample * currentVolume
+                                if (gained.isFinite()) gained.coerceIn(-1f, 1f) else 0f
+                            } else {
+                                0f
+                            }
                         buffer.putLeInt32(scaled.toRawBits())
                     }
                 }
@@ -279,5 +287,8 @@ constructor(
     private companion object {
         const val MIN_INT24 = -(1 shl 23)
         const val MAX_INT24 = (1 shl 23) - 1
+        const val MIN_GAIN_DB = -48f
+        const val MAX_GAIN_DB = 24f
+        const val MAX_VOLUME_MULTIPLIER = 16f
     }
 }

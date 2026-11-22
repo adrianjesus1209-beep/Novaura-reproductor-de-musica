@@ -20,6 +20,7 @@ package org.oxycblt.musikr.covers.stored
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.core.graphics.scale
 import java.io.OutputStream
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -100,7 +101,7 @@ class Compress(
                 val scale = targetSize.toFloat() / maxDim.toFloat()
                 val scaledW = (decoded.width * scale).roundToInt().coerceAtLeast(1)
                 val scaledH = (decoded.height * scale).roundToInt().coerceAtLeast(1)
-                toCompress = Bitmap.createScaledBitmap(decoded, scaledW, scaledH, true)
+                toCompress = decoded.scale(scaledW, scaledH)
             }
             toCompress.compress(format, quality, output)
         } finally {

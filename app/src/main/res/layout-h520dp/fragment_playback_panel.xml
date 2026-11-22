@@ -113,6 +113,7 @@
             android:layout_height="36dp"
             android:background="@drawable/bg_ytm_pill"
             android:clickable="true"
+            android:contentDescription="@string/lbl_save"
             android:focusable="true"
             android:gravity="center_vertical"
             android:orientation="horizontal"

@@ -69,6 +69,8 @@ private constructor(
     }
 
     private val widgetProvider = WidgetProvider()
+    private var lastIsPlaying: Boolean? = null
+    private var lastCachedSongUid: org.oxycblt.musikr.Music.UID? = null
 
     fun attach() {
         playbackManager.addListener(this)
@@ -81,6 +83,8 @@ private constructor(
         val song = playbackManager.currentSong
         if (song == null) {
             L.d("No song, resetting widget")
+            lastIsPlaying = null
+            lastCachedSongUid = null
             widgetProvider.update(context, uiSettings, null)
             return
         }
@@ -89,6 +93,8 @@ private constructor(
         val isPlaying = playbackManager.progression.isPlaying
         val repeatMode = playbackManager.repeatMode
         val isShuffled = playbackManager.isShuffled
+        lastIsPlaying = isPlaying
+        val songChangedForCache = lastCachedSongUid != song.uid
 
         L.d("Updating widget with new playback state")
         bitmapProvider.load(
@@ -128,6 +134,7 @@ private constructor(
                 override fun onCompleted(bitmap: Bitmap?) {
                     val state = PlaybackState(song, bitmap, isPlaying, repeatMode, isShuffled)
                     L.d("Bitmap loaded, uploading state $state")
+                    lastCachedSongUid = song.uid
                     WidgetCache.save(
                         context = context,
                         songName = song.name.resolve(context),
@@ -136,6 +143,7 @@ private constructor(
                         cover = bitmap,
                         repeatMode = repeatMode,
                         isShuffled = isShuffled,
+                        writeCoverToDisk = songChangedForCache,
                     )
                     widgetProvider.update(context, uiSettings, state)
                 }
@@ -172,7 +180,11 @@ private constructor(
         isShuffled: Boolean,
     ) = update()
 
-    override fun onProgressionChanged(progression: Progression) = update()
+    override fun onProgressionChanged(progression: Progression) {
+        if (lastIsPlaying != progression.isPlaying) {
+            update()
+        }
+    }
 
     override fun onRepeatModeChanged(repeatMode: RepeatMode) = update()
 

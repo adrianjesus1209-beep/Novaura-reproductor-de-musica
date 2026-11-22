@@ -52,6 +52,7 @@ internal interface ExtractStep {
                 TagParser.new(),
                 config.storage.cache,
                 config.storage.covers,
+                canCleanupCache = { config.fs.canCleanupCache },
             )
     }
 }
@@ -61,6 +62,7 @@ private class ExtractStepImpl(
     private val tagParser: TagParser,
     private val cache: MutableCache,
     private val covers: MutableCovers<out Cover>,
+    private val canCleanupCache: () -> Boolean,
 ) : ExtractStep {
     override suspend fun extract(
         scope: CoroutineScope,
@@ -171,7 +173,9 @@ private class ExtractStepImpl(
                 if (pending.isNotEmpty()) {
                     cache.writeAll(pending)
                 }
-                cache.cleanup(exclude)
+                if (canCleanupCache()) {
+                    cache.cleanup(exclude)
+                }
             }
 
         return scope.merge(extractTask, parsedTask, finalizedTask)

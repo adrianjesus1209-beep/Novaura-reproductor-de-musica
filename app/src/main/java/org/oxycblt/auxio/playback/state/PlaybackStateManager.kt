@@ -784,10 +784,15 @@ class PlaybackStateManagerImpl @Inject constructor() : PlaybackStateManager {
 
         L.d("Corrected index: ${savedState.index} -> $index")
 
+        val isInvalidPermutation =
+            shuffledMapping.isNotEmpty() &&
+                (shuffledMapping.size != heap.size ||
+                    shuffledMapping.distinct().size != shuffledMapping.size)
         if (
             index < 0 ||
                 savedState.shuffledMapping.any { it !in savedState.heap.indices } ||
-                !shuffledMapping.all { it in heap.indices }
+                !shuffledMapping.all { it in heap.indices } ||
+                isInvalidPermutation
         ) {
             L.w("Corrupt or empty persisted playback state, resetting queue")
             stateHolder.reset(StateAck.NewPlayback)

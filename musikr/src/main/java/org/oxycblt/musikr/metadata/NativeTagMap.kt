@@ -35,7 +35,8 @@ internal class NativeTagMap {
         if (correctedValues.isEmpty()) {
             return
         }
-        map[id] = correctedValues
+        val existing = map[id]
+        map[id] = if (existing == null) correctedValues else existing + correctedValues
     }
 
     fun addCustom(description: String, value: String) {
@@ -50,7 +51,9 @@ internal class NativeTagMap {
         if (correctedValues.isEmpty()) {
             return
         }
-        map[description.uppercase()] = correctedValues
+        val key = description.uppercase()
+        val existing = map[key]
+        map[key] = if (existing == null) correctedValues else existing + correctedValues
     }
 
     fun addCombined(id: String, description: String, value: String) {
@@ -65,7 +68,9 @@ internal class NativeTagMap {
         if (correctedValues.isEmpty()) {
             return
         }
-        map["$id:${description.uppercase()}"] = correctedValues
+        val key = "$id:${description.uppercase()}"
+        val existing = map[key]
+        map[key] = if (existing == null) correctedValues else existing + correctedValues
     }
 
     fun getObject(): Map<String, List<String>> {

@@ -63,6 +63,9 @@ private constructor(
 ) : FS {
     private val pathInterpreterFactory = MediaStorePathInterpreter.Factory.from(volumeManager)
 
+    override val canCleanupCache: Boolean
+        get() = hasStoragePermission(context)
+
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun explore(scope: CoroutineScope, files: Channel<File>): Deferred<Result<Unit>> {
         return scope.tryAsyncWith(files, Dispatchers.IO) { channel ->
@@ -110,10 +113,15 @@ private constructor(
                 FilterMode.INCLUDE -> {
                     val pathSelector =
                         pathInterpreterFactory.createSelector(query.filtered.map { it.path })
-                    if (pathSelector != null) {
-                        selector += " AND (${pathSelector.template})"
-                        args.addAll(pathSelector.args)
+                    if (pathSelector == null) {
+                        Log.i(
+                            TAG,
+                            "FilterMode.INCLUDE has no valid paths; skipping MediaStore query",
+                        )
+                        return@tryAsyncWith
                     }
+                    selector += " AND (${pathSelector.template})"
+                    args.addAll(pathSelector.args)
                 }
                 FilterMode.EXCLUDE -> {
                     val pathSelector =

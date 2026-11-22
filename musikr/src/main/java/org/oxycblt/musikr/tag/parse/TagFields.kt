@@ -18,7 +18,6 @@
  
 package org.oxycblt.musikr.tag.parse
 
-import androidx.core.text.isDigitsOnly
 import org.oxycblt.musikr.metadata.Metadata
 import org.oxycblt.musikr.tag.Date
 import org.oxycblt.musikr.tag.format.parseSlashPositionField
@@ -180,6 +179,7 @@ internal fun Metadata.composerSortNames() =
         ?: mp4["----:COM.APPLE.ITUNES:COMPOSERS_SORT"]
         ?: mp4["----:COM.APPLE.ITUNES:COMPOSERS SORT"]
         ?: mp4["----:COM.APPLE.ITUNES:COMPOSERSORT"]
+        ?: mp4["soco"]
         ?: mp4["soCo"]
         ?: mp4["----:COM.APPLE.ITUNES:COMPOSER SORT"]
         ?: id3v2["TXXX:COMPOSERSSORT"]
@@ -267,7 +267,7 @@ internal fun Metadata.replayGainAlbumAdjustment() =
         ?: id3v2["TXXX:REPLAYGAIN_ALBUM_GAIN"]?.parseReplayGainAdjustment())
 
 private fun List<String>.parseR128Adjustment() =
-    first().replace(REPLAYGAIN_ADJUSTMENT_FILTER_REGEX, "").toFloatOrNull()?.run {
+    firstOrNull()?.extractReplayGainFloat()?.run {
         // Convert to fixed-point and adjust to LUFS 18 to match the ReplayGain scale
         this / 256f + 5
     }
@@ -278,36 +278,34 @@ private fun List<String>.parseR128Adjustment() =
  * @return A parsed adjustment float, or null if the adjustment had invalid formatting.
  */
 private fun List<String>.parseReplayGainAdjustment() =
-    first().replace(REPLAYGAIN_ADJUSTMENT_FILTER_REGEX, "").toFloatOrNull()?.nonZeroOrNull()
+    firstOrNull()?.extractReplayGainFloat()?.nonZeroOrNull()
 
-/**
- * Matches non-float information from ReplayGain adjustments. Derived from vanilla music:
- * https://github.com/vanilla-music/vanilla
- */
-private val REPLAYGAIN_ADJUSTMENT_FILTER_REGEX by lazy { Regex("[^\\d.-]") }
+private fun String.extractReplayGainFloat(): Float? =
+    REPLAYGAIN_ADJUSTMENT_FLOAT_REGEX.find(this)?.value?.replace(',', '.')?.toFloatOrNull()
+
+private val REPLAYGAIN_ADJUSTMENT_FLOAT_REGEX by lazy { Regex("""[+-]?\d+(?:[.,]\d+)?""") }
 
 private fun Metadata.parseId3v23Date(): Date? {
     // Assume that TDAT/TIME can refer to TYER or TORY depending on if TORY
     // is present.
     val year =
-        id3v2["TORY"]?.run { first().toIntOrNull() }
-            ?: id3v2["TYER"]?.run { first().toIntOrNull() }
+        id3v2["TORY"]?.run { firstOrNull()?.toIntOrNull() }
+            ?: id3v2["TYER"]?.run { firstOrNull()?.toIntOrNull() }
             ?: return null
 
-    val tdat = id3v2["TDAT"]
-    return if (tdat != null && tdat.first().length == 4 && tdat.first().isDigitsOnly()) {
-        // TDAT frames consist of a 4-digit string where the first two digits are
-        // the month and the last two digits are the day.
-        val mm = tdat.first().substring(0..1).toInt()
-        val dd = tdat.first().substring(2..3).toInt()
+    val tdat = id3v2["TDAT"]?.firstOrNull()
+    return if (tdat != null && tdat.length == 4 && tdat.all { it.isDigit() }) {
+        // ID3v2.3 TDAT frames consist of DDMM (day first, month second).
+        val dd = tdat.substring(0..1).toInt()
+        val mm = tdat.substring(2..3).toInt()
 
-        val time = id3v2["TIME"]
-        if (time != null && time.first().length == 4 && time.first().isDigitsOnly()) {
+        val time = id3v2["TIME"]?.firstOrNull()
+        if (time != null && time.length == 4 && time.all { it.isDigit() }) {
             // TIME frames consist of a 4-digit string where the first two digits are
             // the hour and the last two digits are the minutes. No second value is
             // possible.
-            val hh = time.first().substring(0..1).toInt()
-            val mi = time.first().substring(2..3).toInt()
+            val hh = time.substring(0..1).toInt()
+            val mi = time.substring(2..3).toInt()
             // Able to return a full date.
             Date.from(year, mm, dd, hh, mi)
         } else {

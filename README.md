@@ -1,40 +1,42 @@
-<p align="center"><img src="logo-sin-fondo.png" width="150"></p>
+<p align="center"><img src="logo-sin-fondo.png" width="150" alt="Novaura"></p>
 <h1 align="center"><b>Novaura</b></h1>
 <h4 align="center">Un reproductor de música moderno, rápido y ligero para Android.</h4>
 
 <p align="center">
-  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.5/Novaura-v1.4.1.5.apk">
-    <b>📥 Descargar APK (Novaura v1.4.1.5)</b>
+  <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/latest">
+    <b>📥 Descargar Novaura v1.5.0 (GitHub Releases)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.4.1.5)
+## 🚀 Descargas (Versión 1.5.0)
 
-La versión 1.4.1.5 introduce **caché persistente en el Widget** y mejoras de reproducción en segundo plano:
-- **Caché persistente en el Widget:** La última canción en reproducción (título de la canción, artista y carátula del álbum) ahora queda guardada en la caché del widget.
-- **Sin pérdida del estado al cerrar:** Al cerrar la aplicación, pausar la música, reiniciar el teléfono o limpiarla de aplicaciones recientes, el widget ya **no** se reinicia a una tarjeta vacía ("Novaura / Toca para reproducir"); conserva siempre la carátula y los datos de la canción en pausa con el botón de Play listo para reanudar.
-- **Reanudación instantánea:** Tocar Play en el widget reanuda la canción inmediatamente desde donde quedó.
-- **Soporte mejorado de controles:** Los botones Anterior, Siguiente y Aleatorio ahora responden e inician la reproducción incluso con el servicio en reposo.
+Las versiones compiladas se distribuyen desde [GitHub Releases](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/tag/v1.5.0) con paquetes optimizados por arquitectura y un APK universal:
 
-| Archivo | Tamaño | Enlace de Descarga |
+| Variante | Recomendado para | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.4.1.5 APK** | ~9.35 MB | [Descargar APK](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.4.1.5/Novaura-v1.4.1.5.apk) |
+| **Novaura v1.5.0 (`arm64-v8a`)** | La mayoría de teléfonos Android modernos (APK más ligero) | [Descargar `arm64-v8a`](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.5.0/Novaura-v1.5.0-arm64-v8a.apk) |
+| **Novaura v1.5.0 (`universal`)** | Compatibilidad con cualquier dispositivo Android (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`) | [Descargar `universal`](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.5.0/Novaura-v1.5.0-universal.apk) |
+
+> Si no estás seguro de cuál instalar, prueba primero la versión **`arm64-v8a`**; si tu dispositivo no es compatible, utiliza la versión **`universal`**. También puedes consultar todas las descargas disponibles en la [página de Releases](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases).
 
 ---
 
-
 ## Acerca de Novaura
 
-Novaura es un reproductor de música local para Android diseñado para ser rápido, fiable y elegante. Basado en las bibliotecas de reproducción de medios más modernas de Android, Novaura ofrece una experiencia auditiva fluida y de alta calidad.
+Novaura es un reproductor de música para Android diseñado y desarrollado por **Adrián Jesús**, enfocado en ofrecer velocidad, estabilidad y una experiencia auditiva cuidada con bajo consumo de recursos.
 
 ## Características
 
-- Interfaz moderna e intuitiva.
-- Soporte para formatos de audio avanzados.
-- Gestión eficiente de bibliotecas locales y listas de reproducción.
-- Reproducción fluida y consumo optimizado de recursos.
+- **Interfaz moderna e intuitiva:** Diseño limpio con navegación fluida por biblioteca, artistas, álbumes, géneros, carpetas y listas de reproducción.
+- **Reproducción de alta fidelidad:** Soporte para formatos de audio avanzados, ecualizador integrado, reproducción continua y controles multimedia completos.
+- **Widget persistente en pantalla de inicio:** Conserva carátula, metadatos y controles listos para reanudar incluso tras reiniciar o cerrar la aplicación.
+- **Optimización y rendimiento:** Indexación rápida de la biblioteca local, compilación con splits por ABI y consumo eficiente de memoria y batería.
+
+## Autor
+
+Desarrollado por **Adrián Jesús**.
 
 ## Licencia
 

@@ -58,12 +58,20 @@ private class TagInterpreterImpl(private val interpretation: Interpretation) : T
                 interpretation,
             )
 
-        val rawSongNameOrFileWithoutExt =
-            song.tags.name ?: requireNotNull(song.file.path.name).substringBeforeLast(".")
+        val fallbackFilename =
+            song.file.path.name?.substringBeforeLast(".")
+                ?: song.file.uri.lastPathSegment?.substringBeforeLast(".")
+                ?: ""
+        val rawSongNameOrFileWithoutExt = song.tags.name ?: fallbackFilename
         val (effectiveSongName, fallbackArtists) =
-            if (individualPreArtists.isEmpty() && albumPreArtists.isEmpty()) {
+            if (
+                song.tags.name == null &&
+                    individualPreArtists.isEmpty() &&
+                    albumPreArtists.isEmpty() &&
+                    fallbackFilename.isNotEmpty()
+            ) {
                 inferArtistAndTitle(
-                    rawSongNameOrFileWithoutExt,
+                    fallbackFilename,
                     song.file.path.directory.name,
                     interpretation,
                 )

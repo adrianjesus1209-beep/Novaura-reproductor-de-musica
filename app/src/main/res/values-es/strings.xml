@@ -90,7 +90,7 @@
     <string name="desc_tab_handle">Mover pestaña</string>
     <string name="desc_clear_search">Borrar búsqueda</string>
     <string name="desc_music_location_delete">Quitar carpeta</string>
-    <string name="desc_auxio_icon">Icono de Auxio</string>
+    <string name="desc_auxio_icon">Icono de Novaura</string>
     <string name="desc_no_cover">Carátula de álbum</string>
     <string name="desc_album_cover">Carátula de álbum para %s</string>
     <string name="desc_artist_image">Imagen de artista para %s</string>
@@ -320,10 +320,6 @@
     <string name="lbl_import_playlist">Importar lista de reproducción</string>
     <string name="lbl_replaygain_track">Ajuste de pista de ganancia de reproducción</string>
     <string name="lbl_donate">Apoyar en GitHub</string>
-    <string name="lbl_credits">Créditos y Reconocimientos</string>
-    <string name="lbl_credits_base">Basado en el software de código abierto Auxio creado por Alexander Capehart</string>
-    <string name="lbl_supporters">Colaboradores</string>
-    <string name="lng_supporters_promo">¡Dona al proyecto para que tu nombre aparezca aquí!</string>
     <string name="lbl_replaygain_album">Ajuste del álbum de ganancia de reproducción</string>
     <string name="lbl_author">Autor</string>
     <string name="set_remember_pause">Recordar la pausa</string>
@@ -439,6 +435,8 @@
     <string name="lbl_download_music">Descargar música</string>
     <string name="lbl_search_online_hint">Buscar canciones o artistas...</string>
     <string name="lbl_no_download_results">No se encontraron resultados</string>
+    <string name="lbl_download_search_error">Error de conexión al buscar</string>
+    <string name="lbl_download_retry_hint">Revisa tu conexión y pulsa Reintentar</string>
     <string name="lbl_download_empty_prompt">Descarga cualquier música gratis y sin anuncios</string>
     <string name="lbl_download_searching">Buscando en la red...</string>
     <string name="lbl_download_suggestions">Sugerencias populares:</string>

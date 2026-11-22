@@ -61,7 +61,11 @@ private constructor(
                             .also { mapping = it }
                 }
         val dbSong = currentMapping[file.uri] ?: return CacheResult.Miss(file)
-        if (dbSong.modifiedMs != file.modifiedMs) {
+        if (
+            dbSong.modifiedMs != file.modifiedMs ||
+                dbSong.size != file.size ||
+                dbSong.unixPath != file.path.components.unixString
+        ) {
             return CacheResult.Stale(file, dbSong.addedMs)
         }
         val song = dbSong.toCachedFile(file)
@@ -114,25 +118,38 @@ private constructor(private val inner: DBCache, private val writeDao: CacheWrite
     override suspend fun readAll() = inner.readAll()
 
     override suspend fun write(cachedFile: CachedFile) {
-        writeDao.updateSong(cachedFile.toDbData())
-        inner.invalidate()
+        try {
+            writeDao.updateSong(cachedFile.toDbData())
+        } finally {
+            inner.invalidate()
+        }
     }
 
     override suspend fun writeAll(cachedFiles: List<CachedFile>) {
-        for (chunk in cachedFiles.chunked(BATCH_SIZE)) {
-            writeDao.updateSongs(chunk.map { it.toDbData() })
+        if (cachedFiles.isEmpty()) return
+        try {
+            for (chunk in cachedFiles.chunked(BATCH_SIZE)) {
+                writeDao.updateSongs(chunk.map { it.toDbData() })
+            }
+        } finally {
+            inner.invalidate()
         }
-        inner.invalidate()
     }
 
     override suspend fun cleanup(excluding: List<CachedFile>) {
-        writeDao.deleteExcludingUris(excluding.mapTo(mutableSetOf()) { it.file.uri.toString() })
-        inner.invalidate()
+        try {
+            writeDao.deleteExcludingUris(excluding.mapTo(mutableSetOf()) { it.file.uri.toString() })
+        } finally {
+            inner.invalidate()
+        }
     }
 
     override suspend fun delete(uris: Collection<Uri>) {
-        writeDao.deleteUris(uris)
-        inner.invalidate()
+        try {
+            writeDao.deleteUris(uris)
+        } finally {
+            inner.invalidate()
+        }
     }
 
     companion object {
@@ -210,8 +227,9 @@ private fun CachedFileData.toCachedFile(
                         null -> null
                         else ->
                             volumes.find {
-                                it.mediaStoreName == volumeName ||
-                                    (it is Volume.External && it.id == volumeName)
+                                it.mediaStoreName.equals(volumeName, ignoreCase = true) ||
+                                    (it is Volume.External &&
+                                        it.id.equals(volumeName, ignoreCase = true))
                             }
                     } ?: Volume.ThirdParty(uri)
                 val resolvedComponents =

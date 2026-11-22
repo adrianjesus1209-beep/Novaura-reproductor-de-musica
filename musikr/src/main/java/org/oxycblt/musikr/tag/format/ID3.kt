@@ -107,8 +107,8 @@ private fun String.parseId3v2Genre(): List<String>? {
         }
     }
 
-    // If this parsing task didn't change anything, move on.
-    if (genres.size == 1 && genres.first() == this) {
+    // If this parsing task yielded nothing or didn't change anything, move on.
+    if (genres.isEmpty() || (genres.size == 1 && genres.first() == this)) {
         return null
     }
 

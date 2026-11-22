@@ -46,6 +46,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.oxycblt.auxio.MainActivity
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.music.MusicRepository
@@ -59,12 +61,14 @@ class DownloadService : Service() {
     @Inject lateinit var musicRepository: MusicRepository
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val downloadSemaphore = Semaphore(MAX_CONCURRENT_DOWNLOADS)
     private val activeSongs = ConcurrentHashMap<String, OnlineSong>()
     private val activeProgress = ConcurrentHashMap<String, Int>()
     private val activeJobs = ConcurrentHashMap<String, Job>()
 
     private lateinit var notificationManager: NotificationManager
     private var lastNotificationUpdateTime = 0L
+    @Volatile private var lastStartId: Int = 0
 
     override fun onCreate() {
         super.onCreate()
@@ -74,6 +78,7 @@ class DownloadService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStartId = startId
         if (!startForegroundSafely(buildPrimaryForegroundNotification())) {
             stopSelf(startId)
             return START_NOT_STICKY
@@ -181,7 +186,11 @@ class DownloadService : Service() {
 
     private fun exitForegroundAndStop() {
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        if (lastStartId > 0) {
+            stopSelf(lastStartId)
+        } else {
+            stopSelf()
+        }
     }
 
     private fun notifySafely(id: Int, notification: Notification) {
@@ -266,38 +275,58 @@ class DownloadService : Service() {
 
         val job =
             serviceScope.launch(start = CoroutineStart.LAZY) {
-                L.d("Starting background download for: ${song.title}")
+                L.d("Queued background download for: ${song.title}")
                 var completedNormally = false
                 try {
-                    val resultUri =
-                        downloadRepository.downloadSong(song) { percent ->
-                            activeProgress[song.webUrl] = percent
-                            downloadManager.updateProgress(song.webUrl, percent)
-                            postNotificationUpdateThrottled()
+                    downloadSemaphore.withPermit {
+                        if (!isActive || !activeJobs.containsKey(song.webUrl)) {
+                            return@launch
+                        }
+                        val managerStatus =
+                            downloadManager.downloadItems.value
+                                .find { it.song.webUrl == song.webUrl }
+                                ?.status
+                        if (managerStatus == DownloadStatus.PAUSED) {
+                            activeSongs.remove(song.webUrl)
+                            activeProgress.remove(song.webUrl)
+                            activeJobs.remove(song.webUrl)
+                            notificationManager.cancel(getSongNotificationId(song.webUrl))
+                            checkAllDownloadsFinished()
+                            return@launch
+                        }
+                        downloadManager.setDownloadingFromService(song.webUrl)
+                        postNotificationUpdate(force = true)
+                        L.d("Starting background download for: ${song.title}")
+                        val resultUri =
+                            downloadRepository.downloadSong(song) { percent ->
+                                activeProgress[song.webUrl] = percent
+                                downloadManager.updateProgress(song.webUrl, percent)
+                                postNotificationUpdateThrottled()
+                            }
+
+                        if (!isActive || !activeJobs.containsKey(song.webUrl)) {
+                            return@launch
                         }
 
-                    if (!isActive || !activeJobs.containsKey(song.webUrl)) {
-                        return@launch
+                        val success = resultUri != null
+                        activeSongs.remove(song.webUrl)
+                        activeProgress.remove(song.webUrl)
+                        activeJobs.remove(song.webUrl)
+                        notificationManager.cancel(getSongNotificationId(song.webUrl))
+
+                        if (success) {
+                            showIndividualCompletedNotification(song)
+                            musicRepository.requestIndex(
+                                withCache = true,
+                                forceStorageScan = true,
+                                silent = true,
+                            )
+                        }
+
+                        completedNormally = true
+                        downloadManager.onDownloadFinished(song.webUrl, success, song.title)
+                        checkAllDownloadsFinished()
                     }
-
-                    val success = resultUri != null
-                    activeSongs.remove(song.webUrl)
-                    activeProgress.remove(song.webUrl)
-                    activeJobs.remove(song.webUrl)
-                    notificationManager.cancel(getSongNotificationId(song.webUrl))
-
-                    if (success) {
-                        showIndividualCompletedNotification(song)
-                        musicRepository.requestIndex(
-                            withCache = true,
-                            forceStorageScan = true,
-                            silent = true,
-                        )
-                    }
-
-                    completedNormally = true
-                    downloadManager.onDownloadFinished(song.webUrl, success, song.title)
-                    checkAllDownloadsFinished()
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -632,6 +661,7 @@ class DownloadService : Service() {
         var isRunning = false
             private set
 
+        const val MAX_CONCURRENT_DOWNLOADS = 2
         const val PAUSED_SUMMARY_NOTIFICATION_ID = 2027
         const val ACTION_ENQUEUE = "org.oxycblt.auxio.download.action.ENQUEUE"
         const val ACTION_PAUSE = "org.oxycblt.auxio.download.action.PAUSE"

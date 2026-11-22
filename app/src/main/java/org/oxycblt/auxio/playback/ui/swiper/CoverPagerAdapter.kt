@@ -27,6 +27,8 @@ import org.oxycblt.auxio.databinding.ItemCoverBinding
 import org.oxycblt.auxio.list.adapter.FlexibleListAdapter
 import org.oxycblt.auxio.list.adapter.SimpleDiffCallback
 import org.oxycblt.auxio.music.FavoritesManager
+import org.oxycblt.auxio.music.areNamesTheSame
+import org.oxycblt.auxio.music.areTheSame
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.music.resolveNames
 import org.oxycblt.auxio.playback.ui.stepper.StepperOverlay
@@ -173,7 +175,12 @@ private constructor(
         /** A comparator that can be used with DiffUtil. */
         val DIFF_CALLBACK =
             object : SimpleDiffCallback<Song>() {
-                override fun areContentsTheSame(oldItem: Song, newItem: Song) = oldItem == newItem
+                override fun areContentsTheSame(oldItem: Song, newItem: Song) =
+                    oldItem.name == newItem.name &&
+                        oldItem.artists.areNamesTheSame(newItem.artists) &&
+                        oldItem.album.name.areTheSame(newItem.album.name) &&
+                        oldItem.modifiedMs == newItem.modifiedMs &&
+                        oldItem.size == newItem.size
             }
 
         private val COLOR_FAVORITE_RED = Color.parseColor("#FF3B30")

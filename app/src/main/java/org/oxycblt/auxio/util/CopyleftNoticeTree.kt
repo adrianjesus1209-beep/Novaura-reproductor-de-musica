@@ -48,10 +48,7 @@ class CopyleftNoticeTree : Timber.DebugTree() {
     }
 
     companion object {
-        const val NOTICE_TAG = "Copyleft"
-        const val NOTICE =
-            "Hey! Auxio is an open-source project licensed under the GPLv3 license!" +
-                "You can fork this project and even add ads, but it still needs to be kept" +
-                " open-source with the same license!"
+        const val NOTICE_TAG = "Novaura"
+        const val NOTICE = "Novaura music player initialized."
     }
 }

@@ -75,37 +75,60 @@ class BetterShuffleOrder(private val shuffled: IntArray) : ShuffleOrder {
         if (shuffled.isEmpty()) {
             return BetterShuffleOrder(insertionCount, -1)
         }
-
-        // TODO: Fix this scuffed hacky logic
-        // TODO: Play next ordering needs to persist in unshuffle
-
-        val newShuffled = IntArray(shuffled.size + insertionCount)
-        val pivot: Int =
-            if (insertionIndex < shuffled.size) {
-                indexInShuffled[insertionIndex]
-            } else {
-                indexInShuffled.size
-            }
-        for (i in shuffled.indices) {
-            var currentIndex = shuffled[i]
-            if (currentIndex >= insertionIndex) {
-                currentIndex += insertionCount
-            }
-
-            if (i <= pivot) {
-                newShuffled[i] = currentIndex
-            } else if (i > pivot) {
-                newShuffled[i + insertionCount] = currentIndex
-            }
+        if (insertionCount <= 0) {
+            return this
         }
-        if (insertionIndex < shuffled.size) {
-            for (i in 0 until insertionCount) {
-                newShuffled[pivot + i + 1] = insertionIndex + i
+        val insertAt =
+            when {
+                insertionIndex <= 0 -> 0
+                insertionIndex < shuffled.size -> indexInShuffled[insertionIndex - 1] + 1
+                else -> shuffled.size
             }
-        } else {
-            for (i in 0 until insertionCount) {
-                newShuffled[pivot + i] = insertionIndex + i
+        return insertAtShuffledPosition(insertAt, insertionIndex, insertionCount)
+    }
+
+    fun cloneAndInsertAfter(
+        anchorHeapIndex: Int,
+        insertionIndex: Int,
+        insertionCount: Int,
+    ): BetterShuffleOrder {
+        if (shuffled.isEmpty()) {
+            return BetterShuffleOrder(insertionCount, -1)
+        }
+        if (insertionCount <= 0) {
+            return this
+        }
+        val insertAt =
+            if (anchorHeapIndex in indexInShuffled.indices) {
+                indexInShuffled[anchorHeapIndex] + 1
+            } else {
+                shuffled.size
             }
+        return insertAtShuffledPosition(insertAt, insertionIndex, insertionCount)
+    }
+
+    private fun insertAtShuffledPosition(
+        insertAt: Int,
+        insertionIndex: Int,
+        insertionCount: Int,
+    ): BetterShuffleOrder {
+        val shifted = IntArray(shuffled.size)
+        for (i in shuffled.indices) {
+            val v = shuffled[i]
+            shifted[i] = if (v >= insertionIndex) v + insertionCount else v
+        }
+
+        val clampedInsertAt = insertAt.coerceIn(0, shifted.size)
+        val newShuffled = IntArray(shuffled.size + insertionCount)
+        var dst = 0
+        for (i in 0 until clampedInsertAt) {
+            newShuffled[dst++] = shifted[i]
+        }
+        for (i in 0 until insertionCount) {
+            newShuffled[dst++] = insertionIndex + i
+        }
+        for (i in clampedInsertAt until shifted.size) {
+            newShuffled[dst++] = shifted[i]
         }
         return BetterShuffleOrder(newShuffled)
     }

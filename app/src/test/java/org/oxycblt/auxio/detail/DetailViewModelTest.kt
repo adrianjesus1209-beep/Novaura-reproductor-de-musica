@@ -20,6 +20,7 @@ package org.oxycblt.auxio.detail
 
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import java.util.UUID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -28,6 +29,9 @@ import org.junit.Test
 import org.oxycblt.auxio.list.ListSettings
 import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.playback.PlaybackSettings
+import org.oxycblt.musikr.Album
+import org.oxycblt.musikr.Artist
+import org.oxycblt.musikr.Genre
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
@@ -89,5 +93,56 @@ class DetailViewModelTest {
         // Move back from 3 to 2 -> [s1, s0, s2]
         assertTrue(viewModel.movePlaylistSongs(3, 2))
         assertEquals(listOf(s1, s0, s2), viewModel.editedPlaylist.value)
+    }
+
+    @Test
+    fun setParent_skipsReloadWhenEqualUidInstancesPassed() {
+        val uuid = UUID.randomUUID()
+        val albumUid1 = requireNotNull(Music.UID.fromString("uaa$uuid"))
+        val albumUid2 = requireNotNull(Music.UID.fromString("uaa$uuid"))
+        val artistUid1 = requireNotNull(Music.UID.fromString("uar$uuid"))
+        val artistUid2 = requireNotNull(Music.UID.fromString("uar$uuid"))
+        val genreUid1 = requireNotNull(Music.UID.fromString("uag$uuid"))
+        val genreUid2 = requireNotNull(Music.UID.fromString("uag$uuid"))
+        val playlistUid1 = requireNotNull(Music.UID.fromString("uap$uuid"))
+        val playlistUid2 = requireNotNull(Music.UID.fromString("uap$uuid"))
+
+        val album = mockk<Album>(relaxed = true) { every { uid } returns albumUid1 }
+        val artist = mockk<Artist>(relaxed = true) { every { uid } returns artistUid1 }
+        val genre = mockk<Genre>(relaxed = true) { every { uid } returns genreUid1 }
+        val playlist = mockk<Playlist>(relaxed = true) { every { uid } returns playlistUid1 }
+
+        val generator =
+            mockk<DetailGenerator>(relaxed = true) {
+                every { album(any()) } returns Detail(album, emptyList())
+                every { artist(any()) } returns Detail(artist, emptyList())
+                every { genre(any()) } returns Detail(genre, emptyList())
+                every { playlist(any()) } returns Detail(playlist, emptyList())
+            }
+        val factory =
+            object : DetailGenerator.Factory {
+                override fun create(invalidator: DetailGenerator.Invalidator) = generator
+            }
+        val viewModel =
+            DetailViewModel(
+                listSettings = mockk<ListSettings>(relaxed = true),
+                musicRepository = mockk<MusicRepository>(relaxed = true),
+                playbackSettings = mockk<PlaybackSettings>(relaxed = true),
+                detailGeneratorFactory = factory,
+            )
+
+        viewModel.setAlbum(albumUid1)
+        viewModel.setAlbum(albumUid2)
+        viewModel.setArtist(artistUid1)
+        viewModel.setArtist(artistUid2)
+        viewModel.setGenre(genreUid1)
+        viewModel.setGenre(genreUid2)
+        viewModel.setPlaylist(playlistUid1)
+        viewModel.setPlaylist(playlistUid2)
+
+        verify(exactly = 1) { generator.album(any()) }
+        verify(exactly = 1) { generator.artist(any()) }
+        verify(exactly = 1) { generator.genre(any()) }
+        verify(exactly = 1) { generator.playlist(any()) }
     }
 }

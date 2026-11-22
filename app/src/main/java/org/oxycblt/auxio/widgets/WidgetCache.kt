@@ -23,6 +23,11 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import java.io.File
 import java.io.FileOutputStream
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import org.oxycblt.auxio.playback.state.RepeatMode
 import timber.log.Timber as L
 
@@ -41,6 +46,10 @@ object WidgetCache {
     private const val COVER_FILE_NAME = "widget_cached_cover.png"
     private const val MAX_COVER_DIMEN = 512
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val ioDispatcher = Dispatchers.IO.limitedParallelism(1)
+    private val ioScope = CoroutineScope(SupervisorJob() + ioDispatcher)
+
     data class CachedState(
         val songName: String,
         val artistName: String,
@@ -51,8 +60,12 @@ object WidgetCache {
     )
 
     @Volatile private var inMemoryCache: CachedState? = null
+    @Volatile private var lastSavedCoverSignature: String? = null
 
-    /** Persist the latest playback info and cover art to disk for the widget. */
+    /**
+     * Persist the latest playback info in memory immediately and write PNG artwork on
+     * Dispatchers.IO.
+     */
     fun save(
         context: Context,
         songName: String,
@@ -61,47 +74,86 @@ object WidgetCache {
         cover: Bitmap?,
         repeatMode: RepeatMode,
         isShuffled: Boolean,
+        writeCoverToDisk: Boolean = true,
     ) {
-        try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            prefs
-                .edit()
-                .putBoolean(KEY_HAS_DATA, true)
-                .putString(KEY_SONG_NAME, songName)
-                .putString(KEY_ARTIST_NAME, artistName)
-                .putString(KEY_ALBUM_NAME, albumName)
-                .putInt(KEY_REPEAT_MODE, repeatMode.ordinal)
-                .putBoolean(KEY_IS_SHUFFLED, isShuffled)
-                .apply()
+        val appContext = context.applicationContext
+        val coverSignature =
+            "$songName|$artistName|$albumName|${cover != null && !cover.isRecycled}"
+        val shouldPersistCover = writeCoverToDisk || lastSavedCoverSignature != coverSignature
 
-            val coverFile = File(context.filesDir, COVER_FILE_NAME)
-            if (cover != null && !cover.isRecycled) {
-                val bitmapToSave =
-                    if (cover.width > MAX_COVER_DIMEN || cover.height > MAX_COVER_DIMEN) {
-                        Bitmap.createScaledBitmap(cover, MAX_COVER_DIMEN, MAX_COVER_DIMEN, true)
-                    } else {
-                        cover
-                    }
-                FileOutputStream(coverFile).use { out ->
-                    bitmapToSave.compress(Bitmap.CompressFormat.PNG, 90, out)
-                }
-            } else if (coverFile.exists()) {
-                coverFile.delete()
+        inMemoryCache =
+            CachedState(
+                songName = songName,
+                artistName = artistName,
+                albumName = albumName,
+                cover = cover,
+                repeatMode = repeatMode,
+                isShuffled = isShuffled,
+            )
+
+        val coverSnapshot =
+            if (shouldPersistCover && cover != null && !cover.isRecycled) {
+                cover.config?.let { cfg ->
+                    runCatching { cover.copy(cfg, false) }.getOrNull()
+                } ?: runCatching { cover.copy(Bitmap.Config.ARGB_8888, false) }.getOrNull()
+            } else {
+                null
             }
 
-            inMemoryCache =
-                CachedState(
-                    songName = songName,
-                    artistName = artistName,
-                    albumName = albumName,
-                    cover = cover,
-                    repeatMode = repeatMode,
-                    isShuffled = isShuffled,
-                )
+        ioScope.launch {
+            try {
+                val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                prefs
+                    .edit()
+                    .putBoolean(KEY_HAS_DATA, true)
+                    .putString(KEY_SONG_NAME, songName)
+                    .putString(KEY_ARTIST_NAME, artistName)
+                    .putString(KEY_ALBUM_NAME, albumName)
+                    .putInt(KEY_REPEAT_MODE, repeatMode.ordinal)
+                    .putBoolean(KEY_IS_SHUFFLED, isShuffled)
+                    .apply()
 
-            L.d("WidgetCache: Successfully saved widget state for $songName - $artistName")
-        } catch (e: Exception) {
-            L.w("WidgetCache: Failed to save widget state: $e")
+                if (shouldPersistCover) {
+                    val coverFile = File(appContext.filesDir, COVER_FILE_NAME)
+                    val tempFile = File(appContext.filesDir, "$COVER_FILE_NAME.tmp")
+                    if (coverSnapshot != null && !coverSnapshot.isRecycled) {
+                        var scaledBitmap: Bitmap? = null
+                        try {
+                            val bitmapToSave =
+                                if (
+                                    coverSnapshot.width > MAX_COVER_DIMEN ||
+                                        coverSnapshot.height > MAX_COVER_DIMEN
+                                ) {
+                                    scaledBitmap =
+                                        Bitmap.createScaledBitmap(
+                                            coverSnapshot,
+                                            MAX_COVER_DIMEN,
+                                            MAX_COVER_DIMEN,
+                                            true,
+                                        )
+                                    scaledBitmap
+                                } else {
+                                    coverSnapshot
+                                }
+                            FileOutputStream(tempFile).use { out ->
+                                bitmapToSave.compress(Bitmap.CompressFormat.PNG, 90, out)
+                            }
+                            if (!tempFile.renameTo(coverFile)) {
+                                tempFile.copyTo(coverFile, overwrite = true)
+                                tempFile.delete()
+                            }
+                        } finally {
+                            scaledBitmap?.takeIf { !it.isRecycled }?.recycle()
+                            if (!coverSnapshot.isRecycled) coverSnapshot.recycle()
+                        }
+                    } else if (cover == null && coverFile.exists()) {
+                        coverFile.delete()
+                    }
+                    lastSavedCoverSignature = coverSignature
+                }
+            } catch (e: Exception) {
+                L.w(e, "Failed to save widget cache")
+            }
         }
     }
 

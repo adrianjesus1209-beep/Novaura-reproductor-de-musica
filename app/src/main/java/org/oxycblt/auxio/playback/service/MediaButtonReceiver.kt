@@ -27,6 +27,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import org.oxycblt.auxio.AuxioService
 import org.oxycblt.auxio.IntegerTable
+import org.oxycblt.auxio.download.OnlinePlaybackService
 import org.oxycblt.auxio.playback.state.PlaybackStateManager
 import timber.log.Timber as L
 
@@ -39,12 +40,26 @@ import timber.log.Timber as L
 @AndroidEntryPoint
 class MediaButtonReceiver : BroadcastReceiver() {
     @Inject lateinit var playbackManager: PlaybackStateManager
+    @Inject lateinit var sessionCoordinator: MediaSessionCoordinator
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_MEDIA_BUTTON) {
             return
         }
-        L.d("Delivering media button intent $intent")
+        L.d("Delivering media button intent $intent (owner=${sessionCoordinator.activeOwner})")
+        if (sessionCoordinator.activeOwner == MediaSessionCoordinator.Owner.ONLINE) {
+            val onlineIntent =
+                Intent(intent).apply {
+                    component = ComponentName(context, OnlinePlaybackService::class.java)
+                    action = Intent.ACTION_MEDIA_BUTTON
+                }
+            try {
+                ContextCompat.startForegroundService(context, onlineIntent)
+                return
+            } catch (e: Exception) {
+                L.w(e, "Unable to route media button broadcast to OnlinePlaybackService")
+            }
+        }
         val serviceIntent =
             Intent(intent).apply {
                 component = ComponentName(context, AuxioService::class.java)

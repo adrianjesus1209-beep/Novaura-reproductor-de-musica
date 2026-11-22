@@ -18,8 +18,8 @@
  
 package org.oxycblt.auxio.list.menu
 
+import android.view.Menu as AndroidMenu
 import android.view.MenuItem
-import androidx.appcompat.view.menu.MenuBuilder
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.navArgs
@@ -371,7 +371,7 @@ class SelectionMenuDialogFragment : MenuDialogFragment<Menu.ForSelection>() {
     // Nothing to disable in song menus.
     override fun getDisabledItemIds(menu: Menu.ForSelection) = setOf<Int>()
 
-    override fun onPrepareMenu(menu: MenuBuilder, menuData: Menu.ForSelection) {
+    override fun onPrepareMenu(menu: AndroidMenu, menuData: Menu.ForSelection) {
         val deleteItem = menu.findItem(R.id.action_delete) ?: return
         deleteItem.title =
             if (menuData.songs.size > 1) {

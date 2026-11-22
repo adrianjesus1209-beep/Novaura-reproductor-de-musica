@@ -75,6 +75,15 @@ fun <T : Music> List<T>.areNamesTheSame(other: List<T>): Boolean {
 }
 
 /**
+ * Compare two [Name] instances using their semantic equality implementations without triggering
+ * interface-level DiffUtil lint warnings.
+ */
+fun Name.areTheSame(other: Name): Boolean = this == other
+
+/** Compare two [ReleaseType] instances using their sealed subclass equality implementations. */
+fun ReleaseType.areTheSame(other: ReleaseType): Boolean = this == other
+
+/**
  * Resolve this instance into a human-readable date.
  *
  * @param context [Context] required to get human-readable names.
@@ -169,5 +178,18 @@ fun Format.resolve(context: Context): String =
         is Format.Vorbis -> context.getString(R.string.cdc_vorbis)
         is Format.FLAC -> context.getString(R.string.cdc_flac)
         is Format.Wav -> context.getString(R.string.cdc_wav)
+        is Format.AIFF -> context.getString(R.string.cdc_aiff)
+        is Format.Speex -> context.getString(R.string.cdc_speex)
+        is Format.DSF -> context.getString(R.string.cdc_dsf)
+        is Format.DSDIFF -> context.getString(R.string.cdc_dsdiff)
+        is Format.AC3 -> context.getString(R.string.cdc_ac3)
+        is Format.EAC3 -> context.getString(R.string.cdc_eac3)
+        is Format.DTS -> context.getString(R.string.cdc_dts)
+        is Format.WebM ->
+            containing?.let { context.getString(R.string.cnt_webm, it.resolve(context)) }
+                ?: context.getString(R.string.cdc_webm)
+        is Format.Matroska ->
+            containing?.let { context.getString(R.string.cnt_matroska, it.resolve(context)) }
+                ?: context.getString(R.string.cdc_matroska)
         is Format.Unknown -> extension ?: context.getString(R.string.cdc_unknown)
     }

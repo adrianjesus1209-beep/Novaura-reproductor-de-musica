@@ -28,7 +28,7 @@
             android:id="@+id/choice_online_cover"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:background="#1F1F24"
+            android:background="?attr/colorSurfaceVariant"
             android:scaleType="centerCrop"
             android:visibility="gone"
             app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium" />
@@ -49,7 +49,7 @@
             android:ellipsize="end"
             android:fontFamily="sans-serif-medium"
             android:singleLine="true"
-            android:textColor="@android:color/white"
+            android:textColor="?attr/colorOnSurface"
             android:textSize="16sp"
             tools:text="Clásica Relajante" />
 
@@ -60,7 +60,7 @@
             android:layout_marginTop="2dp"
             android:ellipsize="end"
             android:singleLine="true"
-            android:textColor="#9E9E9E"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:textSize="13sp"
             tools:text="0 pistas" />
     </LinearLayout>
@@ -72,7 +72,7 @@
         android:contentDescription="@null"
         android:src="@drawable/ic_check_24"
         android:visibility="gone"
-        app:tint="@android:color/white"
+        app:tint="?attr/colorPrimary"
         tools:visibility="visible" />
 
 </LinearLayout>

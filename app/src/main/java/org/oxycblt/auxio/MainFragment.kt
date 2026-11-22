@@ -60,6 +60,7 @@ import kotlin.math.min
 import org.oxycblt.auxio.databinding.FragmentMainBinding
 import org.oxycblt.auxio.detail.DetailViewModel
 import org.oxycblt.auxio.detail.Show
+import org.oxycblt.auxio.download.DownloadViewModel
 import org.oxycblt.auxio.home.HomeViewModel
 import org.oxycblt.auxio.home.Outer
 import org.oxycblt.auxio.image.coil.BlurTransformation
@@ -106,6 +107,7 @@ class MainFragment :
     private val homeModel: HomeViewModel by activityViewModels()
     private val listModel: ListViewModel by activityViewModels()
     private val playbackModel: PlaybackViewModel by activityViewModels()
+    private val downloadModel: DownloadViewModel by activityViewModels()
     private var sheetBackCallback: SheetBackPressedCallback? = null
     private var detailBackCallback: DetailBackPressedCallback? = null
     private var selectionBackCallback: SelectionBackPressedCallback? = null
@@ -280,6 +282,7 @@ class MainFragment :
         collectImmediately(musicModel.indexingState, ::updateIndexerState)
         collectImmediately(listModel.selected, selectionBackCallback::invalidateEnabled)
         collectImmediately(playbackModel.song, ::updateSong)
+        collectImmediately(downloadModel.playerState) { syncLocalSheetForDestination() }
         collectImmediately(playbackModel.openPanel.flow, ::handlePanel)
 
         binding.homeBottomBar?.apply {
@@ -293,6 +296,14 @@ class MainFragment :
         collectImmediately(homeModel.currentNavTab) { tab ->
             updateBottomBarUI(tab)
             navTabBackCallback?.invalidateEnabled()
+        }
+        collectImmediately(homeModel.tabTypes) { tabs ->
+            binding.homeBottomBar?.apply {
+                navItemSongs.isVisible = org.oxycblt.auxio.music.MusicType.SONGS in tabs
+                navItemAlbums.isVisible = org.oxycblt.auxio.music.MusicType.ALBUMS in tabs
+                navItemArtists.isVisible = org.oxycblt.auxio.music.MusicType.ARTISTS in tabs
+                navItemPlaylists.isVisible = org.oxycblt.auxio.music.MusicType.PLAYLISTS in tabs
+            }
         }
     }
 
@@ -536,13 +547,7 @@ class MainFragment :
             binding.playbackSheet.coordinatorLayoutBehavior as PlaybackBottomSheetBehavior
         playbackSheetBehavior.showWithNavBar = isAtHome
 
-        if (
-            playbackModel.song.value != null &&
-                playbackSheetBehavior.state == BackportBottomSheetBehavior.STATE_COLLAPSED
-        ) {
-            binding.playbackBarFragment.alpha = 1f
-            binding.playbackBarFragment.isInvisible = false
-        }
+        syncLocalSheetVisibility(binding)
 
         binding.playbackSheet.requestLayout()
         binding.playbackSheet.invalidate()
@@ -851,12 +856,14 @@ class MainFragment :
         val playbackSheetBehavior =
             binding.playbackSheet.coordinatorLayoutBehavior as PlaybackBottomSheetBehavior
         playbackSheetBehavior.showWithNavBar = false
-        if (
-            playbackModel.song.value != null &&
-                playbackSheetBehavior.state == BackportBottomSheetBehavior.STATE_COLLAPSED
-        ) {
-            binding.playbackBarFragment.alpha = 1f
-            binding.playbackBarFragment.isInvisible = false
+        if (shouldHideLocalSheetsForOnline(binding)) {
+            tryHideAllSheets()
+        } else if (playbackModel.song.value != null) {
+            tryShowSheets()
+            if (playbackSheetBehavior.state == BackportBottomSheetBehavior.STATE_COLLAPSED) {
+                binding.playbackBarFragment.alpha = 1f
+                binding.playbackBarFragment.isInvisible = false
+            }
         }
         binding.playbackSheet.requestLayout()
         binding.playbackSheet.invalidate()
@@ -921,8 +928,46 @@ class MainFragment :
         }
     }
 
+    private fun shouldHideLocalSheetsForOnline(binding: FragmentMainBinding): Boolean {
+        val isDownloadDest =
+            try {
+                binding.exploreNavHost.findNavController().currentDestination?.id ==
+                    R.id.download_fragment
+            } catch (_: Exception) {
+                false
+            }
+        return isDownloadDest && downloadModel.playerState.value.song != null
+    }
+
+    private fun syncLocalSheetForDestination() {
+        val binding = binding ?: return
+        if (shouldHideLocalSheetsForOnline(binding)) {
+            tryHideAllSheets()
+        } else if (playbackModel.song.value != null) {
+            tryShowSheets()
+        }
+    }
+
+    private fun syncLocalSheetVisibility(binding: FragmentMainBinding) {
+        val playbackSheetBehavior =
+            binding.playbackSheet.coordinatorLayoutBehavior as PlaybackBottomSheetBehavior
+        if (shouldHideLocalSheetsForOnline(binding)) {
+            tryHideAllSheets()
+        } else if (playbackModel.song.value != null) {
+            tryShowSheets()
+            if (playbackSheetBehavior.state == BackportBottomSheetBehavior.STATE_COLLAPSED) {
+                binding.playbackBarFragment.alpha = 1f
+                binding.playbackBarFragment.isInvisible = false
+            }
+        }
+    }
+
     private fun tryShowSheets() {
         val binding = requireBinding()
+        if (shouldHideLocalSheetsForOnline(binding)) {
+            tryHideAllSheets()
+            return
+        }
         val playbackSheetBehavior =
             binding.playbackSheet.coordinatorLayoutBehavior as PlaybackBottomSheetBehavior
         if (playbackSheetBehavior.targetState == BackportBottomSheetBehavior.STATE_HIDDEN) {

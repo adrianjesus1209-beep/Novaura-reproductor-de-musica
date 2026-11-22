@@ -61,10 +61,16 @@ TagLib::ByteVector JByteArrayRef::copy() {
         checkJniException(env, "GetByteArrayElements threw JNI exception");
         return TagLib::ByteVector();
     }
-    TagLib::ByteVector byteVector(reinterpret_cast<const char*>(data),
+    struct Guard {
+        JNIEnv *env;
+        jbyteArray array;
+        jbyte *data;
+        ~Guard() {
+            env->ReleaseByteArrayElements(array, data, JNI_ABORT);
+        }
+    } guard { env, array, data };
+    return TagLib::ByteVector(reinterpret_cast<const char*>(data),
             static_cast<unsigned int>(length));
-    env->ReleaseByteArrayElements(array, data, JNI_ABORT);
-    return byteVector;
 }
 
 jbyteArray& JByteArrayRef::operator*() {

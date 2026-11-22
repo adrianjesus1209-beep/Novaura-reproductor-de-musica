@@ -319,6 +319,11 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         binding.downloadSearchBtn.setOnClickListener {
             performSearch(binding)
         }
+
+        binding.downloadSearchRetryBtn.setOnClickListener {
+            downloadModel.resetSearchFilters()
+            performSearch(binding)
+        }
     }
 
     private fun setupMiniPlayer(binding: FragmentDownloadBinding) {
@@ -368,6 +373,21 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
                         updateUiState(
                             binding,
                             isSearching = searching,
+                            isError = downloadModel.searchError.value,
+                            resultsCount = count,
+                            query = query,
+                        )
+                    }
+                }
+
+                launch {
+                    downloadModel.searchError.collectLatest { isError ->
+                        val query = binding.downloadSearchInput.text?.toString()?.trim().orEmpty()
+                        val count = downloadModel.displayedResults.value.size
+                        updateUiState(
+                            binding,
+                            isSearching = downloadModel.isSearching.value,
+                            isError = isError,
                             resultsCount = count,
                             query = query,
                         )
@@ -382,6 +402,7 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
                         updateUiState(
                             binding,
                             isSearching = searching,
+                            isError = downloadModel.searchError.value,
                             resultsCount = results.size,
                             query = query,
                         )
@@ -413,7 +434,10 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
                         binding.downloadsEmptyState.isVisible = items.isEmpty()
                         binding.downloadsQueueRecycler.isVisible = items.isNotEmpty()
 
-                        val activeCount = items.count { it.status == DownloadStatus.DOWNLOADING }
+                        val activeCount = items.count {
+                            it.status == DownloadStatus.DOWNLOADING ||
+                                it.status == DownloadStatus.QUEUED
+                        }
                         val queueTab = binding.downloadTabLayout.getTabAt(2)
                         if (queueTab != null) {
                             if (activeCount > 0) {
@@ -430,13 +454,7 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
                 launch {
                     downloadModel.onlinePlaylists.collectLatest { playlists ->
                         renderUserPlaylists(binding, playlists)
-                        val favPlaylist = playlists.firstOrNull {
-                            it.id == OnlinePlaylistManager.ID_FAVORITES ||
-                                it.name.equals(
-                                    OnlinePlaylistManager.FAVORITES_NAME,
-                                    ignoreCase = true,
-                                )
-                        }
+                        val favPlaylist = playlists.firstOrNull(::isFavoritesOnlinePlaylist)
                         val favCount = favPlaylist?.songs?.size ?: 0
                         binding.txtOnlineFavoritesCount.text =
                             resources.getQuantityString(
@@ -576,6 +594,7 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
     private fun updateUiState(
         binding: FragmentDownloadBinding,
         isSearching: Boolean,
+        isError: Boolean,
         resultsCount: Int,
         query: String,
     ) {
@@ -597,6 +616,15 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
                 binding.downloadSearchingState.isVisible = false
                 binding.downloadNoResultsState.isVisible = true
                 binding.downloadEmptyScroll.isVisible = false
+                if (isError) {
+                    binding.downloadNoResultsTitle.setText(R.string.lbl_download_search_error)
+                    binding.downloadNoResultsSubtitle.setText(R.string.lbl_download_retry_hint)
+                    binding.downloadSearchRetryBtn.isVisible = true
+                } else {
+                    binding.downloadNoResultsTitle.setText(R.string.lbl_no_download_results)
+                    binding.downloadNoResultsSubtitle.setText(R.string.lbl_try_different_search)
+                    binding.downloadSearchRetryBtn.isVisible = false
+                }
             }
             else -> {
                 binding.downloadRecycler.isVisible = false
@@ -618,11 +646,10 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
 
     private fun setupSmartPlaylistRows(binding: FragmentDownloadBinding) {
         binding.itemOnlineRecentlyPlayed.setOnClickListener {
-            val songs = downloadModel.recentOnlineSongs.value
             OnlinePlaylistDetailBottomSheet.show(
                 parentFragmentManager,
                 getString(R.string.chip_queue_recent),
-                songs,
+                smartKey = OnlinePlaylistDetailBottomSheet.SMART_RECENT,
             )
         }
         binding.btnOnlineRecentMenu.setOnClickListener { anchor ->
@@ -634,11 +661,10 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         }
 
         binding.itemOnlineMostPlayed.setOnClickListener {
-            val songs = downloadModel.getMostPlayedOnlineSongs()
             OnlinePlaylistDetailBottomSheet.show(
                 parentFragmentManager,
                 getString(R.string.lbl_most_played),
-                songs,
+                smartKey = OnlinePlaylistDetailBottomSheet.SMART_MOST_PLAYED,
             )
         }
         binding.btnOnlineMostPlayedMenu.setOnClickListener { anchor ->
@@ -723,13 +749,16 @@ class DownloadFragment : ViewBindingFragment<FragmentDownloadBinding>() {
         popup.show()
     }
 
+    private fun isFavoritesOnlinePlaylist(playlist: OnlinePlaylist): Boolean =
+        playlist.id == OnlinePlaylistManager.ID_FAVORITES ||
+            playlist.name.equals(OnlinePlaylistManager.FAVORITES_NAME, ignoreCase = true) ||
+            playlist.name.equals(getString(R.string.lbl_favorites), ignoreCase = true)
+
     private fun renderUserPlaylists(
         binding: FragmentDownloadBinding,
         playlists: List<OnlinePlaylist>,
     ) {
-        val userPlaylists = playlists.filterNot {
-            it.name.equals(OnlinePlaylistManager.FAVORITES_NAME, ignoreCase = true)
-        }
+        val userPlaylists = playlists.filterNot(::isFavoritesOnlinePlaylist)
         val sorted =
             when (playlistSortMode) {
                 1 -> userPlaylists.sortedByDescending { it.songs.size }

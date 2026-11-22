@@ -25,31 +25,40 @@
 #include "JObjectRef.h"
 #include "util.h"
 
+#include "taglib/aifffile.h"
+#include "taglib/dsdifffile.h"
+#include "taglib/dsffile.h"
 #include "taglib/fileref.h"
 #include "taglib/flacfile.h"
+#include "taglib/infotag.h"
+#include "taglib/matroskafile.h"
+#include "taglib/matroskaproperties.h"
 #include "taglib/mp4file.h"
 #include "taglib/mp4properties.h"
 #include "taglib/mpegfile.h"
+#include "taglib/oggflacfile.h"
 #include "taglib/opusfile.h"
+#include "taglib/speexfile.h"
 #include "taglib/vorbisfile.h"
 #include "taglib/wavfile.h"
 
 bool parseMpeg(const std::string &name, TagLib::MPEG::File *mpegFile,
         JMetadataBuilder &jBuilder) {
-    auto id3v1Tag = mpegFile->ID3v1Tag();
-    if (id3v1Tag != nullptr) {
-        try {
-            jBuilder.setId3v1(*id3v1Tag);
-        } catch (std::exception &e) {
-            LOGE("Unable to parse ID3v1 tag in %s: %s", name.c_str(), e.what());
-        }
-    }
+    // Parse ID3v2 first so truncated ID3v1 fields never overwrite or shadow ID3v2 metadata.
     auto id3v2Tag = mpegFile->ID3v2Tag();
     if (id3v2Tag != nullptr) {
         try {
             jBuilder.setId3v2(*id3v2Tag);
         } catch (std::exception &e) {
             LOGE("Unable to parse ID3v2 tag in %s: %s", name.c_str(), e.what());
+        }
+    }
+    auto id3v1Tag = mpegFile->ID3v1Tag();
+    if (id3v1Tag != nullptr) {
+        try {
+            jBuilder.setId3v1(*id3v1Tag);
+        } catch (std::exception &e) {
+            LOGE("Unable to parse ID3v1 tag in %s: %s", name.c_str(), e.what());
         }
     }
     return true;
@@ -70,20 +79,20 @@ bool parseMp4(const std::string &name, TagLib::MP4::File *mp4File,
 
 bool parseFlac(const std::string &name, TagLib::FLAC::File *flacFile,
         JMetadataBuilder &jBuilder) {
-    auto id3v1Tag = flacFile->ID3v1Tag();
-    if (id3v1Tag != nullptr) {
-        try {
-            jBuilder.setId3v1(*id3v1Tag);
-        } catch (std::exception &e) {
-            LOGE("Unable to parse ID3v1 tag in %s: %s", name.c_str(), e.what());
-        }
-    }
     auto id3v2Tag = flacFile->ID3v2Tag();
     if (id3v2Tag != nullptr) {
         try {
             jBuilder.setId3v2(*id3v2Tag);
         } catch (std::exception &e) {
             LOGE("Unable to parse ID3v2 tag in %s: %s", name.c_str(), e.what());
+        }
+    }
+    auto id3v1Tag = flacFile->ID3v1Tag();
+    if (id3v1Tag != nullptr) {
+        try {
+            jBuilder.setId3v1(*id3v1Tag);
+        } catch (std::exception &e) {
+            LOGE("Unable to parse ID3v1 tag in %s: %s", name.c_str(), e.what());
         }
     }
     auto xiphComment = flacFile->xiphComment();
@@ -127,51 +136,171 @@ bool parseVorbis(const std::string &name, TagLib::Ogg::Vorbis::File *vorbisFile,
     return true;
 }
 
-bool parseWav(const std::string &name, TagLib::RIFF::WAV::File *wavFile,
+bool parseOggFlac(const std::string &name, TagLib::Ogg::FLAC::File *oggFlacFile,
         JMetadataBuilder &jBuilder) {
-    auto tag = wavFile->ID3v2Tag();
+    auto tag = oggFlacFile->tag();
     if (tag != nullptr) {
         try {
-            jBuilder.setId3v2(*tag);
+            jBuilder.setXiph(*tag);
         } catch (std::exception &e) {
-            LOGE("Unable to parse ID3v2 tag in %s: %s", name.c_str(), e.what());
+            LOGE("Unable to parse Ogg FLAC comment %s: %s", name.c_str(),
+                    e.what());
         }
     }
     return true;
 }
 
-// A minimal implementation of 'detectByContent()' from TagLib,
-// limited to the available 'parse..()' functions available here.
-// This fixes mostly all parsing problems for formats undetected by
-// simple extension based detection, like AAC-in-MP4, but still
-// doesn't work for Matroska, as it is not yet supported by TagLib
-// see https://github.com/taglib/taglib/pull/1149
+bool parseSpeex(const std::string &name, TagLib::Ogg::Speex::File *speexFile,
+        JMetadataBuilder &jBuilder) {
+    auto tag = speexFile->tag();
+    if (tag != nullptr) {
+        try {
+            jBuilder.setXiph(*tag);
+        } catch (std::exception &e) {
+            LOGE("Unable to parse Speex comment %s: %s", name.c_str(),
+                    e.what());
+        }
+    }
+    return true;
+}
+
+bool parseWav(const std::string &name, TagLib::RIFF::WAV::File *wavFile,
+        JMetadataBuilder &jBuilder) {
+    if (wavFile->hasID3v2Tag()) {
+        auto tag = wavFile->ID3v2Tag();
+        if (tag != nullptr) {
+            try {
+                jBuilder.setId3v2(*tag);
+            } catch (std::exception &e) {
+                LOGE("Unable to parse ID3v2 tag in %s: %s", name.c_str(),
+                        e.what());
+            }
+        }
+    }
+    if (wavFile->hasInfoTag()) {
+        auto infoTag = wavFile->InfoTag();
+        if (infoTag != nullptr) {
+            try {
+                jBuilder.setFallbackTag(*infoTag);
+            } catch (std::exception &e) {
+                LOGE("Unable to parse RIFF INFO tag in %s: %s", name.c_str(),
+                        e.what());
+            }
+        }
+    }
+    return true;
+}
+
+bool parseAiff(const std::string &name, TagLib::RIFF::AIFF::File *aiffFile,
+        JMetadataBuilder &jBuilder) {
+    if (aiffFile->hasID3v2Tag()) {
+        auto tag = aiffFile->tag();
+        if (tag != nullptr) {
+            try {
+                jBuilder.setId3v2(*tag);
+            } catch (std::exception &e) {
+                LOGE("Unable to parse AIFF ID3v2 tag in %s: %s", name.c_str(),
+                        e.what());
+            }
+        }
+    }
+    return true;
+}
+
+bool parseMatroska(const std::string &name, TagLib::Matroska::File *mkvFile,
+        JMetadataBuilder &jBuilder) {
+    try {
+        jBuilder.setMatroska(*mkvFile);
+    } catch (std::exception &e) {
+        LOGE("Unable to parse Matroska tag in %s: %s", name.c_str(), e.what());
+    }
+    return true;
+}
+
+bool parseDsf(const std::string &name, TagLib::DSF::File *dsfFile,
+        JMetadataBuilder &jBuilder) {
+    auto tag = dsfFile->tag();
+    if (tag != nullptr) {
+        try {
+            jBuilder.setId3v2(*tag);
+        } catch (std::exception &e) {
+            LOGE("Unable to parse DSF ID3v2 tag in %s: %s", name.c_str(),
+                    e.what());
+        }
+    }
+    return true;
+}
+
+bool parseDsdiff(const std::string &name, TagLib::DSDIFF::File *dsdiffFile,
+        JMetadataBuilder &jBuilder) {
+    if (dsdiffFile->hasID3v2Tag()) {
+        auto id3Tag = dsdiffFile->ID3v2Tag();
+        if (id3Tag != nullptr) {
+            try {
+                jBuilder.setId3v2(*id3Tag);
+            } catch (std::exception &e) {
+                LOGE("Unable to parse DSDIFF ID3v2 tag in %s: %s", name.c_str(),
+                        e.what());
+            }
+        }
+    }
+    auto unionTag = dsdiffFile->tag();
+    if (unionTag != nullptr) {
+        try {
+            jBuilder.setFallbackTag(*unionTag);
+        } catch (std::exception &e) {
+            LOGE("Unable to parse DSDIFF fallback tag in %s: %s", name.c_str(),
+                    e.what());
+        }
+    }
+    return true;
+}
+
 // Detects the file type based on the actual content of the stream.
+// Container formats with strict headers are tested before MPEG sync-word detection.
 TagLib::File* createFileFromContent(TagLib::IOStream *stream,
         bool readAudioProperties,
         TagLib::AudioProperties::ReadStyle audioPropertiesStyle) {
     TagLib::File *file = nullptr;
 
-    if (TagLib::MPEG::File::isSupported(stream))
-        file = new TagLib::MPEG::File(stream, readAudioProperties,
-                audioPropertiesStyle);
-    else if (TagLib::Ogg::Vorbis::File::isSupported(stream))
-        file = new TagLib::Ogg::Vorbis::File(stream, readAudioProperties,
-                audioPropertiesStyle);
-    else if (TagLib::FLAC::File::isSupported(stream))
+    if (TagLib::FLAC::File::isSupported(stream))
         file = new TagLib::FLAC::File(stream, readAudioProperties,
                 audioPropertiesStyle);
     else if (TagLib::Ogg::Opus::File::isSupported(stream))
         file = new TagLib::Ogg::Opus::File(stream, readAudioProperties,
                 audioPropertiesStyle);
+    else if (TagLib::Ogg::Vorbis::File::isSupported(stream))
+        file = new TagLib::Ogg::Vorbis::File(stream, readAudioProperties,
+                audioPropertiesStyle);
+    else if (TagLib::Ogg::FLAC::File::isSupported(stream))
+        file = new TagLib::Ogg::FLAC::File(stream, readAudioProperties,
+                audioPropertiesStyle);
+    else if (TagLib::Ogg::Speex::File::isSupported(stream))
+        file = new TagLib::Ogg::Speex::File(stream, readAudioProperties,
+                audioPropertiesStyle);
     else if (TagLib::MP4::File::isSupported(stream))
         file = new TagLib::MP4::File(stream, readAudioProperties,
+                audioPropertiesStyle);
+    else if (TagLib::Matroska::File::isSupported(stream))
+        file = new TagLib::Matroska::File(stream, readAudioProperties,
                 audioPropertiesStyle);
     else if (TagLib::RIFF::WAV::File::isSupported(stream))
         file = new TagLib::RIFF::WAV::File(stream, readAudioProperties,
                 audioPropertiesStyle);
+    else if (TagLib::RIFF::AIFF::File::isSupported(stream))
+        file = new TagLib::RIFF::AIFF::File(stream, readAudioProperties,
+                audioPropertiesStyle);
+    else if (TagLib::DSF::File::isSupported(stream))
+        file = new TagLib::DSF::File(stream, readAudioProperties,
+                audioPropertiesStyle);
+    else if (TagLib::DSDIFF::File::isSupported(stream))
+        file = new TagLib::DSDIFF::File(stream, readAudioProperties,
+                audioPropertiesStyle);
+    else if (TagLib::MPEG::File::isSupported(stream))
+        file = new TagLib::MPEG::File(stream, readAudioProperties,
+                audioPropertiesStyle);
 
-    // double-check that the potentially created file actually valid.
+    // double-check that the potentially created file is actually valid.
     if (file) {
         if (file->isValid())
             return file;
@@ -181,15 +310,7 @@ TagLib::File* createFileFromContent(TagLib::IOStream *stream,
     return nullptr;
 }
 
-// This dispatcher replaces the previous, order-dependent if-else chain. It uses
-// dynamic_cast to identify the file's true type, ensuring the correct parser is
-// always called. This also allows the 'parse..()' functions to be simplified by
-// accepting a specific file type (e.g., 'MPEG::File*'), removing the need for
-// redundant internal checks.
-// Accurate container MIME type support is not added, as it did not seem
-// necessary, we can rely on SAF and MediaStore implementation for now,
-// that works on extension based detection, so we expect users to use
-// correct file extensions.
+// This dispatcher uses dynamic_cast to identify the file's true type and codec MIME type.
 bool dispatchAndParse(const std::string &name, TagLib::File *file,
         JMetadataBuilder &jBuilder) {
     if (auto *mpegFile = dynamic_cast<TagLib::MPEG::File*>(file)) {
@@ -208,13 +329,41 @@ bool dispatchAndParse(const std::string &name, TagLib::File *file,
         jBuilder.setMimeType("audio/vorbis");
         return parseVorbis(name, vorbisFile, jBuilder);
     }
+    if (auto *oggFlacFile = dynamic_cast<TagLib::Ogg::FLAC::File*>(file)) {
+        jBuilder.setMimeType("audio/flac");
+        return parseOggFlac(name, oggFlacFile, jBuilder);
+    }
+    if (auto *speexFile = dynamic_cast<TagLib::Ogg::Speex::File*>(file)) {
+        jBuilder.setMimeType("audio/speex");
+        return parseSpeex(name, speexFile, jBuilder);
+    }
     if (auto *wavFile = dynamic_cast<TagLib::RIFF::WAV::File*>(file)) {
         jBuilder.setMimeType("audio/wav");
         return parseWav(name, wavFile, jBuilder);
     }
+    if (auto *aiffFile = dynamic_cast<TagLib::RIFF::AIFF::File*>(file)) {
+        jBuilder.setMimeType("audio/aiff");
+        return parseAiff(name, aiffFile, jBuilder);
+    }
+    if (auto *dsfFile = dynamic_cast<TagLib::DSF::File*>(file)) {
+        jBuilder.setMimeType("audio/dsf");
+        return parseDsf(name, dsfFile, jBuilder);
+    }
+    if (auto *dsdiffFile = dynamic_cast<TagLib::DSDIFF::File*>(file)) {
+        jBuilder.setMimeType("audio/dff");
+        return parseDsdiff(name, dsdiffFile, jBuilder);
+    }
+    if (auto *mkvFile = dynamic_cast<TagLib::Matroska::File*>(file)) {
+        auto *props =
+                dynamic_cast<TagLib::Matroska::Properties*>(mkvFile->audioProperties());
+        if (props != nullptr && props->docType() == "webm") {
+            jBuilder.setMimeType("audio/webm");
+        } else {
+            jBuilder.setMimeType("audio/matroska");
+        }
+        return parseMatroska(name, mkvFile, jBuilder);
+    }
     if (auto *mp4File = dynamic_cast<TagLib::MP4::File*>(file)) {
-        // Why are we setting this as default?
-        // 'audio/mp4' is not even a codec MIME type.
         jBuilder.setMimeType("audio/mp4");
         if (auto *props =
                 dynamic_cast<TagLib::MP4::Properties*>(mp4File->audioProperties())) {
@@ -225,6 +374,21 @@ bool dispatchAndParse(const std::string &name, TagLib::File *file,
                 break;
             case Codec::ALAC:
                 jBuilder.setMimeType("audio/alac");
+                break;
+            case Codec::FLAC:
+                jBuilder.setMimeType("audio/flac");
+                break;
+            case Codec::Opus:
+                jBuilder.setMimeType("audio/opus");
+                break;
+            case Codec::AC3:
+                jBuilder.setMimeType("audio/ac3");
+                break;
+            case Codec::EAC3:
+                jBuilder.setMimeType("audio/eac3");
+                break;
+            case Codec::DTS:
+                jBuilder.setMimeType("audio/dts");
                 break;
             default:
                 break;
@@ -249,16 +413,22 @@ static jobject metadataResultSuccess(JNIEnv *env, jobject metadata) {
     return result;
 }
 
-static jobject metadataResultObject(JNIEnv *env, const char *classpath) {
-    JClassRef jObjectClass { env, classpath };
-    std::string signature = std::string("L") + classpath + ";";
-    jfieldID jInstanceField = env->GetStaticFieldID(*jObjectClass, "INSTANCE",
-            signature.c_str());
-    checkJniException(env, "GetStaticFieldID INSTANCE threw JNI exception");
-    if (jInstanceField == nullptr) {
+static jobject metadataResultObject(JNIEnv *env, const char *classpath) noexcept {
+    jclass clazz = env->FindClass(classpath);
+    if (env->ExceptionCheck() || clazz == nullptr) {
+        env->ExceptionClear();
         return nullptr;
     }
-    jobject instance = env->GetStaticObjectField(*jObjectClass, jInstanceField);
+    std::string signature = std::string("L") + classpath + ";";
+    jfieldID jInstanceField = env->GetStaticFieldID(clazz, "INSTANCE",
+            signature.c_str());
+    if (env->ExceptionCheck() || jInstanceField == nullptr) {
+        env->ExceptionClear();
+        env->DeleteLocalRef(clazz);
+        return nullptr;
+    }
+    jobject instance = env->GetStaticObjectField(clazz, jInstanceField);
+    env->DeleteLocalRef(clazz);
     if (env->ExceptionCheck()) {
         env->ExceptionClear();
         return nullptr;
@@ -266,17 +436,17 @@ static jobject metadataResultObject(JNIEnv *env, const char *classpath) {
     return instance;
 }
 
-static jobject metadataResultNoMetadata(JNIEnv *env) {
+static jobject metadataResultNoMetadata(JNIEnv *env) noexcept {
     return metadataResultObject(env,
             "org/oxycblt/musikr/metadata/MetadataResult$NoMetadata");
 }
 
-static jobject metadataResultNotAudio(JNIEnv *env) {
+static jobject metadataResultNotAudio(JNIEnv *env) noexcept {
     return metadataResultObject(env,
             "org/oxycblt/musikr/metadata/MetadataResult$NotAudio");
 }
 
-static jobject metadataResultProviderFailed(JNIEnv *env) {
+static jobject metadataResultProviderFailed(JNIEnv *env) noexcept {
     return metadataResultObject(env,
             "org/oxycblt/musikr/metadata/MetadataResult$ProviderFailed");
 }
@@ -295,14 +465,14 @@ Java_org_oxycblt_musikr_metadata_TagLibJNI_openNative(JNIEnv *env,
         bool needsOverride = (fileToUse == nullptr ||
                 fileToUse->tag() == nullptr ||
                 fileToUse->audioProperties() == nullptr ||
-                fileToUse->audioProperties()->lengthInSeconds() == 0);
+                fileToUse->audioProperties()->lengthInMilliseconds() == 0);
         if (needsOverride) {
             LOGD("FileRef result for %s is suspicious (null or duration=0). Forcing content scan.", name.c_str());
             jStream.seek(0, TagLib::IOStream::Beginning);
             overriddenFile.reset(createFileFromContent(&jStream, true, TagLib::AudioProperties::Average));
             if (overriddenFile != nullptr &&
                     overriddenFile->audioProperties() != nullptr &&
-                    (fileToUse == nullptr || overriddenFile->audioProperties()->lengthInSeconds() > 0))
+                    (fileToUse == nullptr || overriddenFile->audioProperties()->lengthInMilliseconds() > 0))
             {
                 LOGD("Content scan successful. Overriding FileRef result for %s.", name.c_str());
                 fileToUse = overriddenFile.get();
@@ -331,6 +501,12 @@ Java_org_oxycblt_musikr_metadata_TagLibJNI_openNative(JNIEnv *env,
             env->ExceptionClear();
         }
         LOGE("Unable to parse metadata in %s: %s", name.c_str(), e.what());
+        return metadataResultProviderFailed(env);
+    } catch (...) {
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+        }
+        LOGE("Unable to parse metadata in %s: unknown exception", name.c_str());
         return metadataResultProviderFailed(env);
     }
 }

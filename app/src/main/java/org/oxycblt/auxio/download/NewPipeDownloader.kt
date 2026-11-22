@@ -39,6 +39,13 @@ class NewPipeDownloader(
             .build()
 ) : Downloader() {
 
+    val streamClient: OkHttpClient =
+        client
+            .newBuilder()
+            .callTimeout(0, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .build()
+
     override fun execute(request: ExtractorRequest): ExtractorResponse {
         val httpMethod = request.httpMethod()
         val url = request.url()

@@ -27,8 +27,7 @@ captures/
 Reglas-agente.md
 
 # Builds Android
-# Los .apk generados por Gradle ya quedan fuera por build/ arriba. El directorio apk/ se
-# versiona a proposito: es la release publicada que enlaza el README.
+# Los .apk generados por Gradle ya quedan fuera por build/ arriba. Las releases se publican
+# en GitHub Releases para no versionar binarios en Git.
 *.aab
-
-
+apk/*.apk

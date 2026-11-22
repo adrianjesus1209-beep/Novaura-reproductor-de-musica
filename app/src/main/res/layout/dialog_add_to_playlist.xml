@@ -33,24 +33,24 @@
                 android:fontFamily="sans-serif-medium"
                 android:singleLine="true"
                 android:text="@string/lbl_save_to_playlist_title"
-                android:textColor="@android:color/white"
+                android:textColor="?attr/colorOnSurface"
                 android:textSize="18sp"
                 tools:text="Guardar 1 canción en una playlist" />
 
             <org.oxycblt.auxio.ui.RippleFixMaterialButton
                 android:id="@+id/dialog_close"
                 style="@style/Widget.Material3Expressive.Button.IconButton"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:contentDescription="@string/lbl_cancel"
                 app:icon="@drawable/ic_close_24"
-                app:iconTint="@android:color/white" />
+                app:iconTint="?attr/colorOnSurface" />
         </LinearLayout>
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#1FFFFFFF" />
+            android:background="?attr/colorOutlineVariant" />
 
         <!-- Pinned Liked Music Item (Música que te gustó) -->
         <LinearLayout
@@ -95,7 +95,7 @@
                     android:fontFamily="sans-serif-medium"
                     android:singleLine="true"
                     android:text="@string/lbl_liked_music"
-                    android:textColor="@android:color/white"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="16sp" />
 
                 <TextView
@@ -105,7 +105,7 @@
                     android:layout_marginTop="2dp"
                     android:ellipsize="end"
                     android:singleLine="true"
-                    android:textColor="#9E9E9E"
+                    android:textColor="?attr/colorOnSurfaceVariant"
                     android:textSize="13sp"
                     tools:text="24 canciones" />
             </LinearLayout>
@@ -117,7 +117,7 @@
                 android:contentDescription="@null"
                 android:src="@drawable/ic_check_24"
                 android:visibility="gone"
-                app:tint="@android:color/white"
+                app:tint="?attr/colorPrimary"
                 tools:visibility="visible" />
 
             <ImageView
@@ -128,7 +128,7 @@
                 android:contentDescription="@null"
                 android:rotation="45"
                 android:src="@drawable/ic_pin_24"
-                app:tint="#757575" />
+                app:tint="?attr/colorOnSurfaceVariant" />
 
         </LinearLayout>
 

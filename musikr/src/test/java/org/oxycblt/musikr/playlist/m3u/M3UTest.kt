@@ -208,4 +208,74 @@ class M3UTest {
         assertTrue("C:\\storage\\emulated\\0\\Music\\Rock\\Track One.mp3" in winAbsText)
         assertTrue("C:\\storage\\1234-5678\\Ext\\Two.flac" in winAbsText)
     }
+
+    @Test
+    fun read_handlesFileUriAndForwardSlashDrivePaths() {
+        val content =
+            """
+            #EXTM3U
+            #PLAYLIST:URI Paths
+            file:///storage/emulated/0/Music/Song%20A.mp3
+            C:/storage/1234-5678/Audio/TrackB.flac
+            """
+                .trimIndent()
+        val workingDir = Path(internalVolume, Components.parseUnix("Music/Lists"))
+
+        val imported =
+            m3u.read(ByteArrayInputStream(content.toByteArray(Charsets.UTF_8)), workingDir)
+
+        assertNotNull(imported)
+        assertEquals(2, imported!!.paths.size)
+        assertTrue(
+            Path(internalVolume, Components.parseUnix("Music/Song A.mp3")) in imported.paths[0]
+        )
+        assertTrue(
+            Path(externalVolume, Components.parseUnix("Audio/TrackB.flac")) in imported.paths[1]
+        )
+    }
+
+    @Test
+    fun write_sanitizesControlNewlinesInMetadataLines() {
+        val maliciousSong =
+            mockk<Song>(relaxed = true) {
+                every { name } returns
+                    mockk<Name.Known>(relaxed = true) {
+                        every { raw } returns "Line1\nLine2\rLine3"
+                    }
+                every { durationMs } returns 10_000L
+                every { album } returns
+                    mockk<Album>(relaxed = true) {
+                        every { name } returns
+                            mockk<Name.Known>(relaxed = true) { every { raw } returns "Alb\num" }
+                    }
+                every { artists } returns emptyList()
+                every { genres } returns emptyList()
+                every { path } returns Path(internalVolume, Components.parseUnix("Music/Safe.mp3"))
+            }
+        val playlist =
+            mockk<Playlist>(relaxed = true) {
+                every { name } returns
+                    mockk<Name.Known>(relaxed = true) { every { raw } returns "Play\nList" }
+                every { songs } returns listOf(maliciousSong)
+            }
+        val out = ByteArrayOutputStream()
+        m3u.write(
+            playlist,
+            out,
+            Path(internalVolume, Components.parseUnix("Music")),
+            ExportConfig(absolute = false, windowsPaths = false),
+        )
+        val lines = out.toString(Charsets.UTF_8.name()).trimEnd().lines()
+        assertEquals(
+            listOf(
+                "#EXTM3U",
+                "#EXTENC:UTF-8",
+                "#PLAYLIST:Play List",
+                "#EXTINF:10,Line1 Line2 Line3",
+                "#EXTALB:Alb um",
+                "./Safe.mp3",
+            ),
+            lines,
+        )
+    }
 }

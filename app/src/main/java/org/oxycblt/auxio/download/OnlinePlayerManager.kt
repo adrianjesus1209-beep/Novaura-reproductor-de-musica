@@ -20,13 +20,18 @@ package org.oxycblt.auxio.download
 
 import android.content.Context
 import android.content.Intent
+import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,6 +50,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.oxycblt.auxio.R
+import org.oxycblt.auxio.playback.EqualizerController
+import org.oxycblt.auxio.playback.service.MediaSessionCoordinator
 import org.oxycblt.auxio.playback.state.PlaybackStateManager
 import org.oxycblt.auxio.playback.state.Progression
 import timber.log.Timber as L
@@ -72,6 +79,8 @@ constructor(
     private val downloadRepository: DownloadRepository,
     private val onlinePlaylistManager: OnlinePlaylistManager,
     private val playbackManager: PlaybackStateManager,
+    private val sessionCoordinator: MediaSessionCoordinator,
+    private val equalizerController: EqualizerController,
 ) : Player.Listener {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -86,6 +95,7 @@ constructor(
     private var isShuffle = false
     private var isRepeat = false
     @Volatile private var pendingPlayWhenReady = true
+    @Volatile private var lastRetriedSongUrl: String? = null
     private var lastLocalPlaying = false
 
     private val _playerState = MutableStateFlow(OnlinePlayerState())
@@ -111,6 +121,7 @@ constructor(
     init {
         lastLocalPlaying = playbackManager.progression.isPlaying
         playbackManager.addListener(localPlaybackListener)
+        sessionCoordinator.registerOnline { pause() }
     }
 
     private fun computeHasNext(): Boolean =
@@ -121,6 +132,7 @@ constructor(
         queue.isNotEmpty() && (currentIndex > 0 || (isShuffle && queue.size > 1) || isRepeat)
 
     private fun pauseLocalPlaybackIfActive() {
+        sessionCoordinator.activateOnline()
         if (playbackManager.progression.isPlaying) {
             playbackManager.playing(false)
         }
@@ -139,6 +151,7 @@ constructor(
         }
     }
 
+    @OptIn(UnstableApi::class)
     private fun getOrCreatePlayer(): ExoPlayer {
         val existing = exoPlayer
         if (existing != null) return existing
@@ -149,12 +162,23 @@ constructor(
                 .setUsage(C.USAGE_MEDIA)
                 .build()
 
+        val httpFactory =
+            DefaultHttpDataSource.Factory()
+                .setConnectTimeoutMs(20_000)
+                .setReadTimeoutMs(60_000)
+                .setAllowCrossProtocolRedirects(true)
+
         return ExoPlayer.Builder(context)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(httpFactory))
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
+            .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
             .also {
                 it.addListener(this)
+                if (it.audioSessionId != C.AUDIO_SESSION_ID_UNSET && it.audioSessionId > 0) {
+                    equalizerController.attachSession(it.audioSessionId)
+                }
                 exoPlayer = it
             }
     }
@@ -200,9 +224,17 @@ constructor(
         startPlayingSong(song)
     }
 
-    private fun startPlayingSong(song: OnlineSong) {
+    @OptIn(UnstableApi::class)
+    private fun startPlayingSong(
+        song: OnlineSong,
+        initialSeekPositionMs: Long = 0L,
+        recordPlayHistory: Boolean = true,
+    ) {
         pauseLocalPlaybackIfActive()
-        onlinePlaylistManager.recordPlay(song)
+        if (recordPlayHistory) {
+            onlinePlaylistManager.recordPlay(song)
+            lastRetriedSongUrl = null
+        }
 
         streamExtractionJob?.cancel()
         positionJob?.cancel()
@@ -213,6 +245,7 @@ constructor(
                 song = song,
                 isPlaying = false,
                 isLoading = true,
+                positionMs = initialSeekPositionMs.coerceAtLeast(0L),
                 durationMs = song.durationSeconds * 1000L,
                 hasNext = computeHasNext(),
                 hasPrevious = computeHasPrevious(),
@@ -251,10 +284,13 @@ constructor(
             }
             player.playWhenReady = shouldPlayNow
             val mediaItem = MediaItem.fromUri(stream.content)
-            player.setMediaItem(mediaItem)
+            player.setMediaItem(mediaItem, initialSeekPositionMs.coerceAtLeast(0L))
             player.prepare()
             if (shouldPlayNow) {
                 player.play()
+            }
+            if (player.audioSessionId != C.AUDIO_SESSION_ID_UNSET && player.audioSessionId > 0) {
+                equalizerController.attachSession(player.audioSessionId)
             }
 
             _playerState.value =
@@ -381,12 +417,15 @@ constructor(
 
     fun stop() {
         pendingPlayWhenReady = false
+        lastRetriedSongUrl = null
         streamExtractionJob?.cancel()
         positionJob?.cancel()
         exoPlayer?.stop()
         exoPlayer?.clearMediaItems()
         exoPlayer?.release()
         exoPlayer = null
+        equalizerController.releaseSession()
+        sessionCoordinator.activateLocal()
         _playerState.value = OnlinePlayerState(isShuffle = isShuffle, isRepeat = isRepeat)
     }
 
@@ -409,8 +448,15 @@ constructor(
                             hasPrevious = computeHasPrevious(),
                         )
                 }
-                delay(100)
+                delay(250)
             }
+        }
+    }
+
+    @OptIn(UnstableApi::class)
+    override fun onAudioSessionIdChanged(audioSessionId: Int) {
+        if (audioSessionId != C.AUDIO_SESSION_ID_UNSET && audioSessionId > 0) {
+            equalizerController.attachSession(audioSessionId)
         }
     }
 
@@ -465,10 +511,32 @@ constructor(
         }
     }
 
+    @OptIn(UnstableApi::class)
     override fun onPlayerError(error: PlaybackException) {
         L.e(error, "Online player error: ${error.message}")
-        val songTitle = _playerState.value.song?.title.orEmpty()
+        val currentSong = _playerState.value.song
+        val resumePositionMs =
+            (exoPlayer?.currentPosition ?: _playerState.value.positionMs).coerceAtLeast(0L)
+        if (
+            currentSong != null &&
+                lastRetriedSongUrl != currentSong.webUrl &&
+                isExpiredStreamHttpError(error)
+        ) {
+            L.w(
+                "Expired online stream detected for ${currentSong.title}, re-extracting at ${resumePositionMs}ms"
+            )
+            lastRetriedSongUrl = currentSong.webUrl
+            startPlayingSong(
+                currentSong,
+                initialSeekPositionMs = resumePositionMs,
+                recordPlayHistory = false,
+            )
+            return
+        }
+
+        val songTitle = currentSong?.title.orEmpty()
         pendingPlayWhenReady = false
+        lastRetriedSongUrl = null
         streamExtractionJob?.cancel()
         positionJob?.cancel()
         exoPlayer?.stop()
@@ -485,5 +553,18 @@ constructor(
                 _playerError.emit("${context.getString(R.string.lbl_stream_error)}: $songTitle")
             }
         }
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun isExpiredStreamHttpError(error: PlaybackException): Boolean {
+        var cause: Throwable? = error.cause
+        var depth = 0
+        while (cause != null && depth++ < 8) {
+            if (cause is HttpDataSource.InvalidResponseCodeException) {
+                return cause.responseCode == 403 || cause.responseCode == 410
+            }
+            cause = cause.cause
+        }
+        return false
     }
 }

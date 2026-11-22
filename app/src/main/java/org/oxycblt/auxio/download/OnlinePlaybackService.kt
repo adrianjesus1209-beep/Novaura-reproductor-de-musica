@@ -25,12 +25,17 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
+import android.os.SystemClock
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -38,17 +43,21 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.media.app.NotificationCompat.MediaStyle
+import androidx.media.session.MediaButtonReceiver
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.oxycblt.auxio.BuildConfig
 import org.oxycblt.auxio.MainActivity
 import org.oxycblt.auxio.R
+import org.oxycblt.auxio.playback.service.MediaSessionCoordinator
 import timber.log.Timber as L
 
 /**
@@ -59,10 +68,13 @@ import timber.log.Timber as L
 class OnlinePlaybackService : Service() {
 
     @Inject lateinit var onlinePlayerManager: OnlinePlayerManager
+    @Inject lateinit var downloadRepository: DownloadRepository
+    @Inject lateinit var sessionCoordinator: MediaSessionCoordinator
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var stateJob: Job? = null
     private var artworkJob: Job? = null
+    private var searchPlayJob: Job? = null
 
     private lateinit var notificationManager: NotificationManager
     private lateinit var mediaSession: MediaSessionCompat
@@ -79,11 +91,40 @@ class OnlinePlaybackService : Service() {
     private var lastNotifHasPrev: Boolean? = null
     private var lastNotifHasNext: Boolean? = null
 
+    private var lastPbState: Int? = null
+    private var lastPbSpeed: Float = -1f
+    private var lastPbActions: Long = -1L
+    private var lastPbPositionMs: Long = 0L
+    private var lastPbUpdatedAtElapsedMs: Long = 0L
+
+    private val actionReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                handlePlaybackAction(intent.action)
+            }
+        }
+
     override fun onCreate() {
         super.onCreate()
         isRunning = true
         notificationManager = getSystemService(NotificationManager::class.java)
         createNotificationChannel()
+
+        val filter =
+            IntentFilter().apply {
+                addAction(ACTION_PLAY)
+                addAction(ACTION_PAUSE)
+                addAction(ACTION_PLAY_PAUSE)
+                addAction(ACTION_NEXT)
+                addAction(ACTION_PREV)
+                addAction(ACTION_STOP)
+            }
+        ContextCompat.registerReceiver(
+            this,
+            actionReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
 
         mediaSession =
             MediaSessionCompat(this, "NovauraOnlineMediaSession").apply {
@@ -109,6 +150,23 @@ class OnlinePlaybackService : Service() {
                             onlinePlayerManager.seekTo(pos)
                         }
 
+                        override fun onPlayFromSearch(query: String?, extras: Bundle?) {
+                            if (query.isNullOrBlank()) {
+                                onlinePlayerManager.resume()
+                                return
+                            }
+                            searchPlayJob?.cancel()
+                            searchPlayJob = serviceScope.launch {
+                                val results =
+                                    withContext(Dispatchers.IO) {
+                                        downloadRepository.search(query)
+                                    }
+                                if (results.isNotEmpty()) {
+                                    onlinePlayerManager.playQueue(results, 0, query)
+                                }
+                            }
+                        }
+
                         override fun onStop() {
                             onlinePlayerManager.stop()
                             stopForegroundAndSelf()
@@ -119,6 +177,27 @@ class OnlinePlaybackService : Service() {
 
         stateJob = serviceScope.launch {
             onlinePlayerManager.playerState.collect { state -> handleStateChanged(state) }
+        }
+    }
+
+    private fun handlePlaybackAction(action: String?) {
+        val state = onlinePlayerManager.playerState.value
+        when (action) {
+            ACTION_PLAY -> onlinePlayerManager.resume()
+            ACTION_PAUSE -> onlinePlayerManager.pause()
+            ACTION_PLAY_PAUSE -> {
+                if (state.isPlaying) {
+                    onlinePlayerManager.pause()
+                } else {
+                    onlinePlayerManager.resume()
+                }
+            }
+            ACTION_NEXT -> onlinePlayerManager.playNext()
+            ACTION_PREV -> onlinePlayerManager.playPrevious()
+            ACTION_STOP -> {
+                onlinePlayerManager.stop()
+                stopForegroundAndSelf()
+            }
         }
     }
 
@@ -138,18 +217,10 @@ class OnlinePlaybackService : Service() {
             return START_NOT_STICKY
         }
 
-        when (action) {
-            ACTION_PLAY -> onlinePlayerManager.resume()
-            ACTION_PAUSE -> onlinePlayerManager.pause()
-            ACTION_PLAY_PAUSE -> {
-                if (state.isPlaying) {
-                    onlinePlayerManager.pause()
-                } else {
-                    onlinePlayerManager.resume()
-                }
-            }
-            ACTION_NEXT -> onlinePlayerManager.playNext()
-            ACTION_PREV -> onlinePlayerManager.playPrevious()
+        if (action == Intent.ACTION_MEDIA_BUTTON) {
+            MediaButtonReceiver.handleIntent(mediaSession, intent)
+        } else {
+            handlePlaybackAction(action)
         }
 
         val updatedState = onlinePlayerManager.playerState.value
@@ -186,7 +257,10 @@ class OnlinePlaybackService : Service() {
             return
         }
 
-        mediaSession.isActive = true
+        mediaSession.isActive =
+            state.isPlaying ||
+                state.isLoading ||
+                sessionCoordinator.activeOwner == MediaSessionCoordinator.Owner.ONLINE
         updateMediaSessionMetadata(song, state.durationMs)
         updateMediaSessionPlaybackState(state)
 
@@ -287,14 +361,34 @@ class OnlinePlaybackService : Service() {
                 PlaybackStateCompat.ACTION_PLAY_PAUSE or
                 PlaybackStateCompat.ACTION_STOP or
                 PlaybackStateCompat.ACTION_SEEK_TO or
+                PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH or
                 (if (state.hasNext || state.isRepeat) PlaybackStateCompat.ACTION_SKIP_TO_NEXT
                 else 0L) or
                 PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
 
+        val nowElapsed = SystemClock.elapsedRealtime()
+        val expectedPos =
+            lastPbPositionMs + ((nowElapsed - lastPbUpdatedAtElapsedMs) * lastPbSpeed).toLong()
+        val needsUpdate =
+            lastPbState != pbState ||
+                lastPbActions != actions ||
+                lastPbSpeed != speed ||
+                abs(state.positionMs - expectedPos) > 1500L
+
+        if (!needsUpdate) {
+            return
+        }
+
+        lastPbState = pbState
+        lastPbActions = actions
+        lastPbSpeed = speed
+        lastPbPositionMs = state.positionMs
+        lastPbUpdatedAtElapsedMs = nowElapsed
+
         mediaSession.setPlaybackState(
             PlaybackStateCompat.Builder()
                 .setActions(actions)
-                .setState(pbState, state.positionMs, speed)
+                .setState(pbState, state.positionMs, speed, nowElapsed)
                 .build()
         )
     }
@@ -386,15 +480,11 @@ class OnlinePlaybackService : Service() {
     private fun serviceActionPendingIntent(
         actionName: String,
         requestCode: Int,
-        foreground: Boolean,
+        @Suppress("UNUSED_PARAMETER") foreground: Boolean,
     ): PendingIntent {
-        val intent = Intent(this, OnlinePlaybackService::class.java).apply { action = actionName }
+        val intent = Intent(actionName).setPackage(packageName)
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        return if (foreground && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            PendingIntent.getForegroundService(this, requestCode, intent, flags)
-        } else {
-            PendingIntent.getService(this, requestCode, intent, flags)
-        }
+        return PendingIntent.getBroadcast(this, requestCode, intent, flags)
     }
 
     private fun startForegroundSafely(notification: Notification): Boolean {
@@ -468,8 +558,10 @@ class OnlinePlaybackService : Service() {
     override fun onDestroy() {
         isRunning = false
         isForeground = false
+        runCatching { unregisterReceiver(actionReceiver) }
         stateJob?.cancel()
         artworkJob?.cancel()
+        searchPlayJob?.cancel()
         mediaSession.release()
         serviceScope.cancel()
         super.onDestroy()

@@ -88,6 +88,7 @@ class AudioLevelProcessor @Inject constructor(private val playbackSettings: Play
      * starting from silence.
      */
     @Volatile private var smoothed = 0f
+    @Volatile private var levelEpoch = 0L
 
     init {
         applyReactivity(playbackSettings.audioReactivity)
@@ -111,6 +112,8 @@ class AudioLevelProcessor @Inject constructor(private val playbackSettings: Play
     }
 
     // --- OVERRIDES ---
+
+    override fun isActive(): Boolean = super.isActive() && isEnabled
 
     override fun onConfigure(
         inputAudioFormat: AudioProcessor.AudioFormat
@@ -143,6 +146,7 @@ class AudioLevelProcessor @Inject constructor(private val playbackSettings: Play
             return
         }
 
+        val epoch = levelEpoch
         val bytesPerSample: Int
         var sumSquaresNorm = 0.0
         when (configuredEncoding) {
@@ -177,7 +181,7 @@ class AudioLevelProcessor @Inject constructor(private val playbackSettings: Play
                 bytesPerSample = 4
                 for (i in pos until limit step 4) {
                     val sample = Float.fromBits(inputBuffer.getLeInt32(i))
-                    val norm = sample.toDouble().coerceIn(-1.0, 1.0)
+                    val norm = if (sample.isFinite()) sample.toDouble().coerceIn(-1.0, 1.0) else 0.0
                     sumSquaresNorm += norm * norm
                     buffer.putLeInt32(sample.toRawBits())
                 }
@@ -199,11 +203,15 @@ class AudioLevelProcessor @Inject constructor(private val playbackSettings: Play
         if (sampleCount <= 0 || frameCount <= 0) return
 
         val rms = sqrt(sumSquaresNorm / sampleCount).toFloat()
+        if (!rms.isFinite()) return
         // Music rarely exceeds 0.5 RMS, so a square root expands the quiet end into the visible
         // range. Without it normal tracks would only ever move the UI a few percent.
         val target = sqrt(rms.coerceIn(0f, 1f))
-        smoothed += (target - smoothed) * smoothingCoefficient(frameCount, target)
-        level = smoothed
+        if (!target.isFinite() || levelEpoch != epoch) return
+        val next = smoothed + (target - smoothed) * smoothingCoefficient(frameCount, target)
+        if (levelEpoch != epoch || !next.isFinite()) return
+        smoothed = next
+        level = next
     }
 
     /**
@@ -224,6 +232,7 @@ class AudioLevelProcessor @Inject constructor(private val playbackSettings: Play
      * smoothing state.
      */
     fun resetLevel() {
+        levelEpoch++
         smoothed = 0f
         level = 0f
     }

@@ -20,13 +20,15 @@ package org.oxycblt.auxio.music
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.grack.nanojson.JsonArray
+import com.grack.nanojson.JsonParser
+import com.grack.nanojson.JsonWriter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.json.JSONArray
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Song
 import timber.log.Timber as L
@@ -64,32 +66,46 @@ constructor(
 
     @Synchronized
     private fun refreshFavorites() {
-        val resolved = resolveFavoriteSongs()
-        _favoriteSongs.value = resolved
-    }
-
-    @Synchronized
-    private fun resolveFavoriteSongs(): List<Song> {
-        val library = musicRepository.library ?: return emptyList()
+        val library = musicRepository.library
+        if (library == null) {
+            _favoriteSongs.value = emptyList()
+            return
+        }
         val uids = _favoriteUids.value
         val result = ArrayList<Song>(uids.size)
+        val validUids = ArrayList<String>(uids.size)
         for (uidStr in uids) {
             val uid = Music.UID.fromString(uidStr) ?: continue
             val song = library.findSong(uid)
             if (song != null) {
                 result.add(song)
+                validUids.add(uidStr)
             }
         }
-        return result
+        if (library.songs.isNotEmpty() && validUids.size != uids.size) {
+            val array = JsonArray()
+            for (item in validUids) {
+                array.add(item)
+            }
+            prefs.edit().putString(KEY_FAVORITES_JSON, JsonWriter.string(array)).apply()
+            _favoriteUids.value = validUids
+        }
+        _favoriteSongs.value = result
+    }
+
+    @Synchronized
+    private fun resolveFavoriteSongs(): List<Song> {
+        refreshFavorites()
+        return _favoriteSongs.value
     }
 
     private fun loadFavorites(): List<String> {
         val raw = prefs.getString(KEY_FAVORITES_JSON, null) ?: return emptyList()
         return try {
-            val array = JSONArray(raw)
-            val list = ArrayList<String>(array.length())
-            for (i in 0 until array.length()) {
-                list.add(array.getString(i))
+            val array = JsonParser.array().from(raw)
+            val list = ArrayList<String>(array.size)
+            for (i in 0 until array.size) {
+                array.getString(i)?.takeIf { it.isNotBlank() }?.let { list.add(it) }
             }
             list
         } catch (e: Exception) {
@@ -99,11 +115,11 @@ constructor(
     }
 
     private fun saveFavorites(list: List<String>) {
-        val array = JSONArray()
+        val array = JsonArray()
         for (item in list) {
-            array.put(item)
+            array.add(item)
         }
-        prefs.edit().putString(KEY_FAVORITES_JSON, array.toString()).apply()
+        prefs.edit().putString(KEY_FAVORITES_JSON, JsonWriter.string(array)).apply()
         _favoriteUids.value = list
         refreshFavorites()
     }

@@ -19,12 +19,14 @@
 package org.oxycblt.auxio.download
 
 import android.Manifest
+import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.ContextCompat
@@ -35,14 +37,19 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Request
+import org.oxycblt.auxio.R
 import org.oxycblt.musikr.covers.CoverUtils
 import org.schabi.newpipe.extractor.MediaFormat
 import org.schabi.newpipe.extractor.NewPipe
@@ -86,15 +93,24 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
         }
     }
 
-    suspend fun search(query: String): List<OnlineSong> =
+    private fun defaultArtistName(): String =
+        runCatching { context.getString(R.string.def_artist) }
+            .getOrNull()
+            ?.takeIf { !it.isNullOrBlank() } ?: "Unknown Artist"
+
+    suspend fun searchOrThrow(query: String): List<OnlineSong> =
         withContext(Dispatchers.IO) {
             if (query.isBlank()) return@withContext emptyList()
-            try {
-                val searchExtractor = ServiceList.YouTube.getSearchExtractor(query)
-                searchExtractor.fetchPage()
-                val page = searchExtractor.initialPage
+            val searchExtractor = ServiceList.YouTube.getSearchExtractor(query)
+            searchExtractor.fetchPage()
+            val page = searchExtractor.initialPage
+            val defaultArtist = defaultArtistName()
 
-                page.items.filterIsInstance<StreamInfoItem>().map { item ->
+            page.items
+                .filterIsInstance<StreamInfoItem>()
+                .filter { !it.url.isNullOrBlank() }
+                .map { item ->
+                    val itemUrl = item.url.orEmpty().trim()
                     val cleanUploader =
                         item.uploaderName
                             ?.removeSuffix(" - Topic")
@@ -102,7 +118,7 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                             ?.removeSuffix(" - Official")
                             ?.trim()
                             ?.ifEmpty { null }
-                    val rawName = item.name ?: "Desconocido"
+                    val rawName = item.name ?: defaultArtist
                     val (extractedArtist, extractedTitle) =
                         if (rawName.contains(" - ")) {
                             val parts = rawName.split(" - ")
@@ -117,28 +133,32 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                             null to rawName
                         }
 
-                    val finalArtist = cleanUploader ?: extractedArtist ?: "Artista desconocido"
+                    val finalArtist = cleanUploader ?: extractedArtist ?: defaultArtist
                     val finalTitle =
                         if (extractedArtist != null && cleanUploader != null) extractedTitle
                         else rawName
 
                     OnlineSong(
-                        id = item.url ?: "",
+                        id = itemUrl,
                         title = finalTitle,
                         artist = finalArtist,
                         durationText = formatDuration(item.duration),
                         durationSeconds = item.duration,
                         thumbnailUrl = item.thumbnails.maxByOrNull { it.width }?.url,
-                        webUrl = item.url ?: "",
+                        webUrl = itemUrl,
                         viewCount = item.viewCount,
                     )
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                L.e(e, "Search failed for query: $query")
-                emptyList()
-            }
+        }
+
+    suspend fun search(query: String): List<OnlineSong> =
+        try {
+            searchOrThrow(query)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            L.e(e, "Search failed for query: $query")
+            emptyList()
         }
 
     private val stalePendingCleaned = AtomicBoolean(false)
@@ -146,14 +166,22 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
 
     private fun tempDir(): File = File(context.cacheDir, "download_tmp").apply { mkdirs() }
 
-    private fun tempFileFor(webUrl: String): File =
-        File(tempDir(), "${CoverUtils.toMd5(webUrl)}.part")
+    private fun tempFileFor(webUrl: String, extension: String): File =
+        File(tempDir(), computeTempPartFileName(webUrl, extension))
 
     fun cleanupTempFile(webUrl: String) {
         runCatching {
-            val file = tempFileFor(webUrl)
-            if (file.exists()) {
-                file.delete()
+            val hash = CoverUtils.toMd5(webUrl)
+            val legacy = File(tempDir(), "$hash.part")
+            if (legacy.exists()) {
+                legacy.delete()
+            }
+            tempDir().listFiles()?.forEach { file ->
+                if (
+                    file.isFile && file.name.startsWith("${hash}_") && file.name.endsWith(".part")
+                ) {
+                    file.delete()
+                }
             }
         }
     }
@@ -172,7 +200,6 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
         if (!stalePendingCleaned.compareAndSet(false, true)) return
         try {
-            val uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
             val selection =
                 "${MediaStore.Audio.Media.IS_PENDING} = 1 AND " +
                     "${MediaStore.Audio.Media.RELATIVE_PATH} LIKE ? AND " +
@@ -182,7 +209,24 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                     "${Environment.DIRECTORY_MUSIC}/Novaura/%",
                     processStartSeconds.toString(),
                 )
-            val deleted = context.contentResolver.delete(uri, selection, args)
+            val deleted =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    val extras =
+                        Bundle().apply {
+                            putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+                            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+                            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args)
+                        }
+                    context.contentResolver.delete(
+                        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                        extras,
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    val uri =
+                        MediaStore.setIncludePending(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
+                    context.contentResolver.delete(uri, selection, args)
+                }
             if (deleted > 0) {
                 L.d("Cleaned up $deleted stale pending MediaStore rows")
             }
@@ -249,9 +293,12 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
 
             val sanitizedTitle = sanitizeFileComponent(song.title, fallback = "track")
             val sanitizedArtist = sanitizeFileComponent(song.artist, fallback = "")
+            val defaultArtist = defaultArtistName()
             val hasKnownArtist =
                 sanitizedArtist.isNotEmpty() &&
-                    !sanitizedArtist.equals("Artista desconocido", ignoreCase = true)
+                    !sanitizedArtist.equals(defaultArtist, ignoreCase = true) &&
+                    !sanitizedArtist.equals("Artista desconocido", ignoreCase = true) &&
+                    !sanitizedArtist.equals("Unknown Artist", ignoreCase = true)
             val rawBaseName =
                 if (hasKnownArtist) {
                     "$sanitizedArtist - $sanitizedTitle"
@@ -262,7 +309,7 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                 sanitizeFileComponent(rawBaseName, fallback = "track", maxBytes = 180)
             val folderName = safeBaseName
             val displayName = "$safeBaseName.$extension"
-            val partFile = tempFileFor(song.webUrl)
+            val partFile = tempFileFor(song.webUrl, extension)
 
             var insertedUri: Uri? = null
             var legacyTempFile: File? = null
@@ -376,11 +423,9 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                             }
                         }
                     }
-                    MediaScannerConnection.scanFile(
-                        context,
+                    scanMediaFilesSuspending(
                         pathsToScan.toTypedArray(),
                         mimesToScan.toTypedArray(),
-                        null,
                     )
                     L.d("Song downloaded successfully to file: ${destFile.absolutePath}")
                     resultUri = Uri.fromFile(destFile)
@@ -414,13 +459,18 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                 requestBuilder.header("Range", "bytes=$existingBytes-")
             }
 
-            downloader.client.newCall(requestBuilder.build()).execute().use { response ->
+            downloader.streamClient.newCall(requestBuilder.build()).execute().use { response ->
                 when (response.code) {
                     403,
                     410 -> {
                         L.w("Expired stream URL (${response.code}) for ${song.title}, retrying")
                         if (attempt == 0) {
-                            currentStream = extractAudioStreamUrl(song.webUrl) ?: return false
+                            val previousExt = resolveFormatSpec(currentStream).first
+                            val refreshed = extractAudioStreamUrl(song.webUrl) ?: return false
+                            if (resolveFormatSpec(refreshed).first != previousExt) {
+                                runCatching { partFile.delete() }
+                            }
+                            currentStream = refreshed
                             return@use
                         }
                         return false
@@ -654,7 +704,13 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
                 ) {
                     return@withContext true
                 }
-                val searchQuery = "$songArtist $songTitle".replace("Artista desconocido", "").trim()
+                val defaultArtist = defaultArtistName()
+                val searchQuery =
+                    "$songArtist $songTitle"
+                        .replace(defaultArtist, "", ignoreCase = true)
+                        .replace("Artista desconocido", "", ignoreCase = true)
+                        .replace("Unknown Artist", "", ignoreCase = true)
+                        .trim()
                 if (searchQuery.isBlank()) return@withContext false
                 val results = search(searchQuery)
                 val match = results.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }
@@ -675,8 +731,31 @@ class DownloadRepository @Inject constructor(@ApplicationContext private val con
         return String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
     }
 
-    private companion object {
+    private suspend fun scanMediaFilesSuspending(
+        paths: Array<String>,
+        mimeTypes: Array<String>,
+    ) {
+        if (paths.isEmpty()) return
+        withTimeoutOrNull(4_000L) {
+            suspendCancellableCoroutine<Unit> { cont ->
+                val remaining = AtomicInteger(paths.size)
+                MediaScannerConnection.scanFile(context, paths, mimeTypes) { _, _ ->
+                    if (remaining.decrementAndGet() <= 0 && cont.isActive) {
+                        cont.resume(Unit)
+                    }
+                }
+            }
+        }
+    }
+
+    internal companion object {
         private const val MAX_COVER_BYTES = 8 * 1024 * 1024
+
+        internal fun computeTempPartFileName(webUrl: String, extension: String): String {
+            val safeExt = extension.lowercase(Locale.ROOT).ifEmpty { "audio" }
+            return "${CoverUtils.toMd5(webUrl)}_$safeExt.part"
+        }
+
         private val RESERVED_FAT_NAMES =
             setOf(
                 "CON",

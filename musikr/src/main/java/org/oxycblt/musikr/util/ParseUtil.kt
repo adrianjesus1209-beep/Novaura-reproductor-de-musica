@@ -27,37 +27,34 @@ package org.oxycblt.musikr.util
  */
 internal inline fun String.splitEscaped(selector: (Char) -> Boolean): List<String> {
     val split = mutableListOf<String>()
-    var currentString = ""
+    val currentString = StringBuilder()
     var i = 0
 
     while (i < length) {
         val a = get(i)
         val b = getOrNull(i + 1)
 
+        if (b != null && a == '\\' && (b == '\\' || selector(b))) {
+            // Escaped backslash or escaped separator: emit the literal unescaped char.
+            currentString.append(b)
+            i += 2
+            continue
+        }
+
         if (selector(a)) {
-            // Non-escaped separator, split the string here, making sure any stray whitespace
-            // is removed.
-            split.add(currentString)
-            currentString = ""
+            split.add(currentString.toString())
+            currentString.clear()
             i++
             continue
         }
 
-        if (b != null && a == '\\' && selector(b)) {
-            // Is an escaped character, add the non-escaped variant and skip two
-            // characters to move on to the next one.
-            currentString += b
-            i += 2
-        } else {
-            // Non-escaped, increment normally.
-            currentString += a
-            i++
-        }
+        currentString.append(a)
+        i++
     }
 
     if (currentString.isNotEmpty()) {
         // Had an in-progress split string that is now terminated, add it.
-        split.add(currentString)
+        split.add(currentString.toString())
     }
 
     return split

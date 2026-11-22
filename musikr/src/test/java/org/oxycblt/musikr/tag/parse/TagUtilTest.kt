@@ -38,6 +38,12 @@ class TagUtilTest {
     }
 
     @Test
+    fun splitEscaped_escapedBackslashAndTrailing() {
+        assertEquals(listOf("a\\", "b"), "a\\\\,b".splitEscaped { it == ',' })
+        assertEquals(listOf("a\\"), "a\\".splitEscaped { it == ',' })
+    }
+
+    @Test
     fun splitEscaped_whitespace() {
         assertEquals(listOf("a ", " b", " c ", "  "), "a , b, c ,  ".splitEscaped { it == ',' })
     }
@@ -147,5 +153,6 @@ class TagUtilTest {
     @Test
     fun parsId3v2Genre_singleId3v1() {
         assertEquals(listOf("Post-Rock"), listOf("176").parseId3GenreNames())
+        assertEquals(null, listOf("(999)").parseId3GenreNames())
     }
 }

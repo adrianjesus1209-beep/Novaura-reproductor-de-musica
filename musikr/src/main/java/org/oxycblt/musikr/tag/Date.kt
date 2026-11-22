@@ -120,7 +120,7 @@ class Date private constructor(private val tokens: List<Int>) : Comparable<Date>
          * @return A new [Date] of the given component, or null if the component is invalid.
          */
         fun from(year: Int) =
-            if (year in 10000000..100000000) {
+            if (year in 10000000..99999999) {
                 // Year is actually more likely to be a separated date timestamp. Interpret
                 // it as such.
                 val stringYear = year.toString()

@@ -202,9 +202,6 @@
     <string name="lbl_github">Make an issue on GitHub</string>
     <string name="lbl_email">Send an email</string>
     <string name="lbl_donate">Support on GitHub</string>
-    <string name="lbl_credits">Credits</string>
-    <string name="lbl_credits_base">Based on the open-source Auxio project by Alexander Capehart</string>
-    <string name="lbl_supporters">Supporters</string>
 
     <!-- Long Namespace | Longer Descriptions -->
     <eat-comment />
@@ -222,7 +219,6 @@
     <string name="lng_song_deleted">Song deleted</string>
     <string name="lng_songs_deleted">Songs deleted</string>
     <string name="lng_playlist_added">Added to playlist</string>
-    <string name="lng_supporters_promo">Donate to the project to get your name added here!</string>
     <!-- As in music library -->
     <string name="lng_search_library">Search your library…</string>
     <string name="lng_tasker_start">
@@ -580,6 +576,8 @@
     <string name="lbl_download_music">Download music</string>
     <string name="lbl_search_online_hint">Search songs or artists...</string>
     <string name="lbl_no_download_results">No results found</string>
+    <string name="lbl_download_search_error">Connection error while searching</string>
+    <string name="lbl_download_retry_hint">Check your connection and tap Retry</string>
     <string name="lbl_download_empty_prompt">Download any music for free with no ads</string>
     <string name="lbl_download_searching">Searching online...</string>
     <string name="lbl_download_suggestions">Popular suggestions:</string>

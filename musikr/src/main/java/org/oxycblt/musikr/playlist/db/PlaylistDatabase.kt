@@ -62,6 +62,8 @@ internal abstract class PlaylistDatabase : RoomDatabase() {
                             table: String,
                             column: String,
                         ) {
+                            db.execSQL("DELETE FROM $table WHERE $column IS NULL")
+                            val corrupt = mutableListOf<String>()
                             val playlistUidMigration =
                                 db.query(
                                         SupportSQLiteQueryBuilder.builder(table)
@@ -73,22 +75,22 @@ internal abstract class PlaylistDatabase : RoomDatabase() {
                                         val playlistUidIndex = it.getColumnIndexOrThrow(column)
                                         while (it.moveToNext()) {
                                             val oldUid =
-                                                requireNotNull(
-                                                    it.getStringOrNull(playlistUidIndex)
-                                                ) {
-                                                    "catastrophic migration failure: $table has no UID"
-                                                }
-                                            val newUid =
-                                                requireNotNull(Music.UID.fromString(oldUid)) {
-                                                        "catastrophic migration failure: $table has bad UID"
-                                                    }
-                                                    .toString()
+                                                it.getStringOrNull(playlistUidIndex) ?: continue
+                                            val parsed = Music.UID.fromString(oldUid)
+                                            if (parsed == null) {
+                                                corrupt.add(oldUid)
+                                                continue
+                                            }
+                                            val newUid = parsed.toString()
                                             if (oldUid != newUid) {
                                                 migrations.add(oldUid to newUid)
                                             }
                                         }
                                         migrations
                                     }
+                            for (badUid in corrupt) {
+                                db.execSQL("DELETE FROM $table WHERE $column = ?", arrayOf(badUid))
+                            }
                             for ((old, new) in playlistUidMigration) {
                                 if (table == "PlaylistInfo") {
                                     val newExists =
@@ -123,6 +125,8 @@ internal abstract class PlaylistDatabase : RoomDatabase() {
                         }
                     }
                 )
+                .fallbackToDestructiveMigration(true)
+                .fallbackToDestructiveMigrationOnDowngrade(true)
                 .build()
     }
 }
@@ -135,8 +139,29 @@ internal abstract class PlaylistDatabase : RoomDatabase() {
  *
  * @author Alexander Capehart (OxygenCobalt)
  */
+internal data class OrderedPlaylist(val info: PlaylistInfo, val songUids: List<Music.UID>)
+
+internal data class PlaylistSongRefRow(val playlistUid: Music.UID, val songUid: Music.UID)
+
 @Dao
 internal abstract class PlaylistDao {
+    @Query("SELECT * FROM PlaylistInfo")
+    abstract suspend fun readPlaylistInfos(): List<PlaylistInfo>
+
+    @Query("SELECT playlistUid, songUid FROM PlaylistSongCrossRef ORDER BY id ASC")
+    abstract suspend fun readAllOrderedRefs(): List<PlaylistSongRefRow>
+
+    /** Read all playlists and their ordered song UIDs inside one transaction (no N+1 queries). */
+    @Transaction
+    open suspend fun readOrderedPlaylists(): List<OrderedPlaylist> {
+        val infos = readPlaylistInfos()
+        if (infos.isEmpty()) return emptyList()
+        val refsByPlaylist = readAllOrderedRefs().groupBy { it.playlistUid }
+        return infos.map { info ->
+            OrderedPlaylist(info, refsByPlaylist[info.playlistUid].orEmpty().map { it.songUid })
+        }
+    }
+
     /**
      * Read out all playlists stored in the database.
      *
@@ -190,6 +215,7 @@ internal abstract class PlaylistDao {
     open suspend fun deletePlaylist(playlistUid: Music.UID) {
         deleteInfo(playlistUid)
         deleteRefs(playlistUid)
+        pruneOrphanedSongs()
     }
 
     /**
@@ -220,7 +246,13 @@ internal abstract class PlaylistDao {
         insertRefs(
             songs.map { PlaylistSongCrossRef(playlistUid = playlistUid, songUid = it.songUid) }
         )
+        pruneOrphanedSongs()
     }
+
+    @Query(
+        "DELETE FROM PlaylistSong WHERE songUid NOT IN (SELECT DISTINCT songUid FROM PlaylistSongCrossRef)"
+    )
+    abstract suspend fun pruneOrphanedSongs()
 
     /** Internal, do not use. */
     @Insert(onConflict = OnConflictStrategy.ABORT)

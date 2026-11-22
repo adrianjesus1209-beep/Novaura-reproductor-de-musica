@@ -25,12 +25,12 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.RenderEffect
 import android.graphics.Shader
-import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.view.View
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
+import androidx.exifinterface.media.ExifInterface
 import com.google.android.material.R as MR
 import java.io.File
 import kotlin.math.abs
@@ -41,6 +41,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.oxycblt.auxio.R
 import org.oxycblt.auxio.util.getAttrColorCompat
+import org.oxycblt.auxio.util.isNight
 import timber.log.Timber as L
 
 /**
@@ -218,7 +219,7 @@ object WallpaperHelper {
         imageView.setImageBitmap(prepared.bitmap)
         imageView.alpha = 1f
         applyRenderEffectBlur(imageView, prepared.blurPercent)
-        scrimView.setBackgroundColor(Color.BLACK)
+        scrimView.setBackgroundColor(if (imageView.context.isNight) Color.BLACK else Color.WHITE)
         scrimView.alpha = prepared.scrimAlpha
     }
 

@@ -76,6 +76,9 @@ constructor(
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    private val _searchError = MutableStateFlow(false)
+    val searchError: StateFlow<Boolean> = _searchError.asStateFlow()
+
     // Filters
     val typeFilter = MutableStateFlow(SearchTypeFilter.ALL)
     val durationFilter = MutableStateFlow(SearchDurationFilter.ANY)
@@ -130,21 +133,30 @@ constructor(
 
     private var searchJob: Job? = null
 
+    fun resetSearchFilters() {
+        typeFilter.value = SearchTypeFilter.ALL
+        durationFilter.value = SearchDurationFilter.ANY
+        sortFilter.value = SearchSortFilter.RELEVANCE
+    }
+
     fun search(query: String) {
         searchJob?.cancel()
         if (query.isBlank()) {
             _searchResults.value = emptyList()
+            _searchError.value = false
             _isSearching.value = false
             return
         }
         searchJob =
             viewModelScope.launch(Dispatchers.IO) {
                 val thisJob = kotlin.coroutines.coroutineContext[Job]
+                _searchError.value = false
                 _isSearching.value = true
                 try {
-                    val results = downloadRepository.search(query)
+                    val results = downloadRepository.searchOrThrow(query)
                     if (kotlinx.coroutines.currentCoroutineContext()[Job] === searchJob) {
                         _searchResults.value = results
+                        _searchError.value = false
                     }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
@@ -152,6 +164,7 @@ constructor(
                     L.e(e, "Error searching: $query")
                     if (kotlinx.coroutines.currentCoroutineContext()[Job] === searchJob) {
                         _searchResults.value = emptyList()
+                        _searchError.value = true
                     }
                 } finally {
                     if (thisJob === searchJob) {

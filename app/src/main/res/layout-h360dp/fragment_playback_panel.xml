@@ -89,10 +89,11 @@
         <LinearLayout
             android:id="@+id/btn_playback_save"
             android:layout_width="wrap_content"
-            android:layout_height="32dp"
+            android:layout_height="36dp"
             android:layout_marginTop="6dp"
             android:background="@drawable/bg_ytm_pill"
             android:clickable="true"
+            android:contentDescription="@string/lbl_save"
             android:focusable="true"
             android:gravity="center_vertical"
             android:orientation="horizontal"
@@ -159,8 +160,8 @@
             <org.oxycblt.auxio.playback.ui.button.ScaledPlaybackButton
                 android:id="@+id/playback_shuffle"
                 style="@style/Widget.Auxio.Button.Playback.Toggle"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:contentDescription="@string/desc_shuffle"
                 app:icon="@drawable/sel_shuffle_state_24"
                 app:iconSize="22dp" />
@@ -196,8 +197,8 @@
             <org.oxycblt.auxio.playback.ui.button.ScaledPlaybackButton
                 android:id="@+id/playback_repeat"
                 style="@style/Widget.Auxio.Button.Playback.Toggle"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:contentDescription="@string/desc_change_repeat"
                 app:icon="@drawable/ic_repeat_off_24"
                 app:iconSize="22dp" />

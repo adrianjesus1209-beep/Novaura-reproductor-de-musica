@@ -864,6 +864,10 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
     ) : FragmentStateAdapter(fragmentManager, lifecycleOwner.lifecycle) {
         override fun getItemCount() = tabs.size
 
+        override fun getItemId(position: Int) = tabs[position].ordinal.toLong()
+
+        override fun containsItem(itemId: Long) = tabs.any { it.ordinal.toLong() == itemId }
+
         override fun createFragment(position: Int): Fragment =
             when (tabs[position]) {
                 MusicType.SONGS -> SongListFragment()

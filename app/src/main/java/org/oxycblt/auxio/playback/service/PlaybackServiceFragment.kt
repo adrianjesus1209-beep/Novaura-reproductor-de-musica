@@ -160,7 +160,7 @@ private constructor(
                         // Malformed intent, need to restore state immediately
                         DeferredPlayback.RestoreState(
                             play = true,
-                            fallback = DeferredPlayback.ShuffleAll,
+                            fallback = DeferredPlayback.PlaySmart,
                         )
                     } else {
                         null

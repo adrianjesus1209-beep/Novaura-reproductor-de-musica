@@ -50,9 +50,10 @@
         <LinearLayout
             android:id="@+id/btn_save_queue"
             android:layout_width="wrap_content"
-            android:layout_height="34dp"
+            android:layout_height="36dp"
             android:background="@drawable/bg_ytm_pill"
             android:clickable="true"
+            android:contentDescription="@string/lbl_save"
             android:focusable="true"
             android:gravity="center_vertical"
             android:orientation="horizontal"

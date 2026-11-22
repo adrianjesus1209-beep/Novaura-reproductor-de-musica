@@ -24,6 +24,7 @@ import static java.lang.Math.min;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.annotation.SuppressLint;
 import android.animation.ValueAnimator;
 import android.animation.ValueAnimator.AnimatorUpdateListener;
 import android.content.Context;
@@ -92,6 +93,7 @@ import java.util.Map;
  * window-like. For BottomSheetDialog use {@link BottomSheetDialog#setTitle(int)}, and for
  * BottomSheetDialogFragment use {@link ViewCompat#setAccessibilityPaneTitle(View, CharSequence)}.
  */
+@SuppressLint("RestrictedApi")
 public class BackportBottomSheetBehavior<V extends View> extends CoordinatorLayout.Behavior<V>
     implements MaterialBackHandler {
 
@@ -2376,7 +2378,7 @@ public class BackportBottomSheetBehavior<V extends View> extends CoordinatorLayo
     switch (state) {
       case STATE_EXPANDED:
         {
-          int nextState = fitToContents ? STATE_COLLAPSED : STATE_HALF_EXPANDED;
+          @StableState int nextState = fitToContents ? STATE_COLLAPSED : STATE_HALF_EXPANDED;
           replaceAccessibilityActionForState(
               view, AccessibilityActionCompat.ACTION_COLLAPSE, nextState);
           break;
@@ -2391,7 +2393,7 @@ public class BackportBottomSheetBehavior<V extends View> extends CoordinatorLayo
         }
       case STATE_COLLAPSED:
         {
-          int nextState = fitToContents ? STATE_EXPANDED : STATE_HALF_EXPANDED;
+          @StableState int nextState = fitToContents ? STATE_EXPANDED : STATE_HALF_EXPANDED;
           replaceAccessibilityActionForState(
               view, AccessibilityActionCompat.ACTION_EXPAND, nextState);
           break;
@@ -2419,20 +2421,21 @@ public class BackportBottomSheetBehavior<V extends View> extends CoordinatorLayo
   }
 
   private void replaceAccessibilityActionForState(
-      View child, AccessibilityActionCompat action, @State int state) {
+      View child, AccessibilityActionCompat action, @StableState int state) {
     ViewCompat.replaceAccessibilityAction(
         child, action, null, createAccessibilityViewCommandForState(state));
   }
 
   private int addAccessibilityActionForState(
-      View child, @StringRes int stringResId, @State int state) {
+      View child, @StringRes int stringResId, @StableState int state) {
     return ViewCompat.addAccessibilityAction(
         child,
         child.getResources().getString(stringResId),
         createAccessibilityViewCommandForState(state));
   }
 
-  private AccessibilityViewCommand createAccessibilityViewCommandForState(@State final int state) {
+  private AccessibilityViewCommand createAccessibilityViewCommandForState(
+      @StableState final int state) {
     return new AccessibilityViewCommand() {
       @Override
       public boolean perform(@NonNull View view, @Nullable CommandArguments arguments) {

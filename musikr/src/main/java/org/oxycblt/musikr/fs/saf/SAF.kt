@@ -183,26 +183,24 @@ private constructor(
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private class JoinAddedMs(private val context: Context, private val uri: Uri) : AddedMs {
-        override suspend fun resolve(): Long? {
-            val mediaUri =
-                try {
-                    AOSPMediaStore.getMediaUri(context, uri) ?: return null
-                } catch (e: Exception) {
-                    return null
+        override suspend fun resolve(): Long? =
+            try {
+                val mediaUri = AOSPMediaStore.getMediaUri(context, uri) ?: return null
+                context.contentResolverSafe.useQuery(
+                    mediaUri,
+                    arrayOf(AOSPMediaStore.Files.FileColumns.DATE_ADDED),
+                ) {
+                    if (it.moveToFirst()) {
+                        val dateAddedIndex =
+                            it.getColumnIndexOrThrow(AOSPMediaStore.Files.FileColumns.DATE_ADDED)
+                        it.getLong(dateAddedIndex) * 1000
+                    } else {
+                        null
+                    }
                 }
-            return context.contentResolverSafe.useQuery(
-                mediaUri,
-                arrayOf(AOSPMediaStore.Files.FileColumns.DATE_ADDED),
-            ) {
-                if (it.moveToFirst()) {
-                    val dateAddedIndex =
-                        it.getColumnIndexOrThrow(AOSPMediaStore.Files.FileColumns.DATE_ADDED)
-                    it.getLong(dateAddedIndex) * 1000
-                } else {
-                    null
-                }
+            } catch (_: Exception) {
+                null
             }
-        }
     }
 
     private object NullAddedMs : AddedMs {

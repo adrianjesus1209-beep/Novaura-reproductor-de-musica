@@ -60,6 +60,42 @@ sealed interface Format {
         override val mimeType = "audio/wav"
     }
 
+    data object AIFF : Format {
+        override val mimeType = "audio/aiff"
+    }
+
+    data object Speex : Format {
+        override val mimeType = "audio/speex"
+    }
+
+    data object DSF : Format {
+        override val mimeType = "audio/dsf"
+    }
+
+    data object DSDIFF : Format {
+        override val mimeType = "audio/dff"
+    }
+
+    data object AC3 : Format {
+        override val mimeType = "audio/ac3"
+    }
+
+    data object EAC3 : Format {
+        override val mimeType = "audio/eac3"
+    }
+
+    data object DTS : Format {
+        override val mimeType = "audio/dts"
+    }
+
+    data class WebM(val containing: Format?) : Format {
+        override val mimeType = "audio/webm"
+    }
+
+    data class Matroska(val containing: Format?) : Format {
+        override val mimeType = "audio/matroska"
+    }
+
     data class Unknown(override val mimeType: String) : Format {
         val extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)?.uppercase()
     }
@@ -77,11 +113,24 @@ sealed interface Format {
                 "audio/opus" to Opus,
                 "audio/vorbis" to Vorbis,
                 "audio/flac" to FLAC,
+                "audio/x-flac" to FLAC,
                 "audio/wav" to Wav,
                 "audio/raw" to Wav,
                 "audio/x-wav" to Wav,
                 "audio/vnd.wave" to Wav,
                 "audio/wave" to Wav,
+                "audio/aiff" to AIFF,
+                "audio/x-aiff" to AIFF,
+                "audio/speex" to Speex,
+                "audio/x-speex" to Speex,
+                "audio/dsf" to DSF,
+                "audio/x-dsf" to DSF,
+                "audio/dff" to DSDIFF,
+                "audio/x-dff" to DSDIFF,
+                "audio/ac3" to AC3,
+                "audio/eac3" to EAC3,
+                "audio/dts" to DTS,
+                "audio/vnd.dts" to DTS,
             )
 
         internal fun infer(containerMimeType: String, codecMimeType: String): Format {
@@ -95,7 +144,9 @@ sealed interface Format {
                 // Standalone container of some codec.
                 return extensionFormat
             }
-            return wrapInContainer(containerMimeType, null) ?: Unknown(containerMimeType)
+            return wrapInContainer(containerMimeType, null)
+                ?: wrapInContainer(codecMimeType, null)
+                ?: Unknown(containerMimeType)
         }
 
         private fun wrapInContainer(containerMimeType: String, format: Format?) =
@@ -106,6 +157,11 @@ sealed interface Format {
                 "audio/ogg",
                 "application/ogg",
                 "application/x-ogg" -> Ogg(format)
+                "audio/webm",
+                "video/webm" -> WebM(format)
+                "audio/matroska",
+                "audio/x-matroska",
+                "video/x-matroska" -> Matroska(format)
                 else -> format
             }
     }

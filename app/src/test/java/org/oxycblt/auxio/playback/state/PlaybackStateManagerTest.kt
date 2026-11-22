@@ -110,6 +110,35 @@ class PlaybackStateManagerTest {
             )
         manager.applySavedState(badShuffleState, destructive = true)
         verify(exactly = 2) { holder.reset(StateAck.NewPlayback) }
+
+        // Duplicate entries in shuffledMapping with matching heap size must also trigger reset.
+        val s1 = fakeSong("s1")
+        val duplicateShuffleState =
+            PlaybackStateManager.SavedState(
+                positionMs = 0L,
+                repeatMode = RepeatMode.NONE,
+                parent = null,
+                heap = listOf(s0, s1),
+                shuffledMapping = listOf(0, 0),
+                index = 0,
+                songUid = s0.uid,
+            )
+        manager.applySavedState(duplicateShuffleState, destructive = true)
+        verify(exactly = 3) { holder.reset(StateAck.NewPlayback) }
+
+        // Truncated shuffledMapping (size != heap.size) must trigger reset.
+        val truncatedShuffleState =
+            PlaybackStateManager.SavedState(
+                positionMs = 0L,
+                repeatMode = RepeatMode.NONE,
+                parent = null,
+                heap = listOf(s0, s1),
+                shuffledMapping = listOf(0),
+                index = 0,
+                songUid = s0.uid,
+            )
+        manager.applySavedState(truncatedShuffleState, destructive = true)
+        verify(exactly = 4) { holder.reset(StateAck.NewPlayback) }
     }
 
     @Test

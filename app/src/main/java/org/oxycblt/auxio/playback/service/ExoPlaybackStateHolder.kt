@@ -54,6 +54,7 @@ import kotlinx.coroutines.yield
 import org.oxycblt.auxio.image.ImageSettings
 import org.oxycblt.auxio.music.FavoritesManager
 import org.oxycblt.auxio.music.MusicRepository
+import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.playback.EqualizerController
 import org.oxycblt.auxio.playback.PlaybackSettings
 import org.oxycblt.auxio.playback.audio.AudioLevelProcessor
@@ -228,27 +229,68 @@ class ExoPlaybackStateHolder(
                     )
                 }
             }
+            // Search -> Play library items matching the query, or shuffle all
+            is DeferredPlayback.Search -> {
+                val query = action.query?.trim().orEmpty()
+                val cmd =
+                    if (query.isEmpty()) {
+                        commandFactory.all(ShuffleMode.ON)
+                    } else {
+                        val lower = query.lowercase(java.util.Locale.ROOT)
+                        val matchingSongs =
+                            library.songs.filter { song ->
+                                song.name
+                                    .resolve(context)
+                                    .lowercase(java.util.Locale.ROOT)
+                                    .contains(lower) ||
+                                    song.album.name
+                                        .resolve(context)
+                                        .lowercase(java.util.Locale.ROOT)
+                                        .contains(lower) ||
+                                    song.artists.any { artist ->
+                                        artist.name
+                                            .resolve(context)
+                                            .lowercase(java.util.Locale.ROOT)
+                                            .contains(lower)
+                                    }
+                            }
+                        if (matchingSongs.isNotEmpty()) {
+                            commandFactory.songs(matchingSongs, ShuffleMode.OFF)
+                        } else {
+                            commandFactory.all(ShuffleMode.ON)
+                        }
+                    }
+                playbackManager.play(requireNotNull(cmd) { "Invalid playback parameters" })
+            }
             // Open -> Try to find the Song for the given file and then play it from all songs
             is DeferredPlayback.Open -> {
                 L.d("Opening specified file")
-                context.applicationContext.contentResolver
-                    .query(
-                        action.uri,
-                        arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
-                        null,
-                        null,
-                        null,
-                    )
-                    ?.use { cursor ->
-                        val displayNameIndex =
-                            cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
-                        val sizeIndex = cursor.getColumnIndexOrThrow(OpenableColumns.SIZE)
-                        if (cursor.moveToFirst()) {
-                            val displayName = cursor.getString(displayNameIndex)
-                            val size = cursor.getLong(sizeIndex)
+                try {
+                    context.applicationContext.contentResolver
+                        .query(
+                            action.uri,
+                            arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+                            null,
+                            null,
+                            null,
+                        )
+                        ?.use { cursor ->
+                            val displayNameIndex =
+                                cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                            if (displayNameIndex < 0 || !cursor.moveToFirst()) {
+                                return@use
+                            }
+                            val displayName = cursor.getString(displayNameIndex) ?: return@use
+                            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                            val size =
+                                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
+                                    cursor.getLong(sizeIndex)
+                                } else {
+                                    -1L
+                                }
                             val song =
                                 library.songs.find {
-                                    it.path.name == displayName && it.size == size
+                                    it.path.name == displayName && (size <= 0L || it.size == size)
                                 }
                             if (song != null) {
                                 val command =
@@ -260,7 +302,9 @@ class ExoPlaybackStateHolder(
                                 playbackManager.play(command)
                             }
                         }
-                    }
+                } catch (e: Exception) {
+                    L.w(e, "Failed to query opened audio URI ${action.uri}")
+                }
             }
         }
 
@@ -393,17 +437,34 @@ class ExoPlaybackStateHolder(
     }
 
     override fun playNext(songs: List<Song>, ack: StateAck.PlayNext) {
+        if (songs.isEmpty()) return
+        val currentIdx = player.currentMediaItemIndex
+        val prevCount = player.mediaItemCount
         val nextIndex =
-            if (player.mediaItemCount == 0 || player.currentMediaItemIndex == C.INDEX_UNSET) {
+            if (prevCount == 0 || currentIdx == C.INDEX_UNSET) {
                 C.INDEX_UNSET
             } else {
-                (player.currentMediaItemIndex + 1).coerceAtMost(player.mediaItemCount)
+                (currentIdx + 1).coerceAtMost(prevCount)
+            }
+
+        val needsExplicitLastAnchor =
+            player.shuffleModeEnabled && nextIndex == prevCount && currentIdx in 0 until prevCount
+        val preInsertOrder =
+            if (needsExplicitLastAnchor) {
+                BetterShuffleOrder(player.unscrambleQueueIndices().toIntArray())
+            } else {
+                null
             }
 
         if (nextIndex == C.INDEX_UNSET) {
             player.addMediaItems(songs.map { it.buildMediaItem() })
         } else {
             player.addMediaItems(nextIndex, songs.map { it.buildMediaItem() })
+            if (preInsertOrder != null) {
+                player.setShuffleOrder(
+                    preInsertOrder.cloneAndInsertAfter(currentIdx, nextIndex, songs.size)
+                )
+            }
         }
         playbackManager.ack(this, ack)
         deferSave()
@@ -520,7 +581,9 @@ class ExoPlaybackStateHolder(
 
     override fun reset(ack: StateAck.NewPlayback) {
         failedMediaItemIndices.clear()
+        player.stop()
         player.setMediaItems(listOf())
+        sessionOngoing = false
         playbackManager.ack(this, ack)
         deferSave()
     }
@@ -535,10 +598,11 @@ class ExoPlaybackStateHolder(
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
         super.onPlayWhenReadyChanged(playWhenReady, reason)
 
-        if (player.playWhenReady) {
-            // Mark that we have started playing so that the notification can now be posted.
+        if (player.playWhenReady && player.mediaItemCount > 0) {
+            // Mark that we have started playing only when a valid queue is loaded.
             L.d("Player has started playing")
             sessionOngoing = true
+            equalizerController.attachSession(player.audioSessionId)
             if (!openAudioEffectSession) {
                 // Convention to start an audioeffect session on play/pause rather than
                 // start/stop

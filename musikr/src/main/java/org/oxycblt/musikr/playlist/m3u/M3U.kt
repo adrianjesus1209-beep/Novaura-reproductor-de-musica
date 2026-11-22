@@ -145,10 +145,24 @@ private class M3UImpl(private val volumeManager: VolumeManager) : M3U() {
 
     private fun interpretPath(path: String): List<InterpretedPath> =
         when {
+            path.startsWith("file://", ignoreCase = true) -> {
+                val decoded = runCatching { java.net.URI(path).path }.getOrNull()
+                if (decoded != null && decoded.startsWith('/')) {
+                    listOf(InterpretedPath(Components.parseUnix(decoded), true))
+                } else {
+                    emptyList()
+                }
+            }
             path.startsWith('/') -> listOf(InterpretedPath(Components.parseUnix(path), true))
             path.startsWith("./") -> listOf(InterpretedPath(Components.parseUnix(path), false))
-            path.matches(WINDOWS_VOLUME_PREFIX_REGEX) ->
-                listOf(InterpretedPath(Components.parseWindows(path.substring(2)), true))
+            path.matches(WINDOWS_VOLUME_PREFIX_REGEX) -> {
+                val withoutDrive = path.substring(2)
+                if (withoutDrive.startsWith('/')) {
+                    listOf(InterpretedPath(Components.parseUnix(withoutDrive), true))
+                } else {
+                    listOf(InterpretedPath(Components.parseWindows(withoutDrive), true))
+                }
+            }
             path.startsWith("\\") -> listOf(InterpretedPath(Components.parseWindows(path), true))
             path.startsWith(".\\") -> listOf(InterpretedPath(Components.parseWindows(path), false))
             else ->
@@ -205,24 +219,26 @@ private class M3UImpl(private val volumeManager: VolumeManager) : M3U() {
         // I imagine other players will use.
         writer.writeLine("#EXTM3U")
         writer.writeLine("#EXTENC:UTF-8")
-        writer.writeLine("#PLAYLIST:${playlist.name.raw}")
+        writer.writeLine("#PLAYLIST:${sanitizeMetadataValue(playlist.name.raw)}")
         for (song in playlist.songs) {
-            writer.writeLine("#EXTINF:${song.durationMs / 1000},${song.name.raw}")
+            writer.writeLine(
+                "#EXTINF:${song.durationMs / 1000},${sanitizeMetadataValue(song.name.raw)}"
+            )
             val albumName = song.album.name
             if (albumName is Name.Known) {
-                writer.writeLine("#EXTALB:${albumName.raw}")
+                writer.writeLine("#EXTALB:${sanitizeMetadataValue(albumName.raw)}")
             }
             // TODO: See if repeating #EXTART and #EXTGEN is legal
             for (artist in song.artists) {
                 val name = artist.name
                 if (name is Name.Known) {
-                    writer.writeLine("#EXTART:${name.raw}")
+                    writer.writeLine("#EXTART:${sanitizeMetadataValue(name.raw)}")
                 }
             }
             for (genre in song.genres) {
                 val name = genre.name
                 if (name is Name.Known) {
-                    writer.writeLine("#EXTGEN:${name.raw}")
+                    writer.writeLine("#EXTGEN:${sanitizeMetadataValue(name.raw)}")
                 }
             }
 
@@ -252,6 +268,9 @@ private class M3UImpl(private val volumeManager: VolumeManager) : M3U() {
         }
         writer.flush()
     }
+
+    private fun sanitizeMetadataValue(value: String): String =
+        value.replace("\r", " ").replace("\n", " ")
 
     private fun BufferedWriter.writeLine(line: String) {
         write(line)
@@ -318,6 +337,6 @@ private class M3UImpl(private val volumeManager: VolumeManager) : M3U() {
     }
 
     private companion object {
-        val WINDOWS_VOLUME_PREFIX_REGEX = Regex("^[A-Za-z]:\\\\.*")
+        val WINDOWS_VOLUME_PREFIX_REGEX = Regex("^[A-Za-z]:[\\\\/].*")
     }
 }

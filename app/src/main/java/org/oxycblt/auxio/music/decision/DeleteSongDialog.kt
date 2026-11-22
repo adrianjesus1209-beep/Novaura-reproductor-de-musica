@@ -182,6 +182,13 @@ class DeleteSongDialog : ViewBindingMaterialDialogFragment<DialogDeleteSongBindi
         musicModel.songDecision.consume()
         val songs = args.songUids.mapNotNull { musicModel.findSong(it) }
         if (songs.isEmpty()) {
+            if (pendingMediaStoreUris.isNotEmpty()) {
+                L.d("Restored pending system delete request after process death")
+                songsToDelete = emptyList()
+                requireBinding().deletionInfo.text =
+                    getString(R.string.fmt_deletion_info_plural, pendingMediaStoreUris.size)
+                return
+            }
             L.d("No songs to delete, navigating away")
             findNavController().navigateUp()
             return

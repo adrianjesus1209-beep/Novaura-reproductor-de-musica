@@ -21,16 +21,29 @@ package org.oxycblt.musikr.metadata
 import android.util.Log
 import java.io.FileInputStream
 import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
 import org.oxycblt.musikr.fs.File
 
-internal class NativeInputStream(private val deviceFile: File, fis: FileInputStream) {
-    private val channel = fis.channel
+internal class NativeInputStream
+internal constructor(private val deviceFile: File, private val channel: FileChannel) {
+    constructor(deviceFile: File, fis: FileInputStream) : this(deviceFile, fis.channel)
 
     fun name(): String = deviceFile.path.name ?: ""
 
     fun readBlock(buf: ByteBuffer): Int {
         try {
-            return channel.read(buf)
+            var totalRead = 0
+            while (buf.hasRemaining()) {
+                val read = channel.read(buf)
+                if (read < 0) {
+                    return if (totalRead > 0) totalRead else -1
+                }
+                if (read == 0) {
+                    break
+                }
+                totalRead += read
+            }
+            return totalRead
         } catch (e: Exception) {
             Log.d("NativeInputStream", "Error reading block", e)
             return -2

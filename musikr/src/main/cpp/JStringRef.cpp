@@ -60,12 +60,18 @@ TagLib::String JStringRef::copy() {
         checkJniException(env, "GetStringChars threw JNI exception");
         return TagLib::String();
     }
-    TagLib::String result(
+    struct Guard {
+        JNIEnv *env;
+        jstring str;
+        const jchar *chars;
+        ~Guard() {
+            env->ReleaseStringChars(str, chars);
+        }
+    } guard { env, string, chars };
+    return TagLib::String(
             TagLib::ByteVector(reinterpret_cast<const char*>(chars),
                     static_cast<unsigned int>(length) * 2),
             TagLib::String::UTF16LE);
-    env->ReleaseStringChars(string, chars);
-    return result;
 }
 
 jstring& JStringRef::operator*() {

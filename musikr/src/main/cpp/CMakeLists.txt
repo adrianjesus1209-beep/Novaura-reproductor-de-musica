@@ -59,7 +59,7 @@ target_link_options(${CMAKE_PROJECT_NAME}
         # https://github.com/taglib/taglib/issues/1212#issuecomment-2326456903
         # Additionally, enable 16kb page size. I believe taglib can support this fine,
         # as a cursory glance indicates that it doesn't hardcode any page sizes.
-        PRIVATE "-Wl,--exclude-libs,ALL,-z,max-page-size=16384")
+        PRIVATE "-Wl,--exclude-libs,ALL,-z,max-page-size=16384,--gc-sections")
 
 # Specifies libraries CMake should link to your target library. You
 # can link libraries from various origins, such as libraries defined in this
@@ -68,4 +68,5 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         # List libraries link to the target library
         PRIVATE android
         PRIVATE log
+        PRIVATE z
         PRIVATE taglib)

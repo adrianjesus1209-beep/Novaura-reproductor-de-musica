@@ -88,10 +88,16 @@ class MusicSettingsImpl @Inject constructor(@ApplicationContext private val cont
         get() =
             sharedPreferences
                 .getString(getString(R.string.set_key_library_revision), null)
-                ?.let(UUID::fromString)
+                ?.takeIf { it.isNotBlank() && it != "null" }
+                ?.let { raw -> runCatching { UUID.fromString(raw) }.getOrNull() }
         set(value) {
             sharedPreferences.edit {
-                putString(getString(R.string.set_key_library_revision), value.toString())
+                val key = getString(R.string.set_key_library_revision)
+                if (value != null) {
+                    putString(key, value.toString())
+                } else {
+                    remove(key)
+                }
                 apply()
             }
         }

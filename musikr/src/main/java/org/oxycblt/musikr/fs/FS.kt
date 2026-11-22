@@ -25,6 +25,9 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 
 interface FS {
+    val canCleanupCache: Boolean
+        get() = true
+
     fun explore(scope: CoroutineScope, files: Channel<File>): Deferred<Result<Unit>>
 
     fun track(): Flow<FSUpdate>
