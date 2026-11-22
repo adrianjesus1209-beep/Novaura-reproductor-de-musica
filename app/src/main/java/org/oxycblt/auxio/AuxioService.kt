@@ -57,6 +57,7 @@ class AuxioService :
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var serviceDestroyed = false
     @Volatile private var startedViaCommand = false
+    @Volatile private var startedFromBackgroundFgs = false
 
     override fun onCreate() {
         super.onCreate()
@@ -75,16 +76,23 @@ class AuxioService :
         super.onStartCommand(intent, flags, startId)
         startedViaCommand = true
         val startReqId = intent?.getIntExtra(INTENT_KEY_START_ID, -1)
-        if (
+        val isBackgroundFgsStart =
             startReqId == IntegerTable.START_ID_WIDGET_PLAY ||
                 startReqId == IntegerTable.START_ID_TASKER ||
                 startReqId == IntegerTable.START_ID_MEDIA_BUTTON ||
                 Intent.ACTION_MEDIA_BUTTON == intent?.action
-        ) {
+        if (isBackgroundFgsStart) {
+            startedFromBackgroundFgs = true
             ensureForegroundNotification()
+        } else if (startReqId == IntegerTable.START_ID_ACTIVITY) {
+            startedFromBackgroundFgs = false
         }
         onHandleForeground(intent)
-        if (playbackFragment.notification == null) {
+        if (
+            isBackgroundFgsStart &&
+                playbackFragment.notification == null &&
+                !musicFragment.isIndexing
+        ) {
             updateForeground(ForegroundListener.Change.MEDIA_SESSION)
         }
         // If we die we want to not restart, we will immediately try to foreground in and just
@@ -149,6 +157,7 @@ class AuxioService :
         isAlive = false
         isForeground = false
         startedViaCommand = false
+        startedFromBackgroundFgs = false
         musicFragment.release()
         playbackFragment.release()
     }
@@ -224,7 +233,14 @@ class AuxioService :
                         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
                     }
                     isForeground = false
-                    if (startedViaCommand) {
+                    if (
+                        shouldStopIdleService(
+                            startedFromBackgroundFgs = startedFromBackgroundFgs,
+                            hasPlaybackNotification = false,
+                            isIndexing = musicFragment.isIndexing,
+                        )
+                    ) {
+                        startedFromBackgroundFgs = false
                         startedViaCommand = false
                         stopSelf()
                     }
@@ -278,6 +294,12 @@ class AuxioService :
 
         // This is only meant for Auxio to internally ensure that it's state management will work.
         const val INTENT_KEY_START_ID = BuildConfig.APPLICATION_ID + ".service.START_ID"
+
+        internal fun shouldStopIdleService(
+            startedFromBackgroundFgs: Boolean,
+            hasPlaybackNotification: Boolean,
+            isIndexing: Boolean,
+        ): Boolean = startedFromBackgroundFgs && !hasPlaybackNotification && !isIndexing
     }
 }
 

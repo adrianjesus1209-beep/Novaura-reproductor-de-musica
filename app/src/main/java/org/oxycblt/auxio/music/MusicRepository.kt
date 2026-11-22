@@ -20,6 +20,7 @@ package org.oxycblt.auxio.music
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.MediaScannerConnection
 import android.net.Uri
@@ -44,6 +45,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import org.oxycblt.auxio.AuxioService
+import org.oxycblt.auxio.IntegerTable
 import org.oxycblt.auxio.image.CoverMode
 import org.oxycblt.auxio.image.ImageSettings
 import org.oxycblt.auxio.image.covers.SettingCovers
@@ -521,6 +524,14 @@ constructor(
                         silent = prev.silent && silent,
                     )
                 }
+            // If AuxioService is not currently alive, try waking it so manual rescans or folder
+            // changes do not stay parked indefinitely in pendingIndexRequest.
+            runCatching {
+                val intent = Intent(context, AuxioService::class.java)
+                intent.action = AuxioService.ACTION_START
+                intent.putExtra(AuxioService.INTENT_KEY_START_ID, IntegerTable.START_ID_ACTIVITY)
+                context.startService(intent)
+            }
         }
     }
 

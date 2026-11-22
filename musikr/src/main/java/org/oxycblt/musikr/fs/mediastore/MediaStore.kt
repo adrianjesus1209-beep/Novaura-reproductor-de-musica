@@ -113,15 +113,16 @@ private constructor(
                 FilterMode.INCLUDE -> {
                     val pathSelector =
                         pathInterpreterFactory.createSelector(query.filtered.map { it.path })
-                    if (pathSelector == null) {
+                    if (pathSelector != null) {
+                        selector += " AND (${pathSelector.template})"
+                        args.addAll(pathSelector.args)
+                    } else if (query.filtered.isNotEmpty()) {
                         Log.i(
                             TAG,
                             "FilterMode.INCLUDE has no valid paths; skipping MediaStore query",
                         )
                         return@tryAsyncWith
                     }
-                    selector += " AND (${pathSelector.template})"
-                    args.addAll(pathSelector.args)
                 }
                 FilterMode.EXCLUDE -> {
                     val pathSelector =

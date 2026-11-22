@@ -4,20 +4,20 @@
 
 <p align="center">
   <a href="https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/latest">
-    <b>📥 Descargar Novaura v1.5.0 (GitHub Releases)</b>
+    <b>📥 Descargar Novaura v1.5.1 (GitHub Releases)</b>
   </a>
 </p>
 
 ---
 
-## 🚀 Descargas (Versión 1.5.0)
+## 🚀 Descargas (Versión 1.5.1)
 
-Las versiones compiladas se distribuyen desde [GitHub Releases](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/tag/v1.5.0) con paquetes optimizados por arquitectura y un APK universal:
+Las versiones compiladas se distribuyen desde [GitHub Releases](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/tag/v1.5.1) con paquetes optimizados por arquitectura y un APK universal:
 
 | Variante | Recomendado para | Enlace de Descarga |
 |---|---|---|
-| **Novaura v1.5.0 (`arm64-v8a`)** | La mayoría de teléfonos Android modernos (APK más ligero) | [Descargar `arm64-v8a`](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.5.0/Novaura-v1.5.0-arm64-v8a.apk) |
-| **Novaura v1.5.0 (`universal`)** | Compatibilidad con cualquier dispositivo Android (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`) | [Descargar `universal`](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.5.0/Novaura-v1.5.0-universal.apk) |
+| **Novaura v1.5.1 (`arm64-v8a`)** | La mayoría de teléfonos Android modernos (APK más ligero) | [Descargar `arm64-v8a`](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.5.1/Novaura-v1.5.1-arm64-v8a.apk) |
+| **Novaura v1.5.1 (`universal`)** | Compatibilidad con cualquier dispositivo Android (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`) | [Descargar `universal`](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases/download/v1.5.1/Novaura-v1.5.1-universal.apk) |
 
 > Si no estás seguro de cuál instalar, prueba primero la versión **`arm64-v8a`**; si tu dispositivo no es compatible, utiliza la versión **`universal`**. También puedes consultar todas las descargas disponibles en la [página de Releases](https://github.com/adrianjesus1209-beep/Novaura-reproductor-de-musica/releases).
 

@@ -89,6 +89,9 @@ constructor(
         ids.forEach { mediaId -> invalidator.invalidateMusic(mediaId) }
     }
 
+    val isIndexing: Boolean
+        get() = indexer.isIndexing
+
     fun start() {
         indexer.start()
     }

@@ -76,7 +76,10 @@ private constructor(
 
     private val indexJob = SupervisorJob()
     private val indexScope = CoroutineScope(indexJob + Dispatchers.IO)
-    private var currentIndexJob: Job? = null
+    @Volatile private var currentIndexJob: Job? = null
+    val isIndexing: Boolean
+        get() = currentIndexJob?.isActive == true
+
     private val indexingNotification by lazy { IndexingNotification(workerContext) }
     private val wakeLockLazy = lazy {
         workerContext
